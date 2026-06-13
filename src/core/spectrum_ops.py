@@ -5,7 +5,10 @@ import warnings
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
-
+from dataclasses import dataclass
+import itertools
+import math
+import re
 from src.simulations.generate_test_sets import exact_mass_from_formula
 from typing import Literal, Sequence
 
@@ -15,11 +18,61 @@ from typing import Literal, Sequence
 DELTA_CD3   = 17.03448   # Da: сдвиг m/z при замене COOH -> COOCD3
 DELTA_CD3CO = 45.02939   # Da: сдвиг m/z при замене OH  -> OCOCD3
 
+
 # ===========================================================================
 # Загрузка спектров
 # ===========================================================================
 
 logger = logging.getLogger(__name__)
+ATOMIC_MASS = {
+    "H": 1.00782503223,
+    "C": 12.0,
+    "N": 14.00307400443,
+    "O": 15.99491461957,
+    "S": 31.9720711744,  # на будущее
+}
+
+
+@dataclass
+class FormulaSearchConfig:
+    elements: tuple[str, ...] = ("C", "H", "O", "N")
+    ranges: dict[str, tuple[int, int]] | None = None
+    # Простые фильтры (можно менять под задачу)
+    max_hc: float = 3.0        # H/C <= 3
+    max_oc: float = 1.2        # O/C <= 1.2
+    max_nc: float = 1.0        # N/C <= 1.0
+    max_dbe: float = 30.0      # DBE <= 30
+    min_c: int = 1             # минимум углеродов
+
+    def __post_init__(self):
+        if self.ranges is None:
+            # дефолтные диапазоны, подстрой под свои данные
+            self.ranges = {
+                "C": (1, 50),
+                "H": (4, 100),
+                "O": (0, 20),
+                "N": (0, 6),
+            }
+        for el in self.elements:
+            if el not in self.ranges:
+                raise ValueError(f"Для элемента {el!r} не задан диапазон в ranges")
+
+
+def exact_mass_from_counts(counts: dict[str, int]) -> float:
+    mass = 0.0
+    for elem, n in counts.items():
+        if n <= 0:
+            continue
+        mass += ATOMIC_MASS[elem] * n
+    return mass
+
+
+def dbe_from_counts(counts: dict[str, int]) -> float:
+    """Простейшая DBE для CHON: DBE = 1 + C - H/2 + N/2."""
+    c = counts.get("C", 0)
+    h = counts.get("H", 0)
+    n = counts.get("N", 0)
+    return 1 + c - h / 2.0 + n / 2.0
 
 def load_spectrum(
     path,
@@ -115,76 +168,218 @@ def denoise(
 # ===========================================================================
 
 DEFAULT_BRUTTO_DICT = {
-    'C': (4, 50),
-    'H': (4, 100),
+    'C': (0, 50),
+    'H': (0, 100),
     'O': (0, 25),
-    'N': (0, 2),
+    'N': (0, 10),
 }
 
+def _generate_candidate_formulas(
+    mass_min: float,
+    mass_max: float,
+    cfg: FormulaSearchConfig,
+    mode: str = "nom_like",
+) -> list[tuple[str, float]]:
+    """
+    Генерирует список (formula_str, exact_mass) в окне [mass_min, mass_max]
+    с небольшим запасом по краям.
+
+    mode:
+      - "nom_like": применять все химические фильтры (H/C, O/C, N/C, DBE, min C),
+                    поведение, близкое к NOMspectra.
+      - "soft": только диапазоны элементов и окно по массе, без химических фильтров.
+    """
+    mode = mode.lower()
+    if mode not in ("nom_like", "soft"):
+        raise ValueError(f"Unknown generate mode: {mode}")
+
+    mass_min_abs = mass_min * 0.99
+    mass_max_abs = mass_max * 1.01
+
+    c_min, c_max = cfg.ranges["C"]
+    h_min, h_max = cfg.ranges["H"]
+    o_min, o_max = cfg.ranges.get("O", (0, 0))
+    n_min, n_max = cfg.ranges.get("N", (0, 0))
+
+    result: list[tuple[str, float]] = []
+
+    # в "soft" режиме можно не заставлять C >= cfg.min_c, если хочешь максимально мягко
+    c_start = max(c_min, cfg.min_c) if mode == "nom_like" else c_min
+
+    for c in range(c_start, c_max + 1):
+        counts = {"C": c}
+        base_mass_c = c * ATOMIC_MASS["C"]
+        if base_mass_c > mass_max_abs:
+            break
+
+        for h in range(h_min, h_max + 1):
+            counts["H"] = h
+            mass_ch = exact_mass_from_counts(counts)
+            if mass_ch > mass_max_abs:
+                break
+            if mass_ch < mass_min_abs:
+                continue
+
+            for o in range(o_min, o_max + 1):
+                counts["O"] = o
+                mass_cho = exact_mass_from_counts(counts)
+                if mass_cho > mass_max_abs:
+                    break
+
+                for n in range(n_min, n_max + 1):
+                    counts["N"] = n
+                    mass = exact_mass_from_counts(counts)
+                    if mass < mass_min_abs:
+                        continue
+                    if mass > mass_max_abs:
+                        break
+
+                    if mode == "nom_like":
+                        c_val = c
+                        if c_val <= 0:
+                            continue
+
+                        hc = h / c_val
+                        oc = o / c_val if c_val > 0 else 0.0
+                        nc = n / c_val if c_val > 0 else 0.0
+
+                        if hc > cfg.max_hc:
+                            continue
+                        if oc > cfg.max_oc:
+                            continue
+                        if nc > cfg.max_nc:
+                            continue
+
+                        dbe = dbe_from_counts(counts)
+                        if dbe < 0 or dbe > cfg.max_dbe:
+                            continue
+                    # в режиме "soft" никакие хим. фильтры не применяем
+
+                    # Строим строку формулы
+                    parts: list[str] = []
+                    for el in cfg.elements:
+                        val = counts.get(el, 0)
+                        if val <= 0:
+                            continue
+                        if val == 1:
+                            parts.append(el)
+                        else:
+                            parts.append(f"{el}{val}")
+                    formula_str = "".join(parts)
+
+                    result.append((formula_str, mass))
+
+    return result
+
+def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
+    """
+    Перевод нейтральной массы в m/z для заданного типа иона.
+    Пока реализуем только несколько базовых вариантов.
+    """
+    ion_mode = ion_mode.lower()
+
+    if ion_mode in ("neutral", None, ""):
+        return neutral_mass
+
+    # отрицательный режим [M-H]-
+    if ion_mode in ("[m-h]-", "m-h", "mh-"):
+        return neutral_mass - ATOMIC_MASS["H"]
+
+    # положительный режим [M+H]+ — на будущее
+    if ion_mode in ("[m+h]+", "m+h", "mh+"):
+        return neutral_mass + ATOMIC_MASS["H"]
+
+    # можно добавить другие аддукты позже
+    raise ValueError(f"Unknown ion_mode: {ion_mode}")
 
 def assign_formulas_simple(
     src,
-    formulas: list[str],
     rel_error_ppm: float = 1.0,
     mass_min: float | None = None,
     mass_max: float | None = None,
+    search_config: FormulaSearchConfig | None = None,
+    brutto_generation_mode: str = "nom_like",  # "nom_like" или "soft"
+    ion_mode: str = "[M-H]-",                 # тип иона; по умолчанию [M-H]-
 ):
     """
-    Упрощённый assign: для каждого пика подбирает ближайшую формулу
-    по теоретической массе в окне rel_error_ppm. Без изотопов и H/C‑фильтров.
+    Простое назначение формул без эмпирического списка:
+    - генерирует CHON-формулы в заданном окне масс (нейтральные массы),
+    - переводит их в m/z в соответствии с ion_mode,
+    - подбирает лучшую формулу по минимальному ppm-отклонению в пределах rel_error_ppm.
 
-    Заполняет src.table["brutto"] (строка формулы или None)
-    и src.table["assign"] (bool).
+    Заполняет src.table["brutto"] и src.table["assign"].
     """
+    if search_config is None:
+        search_config = FormulaSearchConfig()
 
     table = src.table.copy()
+    mass_series = table["mass"]
 
-    if mass_min is not None:
-        table = table[table["mass"] >= mass_min]
-    if mass_max is not None:
-        table = table[table["mass"] <= mass_max]
+    if mass_min is None:
+        mass_min_local = float(mass_series.min())
+    else:
+        mass_min_local = float(mass_min)
 
-    # Предрасчёт теоретических масс для всех формул
-    theo_masses = []
-    for f in formulas:
-        m = exact_mass_from_formula(f)
-        theo_masses.append((f, m))
+    if mass_max is None:
+        mass_max_local = float(mass_series.max())
+    else:
+        mass_max_local = float(mass_max)
 
-    # Подготовим колонки
+    # Генерируем кандидатов (нейтральные массы)
+    candidates = _generate_candidate_formulas(
+        mass_min=mass_min_local,
+        mass_max=mass_max_local,
+        cfg=search_config,
+        mode=brutto_generation_mode,  # "soft" / "nom_like"
+    )
+
+    if not candidates:
+        table["brutto"] = None
+        table["assign"] = False
+        src.table = table
+        return src
+
+    # Разделим формулы и НЕЙТРАЛЬНЫЕ массы
+    cand_formulas = np.array([f for f, m in candidates], dtype=object)
+    cand_masses_neutral = np.array([m for f, m in candidates], dtype=float)
+
+    # Переводим нейтральные массы в m/z с учётом режима ионизации
+    cand_masses_ion = np.array(
+        [_neutral_to_ion_mass(m, ion_mode) for m in cand_masses_neutral],
+        dtype=float,
+    )
+
     table["brutto"] = None
     table["assign"] = False
 
-    rel = rel_error_ppm
-
     for idx, row in table.iterrows():
-        mass_obs = row["mass"]
+        mass_obs = float(row["mass"])
 
-        best_formula = None
-        best_ppm = None
+        # считаем ppm-разницу по ИОННЫМ массам
+        ppm = (cand_masses_ion - mass_obs) / mass_obs * 1e6
+        abs_ppm = np.abs(ppm)
 
-        for f, m_theor in theo_masses:
-            ppm = (mass_obs - m_theor) / m_theor * 1e6
-            abs_ppm = abs(ppm)
-            if abs_ppm <= rel:
-                if (best_ppm is None) or (abs_ppm < best_ppm):
-                    best_ppm = abs_ppm
-                    best_formula = f
+        mask = abs_ppm <= rel_error_ppm
+        if not mask.any():
+            continue
 
-        if best_formula is not None:
-            table.at[idx, "brutto"] = best_formula
-            table.at[idx, "assign"] = True
+        # TODO [NOM-soft]: добавить мягкий NOM-приоритет при выборе формулы.
+        # Сейчас, если в окне ±rel_error_ppm несколько формул с одинаковым ppm,
+        # выбирается первая по порядку генерации cand_formulas.
+        # К релизу:
+        # - считать для кандидатов простые NOM-показатели (H/C, O/C, N/C, DBE),
+        # - среди формул с близким ppm выбирать ту, что ближе к типичному NOM-полю
+        #   (например, через штраф в виде w_ppm * |ppm| + w_nom * distance_to_nom).
 
-    # Обновляем src.table по индексу
-    # (если выше делали фильтр по mass_min/max, надо совместить с оригиналом)
-    src.table.loc[table.index, "brutto"] = table["brutto"]
-    src.table.loc[table.index, "assign"] = table["assign"]
+        best_local = np.argmin(abs_ppm[mask])
+        global_indices = np.where(mask)[0]
+        chosen_global = global_indices[best_local]
 
-    # для остальных пиков, которых не было в table (отфильтрованные по массе),
-    # можно явно проставить assign=False, brutto=None, если нужно.
-    missing_idx = src.table.index.difference(table.index)
-    src.table.loc[missing_idx, "brutto"] = None
-    src.table.loc[missing_idx, "assign"] = False
+        best_formula = cand_formulas[chosen_global]
+        table.at[idx, "brutto"] = best_formula
+        table.at[idx, "assign"] = True
 
+    src.table = table
     return src
 
 AssignMode = Literal["simple", "nomspectra"]
@@ -234,15 +429,14 @@ def assign_formulas_nomspectra(
         if not (isinstance(bounds, (tuple, list)) and len(bounds) == 2):
             raise ValueError(f"Для элемента {el!r} ожидается (min, max), получено {bounds!r}")
 
-    src = src.assign(
-        brutto_dict=brutto_dict,
-        rel_error=rel_error,
-        sign="-",
-        mass_min=mass_min,
-        mass_max=mass_max,
-        intensity_min=None,
-        intensity_max=None,
+    src = assign_formulas(
+        src,
+        mode="simple",
+        rel_error_ppm=1.0,
+        ion_mode="[M-H]-",
+        brutto_generation_mode="soft",  # или "nom_like" для боевого режима
     )
+
     if "assign" not in src.table.columns:
         raise RuntimeError(
             "После вызова src.assign в таблице src.table нет колонки 'assign'"
@@ -267,47 +461,53 @@ def assign_formulas_nomspectra(
 
 def assign_formulas(
     src,
-    mode: AssignMode = "simple",
+    mode: str = "nomspectra",
     rel_error_ppm: float = 1.0,
     mass_min: float | None = None,
     mass_max: float | None = None,
-    formulas: Sequence[str] | None = None,
+    formulas=None,
     brutto_dict=None,
     sign: str = "-",
+    search_config: FormulaSearchConfig | None = None,
+    brutto_generation_mode: str = "nom_like",
+    ion_mode: str = "[M-H]-",
     **kwargs,
 ):
-    """
-    Унифицированная точка входа для назначения формул.
-
-    mode="simple"    — прямой перебор формул по теоретическим массам.
-    mode="nomspectra" — обёртка над NOMspectra.Spectrum.assign.
-    """
-
     if mode == "simple":
-        if formulas is None:
-            raise ValueError("Для mode='simple' нужно передать список formulas")
         return assign_formulas_simple(
             src,
-            formulas=list(formulas),
             rel_error_ppm=rel_error_ppm,
             mass_min=mass_min,
             mass_max=mass_max,
+            search_config=search_config,
+            brutto_generation_mode=brutto_generation_mode,
+            ion_mode=ion_mode,
         )
 
-    if mode == "nomspectra":
-
-        return assign_formulas_nomspectra(
+    if mode == "simple_from_molecules":
+        if formulas is None:
+            raise ValueError("Для mode='simple_from_molecules' нужно передать список formulas")
             src,
-            rel_error=rel_error_ppm,
+            formulas=formulas,
+            rel_error_ppm=rel_error_ppm,
             mass_min=mass_min,
             mass_max=mass_max,
+
+
+    if mode == "nomspectra":
+        from nomspectra.spectrum import Spectrum  # или твоя обёртка
+
+        # предполагаю, что src — это уже Spectrum; если нет — адаптируй
+        return src.assign(
             brutto_dict=brutto_dict,
+            rel_error=rel_error_ppm,
             sign=sign,
+            mass_min=mass_min,
+            mass_max=mass_max,
             **kwargs,
         )
 
     raise ValueError(f"Неизвестный режим assign: {mode}")
-
 
 # ===========================================================================
 # Поиск серий
