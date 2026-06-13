@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 
+from src.simulations.generate_test_sets import exact_mass_from_formula
+from typing import Literal, Sequence
+
 # ---------------------------------------------------------------------------
 # Константы
 # ---------------------------------------------------------------------------
@@ -119,7 +122,74 @@ DEFAULT_BRUTTO_DICT = {
 }
 
 
-def assign_formulas(
+def assign_formulas_simple(
+    src,
+    formulas: list[str],
+    rel_error_ppm: float = 1.0,
+    mass_min: float | None = None,
+    mass_max: float | None = None,
+):
+    """
+    Упрощённый assign: для каждого пика подбирает ближайшую формулу
+    по теоретической массе в окне rel_error_ppm. Без изотопов и H/C‑фильтров.
+
+    Заполняет src.table["brutto"] (строка формулы или None)
+    и src.table["assign"] (bool).
+    """
+
+    table = src.table.copy()
+
+    if mass_min is not None:
+        table = table[table["mass"] >= mass_min]
+    if mass_max is not None:
+        table = table[table["mass"] <= mass_max]
+
+    # Предрасчёт теоретических масс для всех формул
+    theo_masses = []
+    for f in formulas:
+        m = exact_mass_from_formula(f)
+        theo_masses.append((f, m))
+
+    # Подготовим колонки
+    table["brutto"] = None
+    table["assign"] = False
+
+    rel = rel_error_ppm
+
+    for idx, row in table.iterrows():
+        mass_obs = row["mass"]
+
+        best_formula = None
+        best_ppm = None
+
+        for f, m_theor in theo_masses:
+            ppm = (mass_obs - m_theor) / m_theor * 1e6
+            abs_ppm = abs(ppm)
+            if abs_ppm <= rel:
+                if (best_ppm is None) or (abs_ppm < best_ppm):
+                    best_ppm = abs_ppm
+                    best_formula = f
+
+        if best_formula is not None:
+            table.at[idx, "brutto"] = best_formula
+            table.at[idx, "assign"] = True
+
+    # Обновляем src.table по индексу
+    # (если выше делали фильтр по mass_min/max, надо совместить с оригиналом)
+    src.table.loc[table.index, "brutto"] = table["brutto"]
+    src.table.loc[table.index, "assign"] = table["assign"]
+
+    # для остальных пиков, которых не было в table (отфильтрованные по массе),
+    # можно явно проставить assign=False, brutto=None, если нужно.
+    missing_idx = src.table.index.difference(table.index)
+    src.table.loc[missing_idx, "brutto"] = None
+    src.table.loc[missing_idx, "assign"] = False
+
+    return src
+
+AssignMode = Literal["simple", "nomspectra"]
+
+def assign_formulas_nomspectra(
     src,
     *,
     brutto_dict=None,
@@ -150,9 +220,10 @@ def assign_formulas(
     if rel_error < 0:
         rel_error = abs(rel_error)
         warnings.warn("Relative error is negative")
-    if mass_min > mass_max:
-        (mass_min, mass_max) = (mass_max, mass_min)
-        warnings.warn("Mass_max is less than mass_min")
+    if mass_min is not None and mass_max is not None:
+        if mass_min > mass_max:
+            mass_min, mass_max = mass_max, mass_min
+            warnings.warn("Mass_max is less than mass_min")
 
     if not isinstance(src, Spectrum): raise TypeError(f'Некорректный формат файла {src}')
     if brutto_dict is None:
@@ -166,9 +237,11 @@ def assign_formulas(
     src = src.assign(
         brutto_dict=brutto_dict,
         rel_error=rel_error,
-        sign=sign,
+        sign="-",
         mass_min=mass_min,
         mass_max=mass_max,
+        intensity_min=None,
+        intensity_max=None,
     )
     if "assign" not in src.table.columns:
         raise RuntimeError(
@@ -191,6 +264,49 @@ def assign_formulas(
             src.brutto()
 
     return src
+
+def assign_formulas(
+    src,
+    mode: AssignMode = "simple",
+    rel_error_ppm: float = 1.0,
+    mass_min: float | None = None,
+    mass_max: float | None = None,
+    formulas: Sequence[str] | None = None,
+    brutto_dict=None,
+    sign: str = "-",
+    **kwargs,
+):
+    """
+    Унифицированная точка входа для назначения формул.
+
+    mode="simple"    — прямой перебор формул по теоретическим массам.
+    mode="nomspectra" — обёртка над NOMspectra.Spectrum.assign.
+    """
+
+    if mode == "simple":
+        if formulas is None:
+            raise ValueError("Для mode='simple' нужно передать список formulas")
+        return assign_formulas_simple(
+            src,
+            formulas=list(formulas),
+            rel_error_ppm=rel_error_ppm,
+            mass_min=mass_min,
+            mass_max=mass_max,
+        )
+
+    if mode == "nomspectra":
+
+        return assign_formulas_nomspectra(
+            src,
+            rel_error=rel_error_ppm,
+            mass_min=mass_min,
+            mass_max=mass_max,
+            brutto_dict=brutto_dict,
+            sign=sign,
+            **kwargs,
+        )
+
+    raise ValueError(f"Неизвестный режим assign: {mode}")
 
 
 # ===========================================================================

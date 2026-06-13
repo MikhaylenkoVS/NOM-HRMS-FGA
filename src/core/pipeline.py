@@ -1,5 +1,5 @@
 from __future__ import annotations
-from spectrum_ops import load_spectrum, denoise, find_series, DELTA_CD3, DELTA_CD3CO, assign_formulas, build_result_table, visualize_series
+from .spectrum_ops import load_spectrum, denoise, find_series, DELTA_CD3, DELTA_CD3CO, assign_formulas, build_result_table, visualize_series
 import pandas as pd
 
 
@@ -18,7 +18,7 @@ def run_pipeline(
     noise_quantile=None,
     # Назначение формул
     brutto_dict=None,
-    rel_error=0.5,
+    rel_error=1.0,
     sign='-',
     # Поиск серий
     ppm_tol=5.0,

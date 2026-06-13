@@ -130,8 +130,6 @@ def add_formula(base: Dict[str, int], delta: Dict[str, int], k: int = 1):
     for elem, count in delta.items():
         base[elem] = base.get(elem, 0) + count * k
 
-print('✅ Вспомогательные функции определены')
-
 
 
 

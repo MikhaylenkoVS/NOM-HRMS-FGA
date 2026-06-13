@@ -10,16 +10,17 @@ import threading
 import traceback
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
-import structures
-import core
-import ui
 import pandas as pd
 import matplotlib
+
+from src.ui import embed_figure, clear_canvas
+
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from .ui.plots import embed_figure, clear_canvas
-from .structures.tab import StructureViewerTab
+from src.core import *
+from src.ui import *
+from src.structures import *
 # ── Импорт пайплайна из core.py ──────────────────────────────────────────────
 try:
     from core import (
@@ -77,6 +78,9 @@ class App(tk.Tk):
         self.h_min = tk.StringVar(value="4");  self.h_max = tk.StringVar(value="100")
         self.o_min = tk.StringVar(value="0");  self.o_max = tk.StringVar(value="25")
         self.n_min = tk.StringVar(value="0");  self.n_max = tk.StringVar(value="2")
+
+        self.clear_canvas = clear_canvas
+        self.embed_figure = embed_figure
 
         self._build_ui()
 
@@ -249,7 +253,7 @@ class App(tk.Tk):
         ttk.Button(ctrl, text="📈 Построить спектры",
                    command=self._plot_spectra).pack(side="left", padx=4)
         ttk.Button(ctrl, text="🗑 Очистить",
-                   command=lambda: self._clear_canvas(self.spectra_canvas_frame)).pack(
+                   command=lambda: self.clear_canvas(self.spectra_canvas_frame)).pack(
             side="left", padx=4)
 
         self.spectra_canvas_frame = ttk.Frame(frame)
@@ -267,7 +271,7 @@ class App(tk.Tk):
         ttk.Button(ctrl, text="🔗 Показать серии CD₃CO",
                    command=lambda: self._plot_series("dacet")).pack(side="left", padx=4)
         ttk.Button(ctrl, text="🗑 Очистить",
-                   command=lambda: self._clear_canvas(self.series_canvas_frame)).pack(
+                   command=lambda: self.clear_canvas(self.series_canvas_frame)).pack(
             side="left", padx=4)
 
         self.series_canvas_frame = ttk.Frame(frame)
@@ -521,7 +525,7 @@ class App(tk.Tk):
             messagebox.showerror("Ошибка чтения", str(e))
             return
 
-        self._clear_canvas(self.spectra_canvas_frame)
+        self.clear_canvas(self.spectra_canvas_frame)
 
         fig, axes = plt.subplots(3, 1, figsize=(9, 7), sharex=True)
         colors = [ACCENT, "#a6e3a1", "#fab387"]
@@ -535,7 +539,7 @@ class App(tk.Tk):
         fig.suptitle("Три масс-спектра", color=ACCENT, fontsize=11)
         fig.tight_layout()
 
-        self._embed_figure(fig, self.spectra_canvas_frame)
+        self.embed_figure(fig, self.spectra_canvas_frame)
 
     # ── Графики серий ─────────────────────────────────────────────────────────
 
@@ -558,7 +562,7 @@ class App(tk.Tk):
         ncols = 3
         nrows = (n_plots + ncols - 1) // ncols
 
-        self._clear_canvas(self.series_canvas_frame)
+        self.clear_canvas(self.series_canvas_frame)
         fig, axes = plt.subplots(nrows, ncols,
                                  figsize=(9, nrows * 2.8))
         axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
@@ -595,14 +599,14 @@ class App(tk.Tk):
         fig.suptitle(f"Серии {label}  (зелёный=найден, красный=пропущен)",
                      color=ACCENT, fontsize=10)
         fig.tight_layout()
-        self._embed_figure(fig, self.series_canvas_frame)
+        self.embed_figure(fig, self.series_canvas_frame)
 
     # ── Гистограммы ───────────────────────────────────────────────────────────
 
     def _auto_plot_hist(self):
         if self.result_df is None:
             return
-        self._clear_canvas(self.hist_frame)
+        self.clear_canvas(self.hist_frame)
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 2.5))
         for ax, col, color in [(ax1, "N_COOH", "#f38ba8"),
                                (ax2, "N_OH", "#a6e3a1")]:
@@ -614,13 +618,13 @@ class App(tk.Tk):
             ax.set_ylabel("Кол-во", fontsize=8)
             ax.grid(True, alpha=0.3)
         fig.tight_layout()
-        self._embed_figure(fig, self.hist_frame, toolbar=False)
+        self.embed_figure(fig, self.hist_frame, toolbar=False)
 
     def _plot_hist(self, col: str):
         if self.result_df is None:
             messagebox.showinfo("Нет данных", "Сначала запустите анализ.")
             return
-        self._clear_canvas(self.series_canvas_frame)
+        self.clear_canvas(self.series_canvas_frame)
         fig, ax = plt.subplots(figsize=(7, 4))
         vals = self.result_df[col].dropna().astype(int)
         if vals.empty:
@@ -635,7 +639,7 @@ class App(tk.Tk):
         ax.set_title(f"Распределение {col}")
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
-        self._embed_figure(fig, self.series_canvas_frame)
+        self.embed_figure(fig, self.series_canvas_frame)
 
 
 

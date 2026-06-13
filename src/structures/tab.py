@@ -4,10 +4,8 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import Optional
-
 import pandas as pd
-
-from ..ui.theme import BG, ACCENT, PANEL
+from src.ui import *
 from .rdkit_utils import fragment_to_rdkit, RDKIT_OK, save_mol, save_png
 from .widgets import StructureCard
 
