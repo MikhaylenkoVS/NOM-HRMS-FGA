@@ -11,7 +11,7 @@ from src.core.spectrum_ops import (
     assign_formulas,
     find_series,
 )
-from tests.test_assign_formulas import normalize_brutto
+from tests.unit.test_assign_formulas import normalize_brutto
 
 from tools.subtract_one_h import subtract_one_h
 
@@ -22,7 +22,7 @@ ASSIGN_MATCH_PPM = 0.5
 DELTA_DEUTEROMETHYLATED = 17.03448
 DELTA_DEUTEROACYLATED = 45.02939
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TEST_SETS_ROOT = PROJECT_ROOT / "data" / "test_sets"
 TEST_SETS = sorted([p for p in TEST_SETS_ROOT.glob("set_*") if p.is_dir()])
 

@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 from src.core.spectrum_ops import load_spectrum, assign_formulas, denoise
 
-THIS_DIR = Path(__file__).resolve().parent
+THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
 
 TEST_SETS = [

@@ -25,7 +25,7 @@ ASSIGN_MATCH_PPM = 0.1  # как в test_find_series_on_existing_sets
 DELTA_DEUTEROMETHYLATED = 17.03448
 DELTA_DEUTEROACYLATED = 45.02939
 
-THIS_DIR = Path(__file__).resolve().parent
+THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
 
 TEST_SETS_ROOT = PROJECT_ROOT / "data" / "test_sets"

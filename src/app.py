@@ -382,12 +382,12 @@ class App(tk.Tk):
         tbl_frame = ttk.Frame(frame)
         tbl_frame.pack(fill="both", expand=True, padx=8, pady=4)
 
-        cols = ("mass", "brutto", "N_COOH", "N_OH_total", "N_OH",
+        cols = ("mass", "brutto", "N_COOH", "N_OH",
                 "missing_dmet", "missing_dacet")
         self.result_tree = ttk.Treeview(tbl_frame, columns=cols,
                                         show="headings", height=18)
         col_widths = [100, 130, 80, 100, 80, 140, 140]
-        col_labels = ["m/z", "Формула", "N_COOH", "N_OH_total", "N_OH",
+        col_labels = ["m/z", "Формула", "N_COOH", "N_OH",
                       "Пропуски dmet", "Пропуски dacet"]
         for c, lbl, w in zip(cols, col_labels, col_widths):
             self.result_tree.heading(c, text=lbl,
@@ -525,7 +525,6 @@ class App(tk.Tk):
                 f"{r['mass']:.5f}",
                 r.get("brutto", ""),
                 int(r.get("N_COOH", 0)),
-                int(r.get("N_OH_total", 0)),
                 int(r.get("N_OH", 0)),
                 str(r.get("missing_dmet", [])),
                 str(r.get("missing_dacet", [])),

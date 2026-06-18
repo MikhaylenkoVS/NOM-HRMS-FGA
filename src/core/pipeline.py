@@ -15,8 +15,8 @@ def run_pipeline(
     *,
     # Загрузка
     sep=",",
-    mass_min=200.0,
-    mass_max=700.0,
+    load_mass_min=200.0,
+    load_mass_max=700.0,
     # Шумоподавление
     noise_force=1.5,
     noise_intensity=None,
@@ -25,6 +25,8 @@ def run_pipeline(
     brutto_dict=None,
     rel_error=1.0,
     sign='-',
+    assign_mass_min=0,
+    assign_mass_max=1000,
     # Поиск серий
     ppm_tol=5.0,
     max_groups=20,
@@ -79,11 +81,11 @@ def run_pipeline(
     print('=' * 60)
     _mapper = {"mass": "mass", "intensity": "intensity"}
     src   = load_spectrum(src_path,   mapper = _mapper, sep=sep,
-                          mass_min=mass_min, mass_max=mass_max, metadata={'name': 'src'})
+                          mass_min=load_mass_min, mass_max=load_mass_max, metadata={'name': 'src'})
     dmet  = load_spectrum(dmet_path,  mapper = _mapper, sep=sep,
-                          mass_min=mass_min, mass_max=mass_max, metadata={'name': 'dmet'})
+                          mass_min=load_mass_min, mass_max=load_mass_max, metadata={'name': 'dmet'})
     dacet = load_spectrum(dacet_path, mapper = _mapper, sep=sep,
-                          mass_min=mass_min, mass_max=mass_max, metadata={'name': 'dacet'})
+                          mass_min=load_mass_min, mass_max=load_mass_max, metadata={'name': 'dacet'})
     print(f"  Загружено пиков:  src={len(src)},  dmet={len(dmet)},  dacet={len(dacet)}")
 
     print()
@@ -99,8 +101,8 @@ def run_pipeline(
     print('=' * 60)
     print('ШАГ 2b: Назначение брутто-формул исходному спектру')
     print('=' * 60)
-    src = assign_formulas(src, brutto_dict=brutto_dict, rel_error=rel_error,
-                          sign=sign, mass_min=mass_min, mass_max=mass_max)
+    src = assign_formulas(src, mode="simple", brutto_dict=brutto_dict, rel_error=rel_error,
+                          sign=sign, mass_min=assign_mass_min, mass_max=assign_mass_max)
     n_assigned = int(src.table.get('assign', pd.Series(dtype=bool)).sum())
     print(f"  Назначено формул: {n_assigned} из {len(src)} пиков")
 
@@ -109,10 +111,6 @@ def run_pipeline(
     print('ШАГ 3: Серии дейтерометилирования (-> N_COOH)')
     print('=' * 60)
 
-    print("DEBUG after assign_formulas")
-    print("type(src):", type(src))
-    print("src columns:", list(src.table.columns))
-    print(src.table[["mass"] + [c for c in ["assign", "brutto"] if c in src.table.columns]].head())
     df_dmet = find_series(src, dmet, delta=DELTA_CD3,
                           ppm_tol=ppm_tol, max_groups=max_groups, allow_gaps=allow_gaps)
     print(f"  Соединений с сериями CD3: {len(df_dmet)}")
