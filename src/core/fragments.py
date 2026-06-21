@@ -3,19 +3,29 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 
-class MoleculeFragment:
-    """Фрагмент молекулы с пронумерованными вершинами и внутренней структурой."""
+from collections import defaultdict
+from typing import Dict, List, Tuple
 
-    def __init__(self, name, heavy_formula, ihd, atoms, bonds, attachment_points):
+from collections import defaultdict
+from typing import Dict, List, Tuple
+
+class MoleculeFragment:
+    """Фрагмент молекулы с поддержкой нескольких свободных связей на одном атоме."""
+
+    def __init__(self, name: str, heavy_formula: Dict[str, int], ihd: float,
+                 atoms: List[str], bonds: List[Tuple[int, int, int]],
+                 attachment_points: List[int]):
         self.name = name
         self.heavy_formula = heavy_formula
         self.ihd = ihd
         self.atoms = atoms
         self.bonds = bonds
-        # Convert list of attachment points to a counts dictionary
-        self.attachment_counts = {}
+
+        # НОВОЕ: внутреннее представление точек присоединения — словарь {атом: количество}
+        self.attachment_counts: Dict[int, int] = defaultdict(int)
         for idx in attachment_points:
-            self.attachment_counts[idx] = self.attachment_counts.get(idx, 0) + 1
+            self.attachment_counts[idx] += 1
+
         self.adjacency = self._build_adjacency()
 
     def _build_adjacency(self) -> Dict[int, List[Tuple[int, int]]]:
@@ -23,13 +33,17 @@ class MoleculeFragment:
         for i, j, order in self.bonds:
             adj[i].append((j, order))
             adj[j].append((i, order))
-        return dict(adj)  # or simply return adj if a defaultdict is acceptable
+        return dict(adj)
 
     def get_num_atoms(self) -> int:
         return len(self.atoms)
 
     def get_free_attachment_points(self) -> List[int]:
-        return [idx for idx, cnt in self.attachment_counts.items() for _ in range(cnt)]
+        """Возвращает плоский список свободных точек (для совместимости)."""
+        result = []
+        for atom_idx, count in self.attachment_counts.items():
+            result.extend([atom_idx] * count)
+        return result
 
     def has_free_attachment_point(self, idx: int) -> bool:
         return self.attachment_counts.get(idx, 0) > 0
@@ -37,12 +51,13 @@ class MoleculeFragment:
     def connect_to(self, other: 'MoleculeFragment',
                    my_point: int, other_point: int,
                    bond_order: int = 1) -> 'MoleculeFragment':
+        """Соединить два фрагмента, заняв по одной точке с каждой стороны."""
         if not self.has_free_attachment_point(my_point):
             raise ValueError(f"Точка {my_point} в {self.name} уже занята")
         if not other.has_free_attachment_point(other_point):
             raise ValueError(f"Точка {other_point} в {other.name} уже занята")
 
-        # Имя и суммарная формула
+        # ---- Имя и формула ----
         new_name = f"{self.name}+{other.name}"
         new_heavy = self.heavy_formula.copy()
         for el, count in other.heavy_formula.items():
@@ -50,41 +65,42 @@ class MoleculeFragment:
 
         new_ihd = self.ihd + other.ihd
 
-        # Атомы
+        # ---- Атомы ----
         offset = len(self.atoms)
         new_atoms = self.atoms + other.atoms
 
-        # Связи
+        # ---- Связи ----
         new_bonds = self.bonds.copy()
         for i, j, order in other.bonds:
             new_bonds.append((i + offset, j + offset, order))
         new_bonds.append((my_point, other_point + offset, bond_order))
 
-        # --- Слияние точек присоединения ---
-        # Копируем и уменьшаем self
-        counts = dict(self.attachment_counts)
-        if my_point in counts:
-            counts[my_point] -= 1
-            if counts[my_point] == 0:
-                del counts[my_point]
+        # ---- Точки присоединения ----
+        # Копируем словари и вычитаем использованные точки
+        new_counts = dict(self.attachment_counts)
+        # Уменьшаем счётчик my_point на 1
+        if my_point in new_counts:
+            new_counts[my_point] -= 1
+            if new_counts[my_point] <= 0:
+                del new_counts[my_point]
 
-        # Копируем и уменьшаем other (со сдвигом)
-        other_counts = {k + offset: v for k, v in other.attachment_counts.items()}
-        shifted_other_point = other_point + offset
-        if shifted_other_point in other_counts:
-            other_counts[shifted_other_point] -= 1
-            if other_counts[shifted_other_point] == 0:
-                del other_counts[shifted_other_point]
+        # Для второго фрагмента: сдвигаем индексы и вычитаем
+        shifted_other = {k + offset: v for k, v in other.attachment_counts.items()}
+        other_used_point = other_point + offset
+        if other_used_point in shifted_other:
+            shifted_other[other_used_point] -= 1
+            if shifted_other[other_used_point] <= 0:
+                del shifted_other[other_used_point]
 
-        # Сливаем два словаря
-        merged = counts.copy()
-        for k, v in other_counts.items():
+        # Объединяем
+        merged = new_counts.copy()
+        for k, v in shifted_other.items():
             merged[k] = merged.get(k, 0) + v
 
-        # Преобразуем обратно в список для конструктора
-        new_attachment_points = [
-            idx for idx, cnt in merged.items() for _ in range(cnt)
-        ]
+        # Преобразуем обратно в список для конструктора (он ожидает список)
+        new_attachment_list = []
+        for idx, cnt in merged.items():
+            new_attachment_list.extend([idx] * cnt)
 
         return MoleculeFragment(
             name=new_name,
@@ -92,14 +108,15 @@ class MoleculeFragment:
             ihd=new_ihd,
             atoms=new_atoms,
             bonds=new_bonds,
-            attachment_points=new_attachment_points
+            attachment_points=new_attachment_list   # список, конструктор снова сделает словарь
         )
 
     def __repr__(self) -> str:
+        free = sum(self.attachment_counts.values())
         return (f"MoleculeFragment(name='{self.name}', "
                 f"formula={self.heavy_formula}, ihd={self.ihd}, "
                 f"atoms={len(self.atoms)}, bonds={len(self.bonds)}, "
-                f"free_points={len(self.attachment_points)})")
+                f"free_points={free})")
 
 
 # === ПОЛНАЯ БИБЛИОТЕКА ФРАГМЕНТОВ ===
@@ -162,6 +179,8 @@ FRAGMENT_LIBRARY = {
     'tetrahydropyran': {'heavy_formula': {'C': 5, 'O': 1}, 'ihd': 1, 'attachment_points': 5, 'description': 'Тетрагидропиран'},
     'dihydropyran': {'heavy_formula': {'C': 5, 'O': 1}, 'ihd': 2, 'attachment_points': 5, 'description': 'Дигидропиран'},
     'pyran': {'heavy_formula': {'C': 5, 'O': 1}, 'ihd': 3, 'attachment_points': 5, 'description': 'Пиран'},}
+
+
     # === ФУНКЦИОНАЛЬНЫЕ ГРУППЫ ===
 FUNCTIONAL_GROUPS = {    'cooh': {'heavy_formula': {'C': 1, 'O': 2}, 'ihd': 1, 'description': 'Карбоксильная группа'},
                          'oh': {'heavy_formula': {'O': 1}, 'ihd': 0, 'description': 'Гидроксильная группа'},
@@ -294,3 +313,22 @@ ALL_FRAGMENTS = {
     'sh': create_sh, 's_sulfide': create_s_sulfide, 'so2': create_so2, 'so3h': create_so3h,
     'f': create_f, 'cl': create_cl, 'br': create_br, 'i': create_i,
 }
+
+# === ДОБАВЛЯЕМ ВСЕ ФУНКЦИОНАЛЬНЫЕ ГРУППЫ В БИБЛИОТЕКУ БАЗОВЫХ ФРАГМЕНТОВ ===
+# Берём все группы из FUNCTIONAL_GROUPS, кроме 'cooh' и 'oh' (они обрабатываются отдельно)
+for func_name, func_data in FUNCTIONAL_GROUPS.items():
+    if func_name in ('cooh', 'oh'):
+        continue
+    # Получаем число точек присоединения из фабрики
+    factory = ALL_FRAGMENTS.get(func_name)
+    if factory is None:
+        continue
+    # Создаём временный фрагмент только чтобы узнать количество attachment_points
+    temp_frag = factory()
+    num_attach = sum(temp_frag.attachment_counts.values())
+    FRAGMENT_LIBRARY[func_name] = {
+        'heavy_formula': func_data['heavy_formula'],
+        'ihd': func_data['ihd'],
+        'attachment_points': num_attach,
+        'description': func_data['description']
+    }
