@@ -45,16 +45,18 @@ except Exception as _ui_err:
     def _style(root): pass
     StructureViewerTab = None
 
-    def embed_figure(app, fig, frame, toolbar=True):
+    def embed_figure(fig, parent, toolbar=True):
         """Минимальный fallback через FigureCanvasTkAgg."""
         try:
             from matplotlib.backends.backend_tkagg import (
                 FigureCanvasTkAgg, NavigationToolbar2Tk)
-            canvas = FigureCanvasTkAgg(fig, master=frame)
+            canvas = FigureCanvasTkAgg(fig, master=parent)
             canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
             if toolbar:
-                NavigationToolbar2Tk(canvas, frame)
+                tb = NavigationToolbar2Tk(canvas, parent, pack_toolbar=False)
+                tb.update()
+                tb.pack(side="bottom", fill="x")
+            canvas.get_tk_widget().pack(fill="both", expand=True)
         except Exception:
             plt.show()
 
