@@ -1069,8 +1069,13 @@ def _run_single_test_set(
         res.errors.append(msg)
 
     # ── загружаем спектры ────────────────────────────────────────────────
+    _load_cfg = PIPELINE.test_mode["load"]
     try:
-        src = load_spectrum(original_path, mass_min=100, mass_max=1000)
+        src = load_spectrum(
+            original_path,
+            mass_min=_load_cfg["original_mass_min"],
+            mass_max=_load_cfg["original_mass_max"],
+        )
         _debug(f"{set_dir.name} original loaded: {len(src.table)} строк")
     except Exception as e:
         msg = f"load_spectrum original: {e}\n{traceback.format_exc()}"
@@ -1079,7 +1084,11 @@ def _run_single_test_set(
         return res
 
     try:
-        dmet_sp = load_spectrum(dmet_path, mass_min=100, mass_max=2000)
+        dmet_sp = load_spectrum(
+            dmet_path,
+            mass_min=_load_cfg["derivatized_mass_min"],
+            mass_max=_load_cfg["derivatized_mass_max"],
+        )
         _debug(f"{set_dir.name} dmet loaded: {len(dmet_sp.table)} строк")
     except Exception as e:
         msg = f"load_spectrum dmet: {e}\n{traceback.format_exc()}"
@@ -1088,7 +1097,11 @@ def _run_single_test_set(
         dmet_sp = None
 
     try:
-        dacet_sp = load_spectrum(dacet_path, mass_min=100, mass_max=2000)
+        dacet_sp = load_spectrum(
+            dacet_path,
+            mass_min=_load_cfg["derivatized_mass_min"],
+            mass_max=_load_cfg["derivatized_mass_max"],
+        )
         _debug(f"{set_dir.name} dacet loaded: {len(dacet_sp.table)} строк")
     except Exception as e:
         msg = f"load_spectrum dacet: {e}\n{traceback.format_exc()}"
@@ -1225,6 +1238,7 @@ def _run_single_test_set(
         src_assigned_only_sp = src_a
 
     # ── find_series: dmet ────────────────────────────────────────────────
+    _min_series_len = PIPELINE.test_mode["series"]["min_series_length"]
     df_dmet_res = pd.DataFrame()
     if dmet_sp is not None and not assigned_only.empty:
         try:
@@ -1234,7 +1248,7 @@ def _run_single_test_set(
                 ppm_tol=ppm_tol,
                 max_groups=max_groups,
                 allow_gaps=allow_gaps,
-                min_series_length=1,
+                min_series_length=_min_series_len,
             )
             res.dmet_found = len(df_dmet_res)
             _debug(f"{set_dir.name} find_series(dmet): {len(df_dmet_res)} строк")
@@ -1261,7 +1275,7 @@ def _run_single_test_set(
                 ppm_tol=ppm_tol,
                 max_groups=max_groups,
                 allow_gaps=allow_gaps,
-                min_series_length=1,
+                min_series_length=_min_series_len,
             )
             res.dacet_found = len(df_dacet_res)
             _debug(f"{set_dir.name} find_series(dacet): {len(df_dacet_res)} строк")

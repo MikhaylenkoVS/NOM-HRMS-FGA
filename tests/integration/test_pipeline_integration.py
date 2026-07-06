@@ -15,23 +15,39 @@ from tests.unit.test_assign_formulas import normalize_brutto
 
 from tools.subtract_one_h import subtract_one_h
 
-REL_ERROR_PPM = 0.5
-MATCH_PPM = 0.5
-ASSIGN_MATCH_PPM = 0.5
+from src.configs import CHEM, PIPELINE, PATHS
 
-DELTA_DEUTEROMETHYLATED = 17.03448
-DELTA_DEUTEROACYLATED = 45.02939
+# ── Единый источник истины: src/configs/{chemistry,pipeline,paths}.json ──
 
+# Параметры из pipeline.json -> test_mode
+_TEST_CFG = PIPELINE.test_mode
+REL_ERROR_PPM = _TEST_CFG["assign"]["rel_error_ppm"]
+MATCH_PPM     = _TEST_CFG["match_ppm"]
+ASSIGN_MATCH_PPM = REL_ERROR_PPM  # тот же допуск для assign
+
+# Сдвиги дериватизации из chemistry.json
+DELTA_DEUTEROMETHYLATED = CHEM.derivatization_shifts["delta_cd3"]
+DELTA_DEUTEROACYLATED   = CHEM.derivatization_shifts["delta_cd3co"]
+
+# Пути из paths.json
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-TEST_SETS_ROOT = PROJECT_ROOT / "data" / "test_sets"
+TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 TEST_SETS = sorted([p for p in TEST_SETS_ROOT.glob("set_*") if p.is_dir()])
 
-MIN_DENOISE_RECALL = 0.90
-MIN_ASSIGN_RECALL = 0.75
-MAX_SERIES_PROBLEM_RATIO = 0.20
+# Пороги из pipeline.json -> thresholds
+MIN_DENOISE_RECALL      = PIPELINE.thresholds["min_denoise_recall"]
+MIN_ASSIGN_RECALL       = PIPELINE.thresholds["min_assign_recall"]
+MAX_SERIES_PROBLEM_RATIO = PIPELINE.thresholds["max_wrong_ratio"]
 
 DEBUG_PREVIEW_ROWS = 5
 
+DENOISE_KWARGS = dict(_TEST_CFG["denoise"])
+ASSIGN_KWARGS = {
+    "mode": _TEST_CFG["assign"]["mode"],
+    "rel_error_ppm": ASSIGN_MATCH_PPM,
+    "mass_min": 0,   # явно — см. TODO ниже
+    "mass_max": 1000,
+}
 # TODO: Разобрать зависимость assign_formulas от диапазона масс.
 #  Сейчас интеграционный тест зелёный только при явном указании:
 #      ASSIGN_KWARGS["mass_min"] = 0
@@ -39,37 +55,12 @@ DEBUG_PREVIEW_ROWS = 5
 #  Без этих границ assign_formulas на denoised-спектрах сильно
 #  недоназначал формулы (assign_recall ~ 30–50%), хотя на raw original
 #  даёт 0.77–0.90.
-#  Нужно:
-#    1) Просмотреть реализацию assign_formulas / assign_formulas_simple:
-#       - как выбирается рабочий mass range,
-#       - не завязан ли он на min/max по src.table вместо глобальных границ,
-#       - нет ли различий по ion_mode / фильтрации кандидатов между raw и denoised.
-#    2) Сопоставить поведение assign_formulas на двух входах:
-#       - raw original (531 пиков, ~120 assigned),
-#       - denoised (30–31 пиков, сейчас 28–31 assigned),
-#       и понять, почему раньше часть сигнальных пиков выпадала.
-#    3) Выработать устойчивое решение:
-#       - либо фиксированный диапазон масс в assign_formulas,
-#       - либо параметр конфигурации, отделённый от конкретного спектра,
-#       - либо явная проверка и предупреждение, если mass_min/max
-#         вычислены странно (слишком узкие, «обрезают» сигналы).
-#    4) После исправления логики вернуть MAX_SERIES_PROBLEM_RATIO
-#       до более строгого значения (0.10) и убедиться, что тесты
-#       остаются зелёными без «подкрутки» порогов.
-DENOISE_KWARGS = {
-    "force" : 10.0,
-    "intensity" : 100,
-    "quantile" : None
-}
-ASSIGN_KWARGS = {
-    "mode" : "simple",
-    "rel_error_ppm" : ASSIGN_MATCH_PPM,
-    "mass_min" : 0,
-    "mass_max" : 1000,
-}
+
+# Имена файлов спектров из paths.json
+_SF = PATHS.spectrum_files
 DERIV_SPECS = [
-    ("deutermethylated.csv", DELTA_DEUTEROMETHYLATED, "deutermethylated"),
-    ("deuteroacylated.csv", DELTA_DEUTEROACYLATED, "deuteroacylated"),
+    (_SF["deutermethylated"], DELTA_DEUTEROMETHYLATED, "deutermethylated"),
+    (_SF["deuteroacylated"],  DELTA_DEUTEROACYLATED,   "deuteroacylated"),
 ]
 
 

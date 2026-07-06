@@ -81,6 +81,12 @@ except Exception as _core_err:
     DELTA_CD3CO = 44.028
     run_pipeline = load_spectrum = find_series = visualize_series = None
 
+# ── Импорт конфигурации: единый источник дефолтов GUI ─────────────────────
+from src.configs import PIPELINE as _PIPE_CFG
+_GUI_DEFAULTS = _PIPE_CFG.run_pipeline_defaults
+_BRUTTO_DEFAULTS = _PIPE_CFG.default_brutto_dict
+_FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Перехват stdout/stderr → thread-safe очередь → GUI-лог
@@ -181,22 +187,24 @@ class App(tk.Tk):
         self.dmet_var  = tk.StringVar()
         self.dacet_var = tk.StringVar()
 
-        # ── параметры (значения совпадают с тестовыми дефолтами pipeline) ──
-        self.sep_var         = tk.StringVar(value=",")
-        self.mass_min_var    = tk.StringVar(value="0.0")
-        self.mass_max_var    = tk.StringVar(value="1000.0")
-        self.noise_force_var = tk.StringVar(value="10")
-        self.noise_int_var   = tk.StringVar(value="100")
-        self.rel_error_var   = tk.StringVar(value="0.5")
-        self.sign_var        = tk.StringVar(value="-")
-        self.ppm_tol_var     = tk.StringVar(value="0.5")
-        self.max_groups_var  = tk.StringVar(value="20")
-        self.allow_gaps_var  = tk.BooleanVar(value=True)
+        # ── параметры (значения из pipeline.json -> run_pipeline_defaults) ──
+        self.sep_var         = tk.StringVar(value=str(_GUI_DEFAULTS["sep"]))
+        self.mass_min_var    = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_min"]))
+        self.mass_max_var    = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_max"]))
+        self.noise_force_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
+        self.noise_int_var   = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
+        self.rel_error_var   = tk.StringVar(value=str(_GUI_DEFAULTS["rel_error"]))
+        self.sign_var        = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
+        self.ppm_tol_var     = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
+        self.max_groups_var  = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
+        self.allow_gaps_var  = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
         self.output_csv_var  = tk.StringVar(value="result_table.csv")
-        self.c_min = tk.StringVar(value="4");  self.c_max = tk.StringVar(value="50")
-        self.h_min = tk.StringVar(value="4");  self.h_max = tk.StringVar(value="100")
-        self.o_min = tk.StringVar(value="0");  self.o_max = tk.StringVar(value="25")
-        self.n_min = tk.StringVar(value="0");  self.n_max = tk.StringVar(value="2")
+        # Диапазоны элементов из pipeline.json -> formula_search.ranges
+        _r = _FORMULA_RANGES
+        self.c_min = tk.StringVar(value=str(_r["C"][0])); self.c_max = tk.StringVar(value=str(_r["C"][1]))
+        self.h_min = tk.StringVar(value=str(_r["H"][0])); self.h_max = tk.StringVar(value=str(_r["H"][1]))
+        self.o_min = tk.StringVar(value=str(_r["O"][0])); self.o_max = tk.StringVar(value=str(_r["O"][1]))
+        self.n_min = tk.StringVar(value=str(_r["N"][0])); self.n_max = tk.StringVar(value=str(_r["N"][1]))
 
         self._build_ui()
 
@@ -575,7 +583,11 @@ class App(tk.Tk):
             n_min = int(self.n_min.get()); n_max = int(self.n_max.get())
         except ValueError as e:
             errors.append(f"  • Диапазон элементов: {e}")
-            c_min=4; c_max=50; h_min=4; h_max=100; o_min=0; o_max=25; n_min=0; n_max=2
+            _r = _FORMULA_RANGES
+            c_min=_r["C"][0]; c_max=_r["C"][1]
+            h_min=_r["H"][0]; h_max=_r["H"][1]
+            o_min=_r["O"][0]; o_max=_r["O"][1]
+            n_min=_r["N"][0]; n_max=_r["N"][1]
 
         if mass_min is not None and mass_max is not None and mass_min >= mass_max:
             errors.append(f"  • m/z min ({mass_min}) ≥ m/z max ({mass_max})")

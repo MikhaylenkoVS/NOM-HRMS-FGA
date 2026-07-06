@@ -129,20 +129,21 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
     # Чтобы не менять API, выполним find_series повторно с теми же параметрами.
     try:
         from src.core.spectrum_ops import load_spectrum, denoise, find_series, DELTA_CD3, DELTA_CD3CO
-        # Загружаем и шумим
-        src_sp = load_spectrum(str(orig_csv), mass_min=0, mass_max=1000)
-        src_sp = denoise(src_sp, force=10, intensity=100)
-        dmet_sp = load_spectrum(str(dmet_csv), mass_min=0, mass_max=1000)
-        dmet_sp = denoise(dmet_sp, force=10, intensity=100)
-        dacet_sp = load_spectrum(str(dacet_csv), mass_min=0, mass_max=1000)
-        dacet_sp = denoise(dacet_sp, force=10, intensity=100)
+        # Загружаем и шумим — параметры из единого конфига
+        _p = PIPELINE_PARAMS
+        src_sp = load_spectrum(str(orig_csv), mass_min=_p["load_mass_min"], mass_max=_p["load_mass_max"])
+        src_sp = denoise(src_sp, force=_p["noise_force"], intensity=_p["noise_intensity"])
+        dmet_sp = load_spectrum(str(dmet_csv), mass_min=_p["load_mass_min"], mass_max=_p["load_mass_max"])
+        dmet_sp = denoise(dmet_sp, force=_p["noise_force"], intensity=_p["noise_intensity"])
+        dacet_sp = load_spectrum(str(dacet_csv), mass_min=_p["load_mass_min"], mass_max=_p["load_mass_max"])
+        dacet_sp = denoise(dacet_sp, force=_p["noise_force"], intensity=_p["noise_intensity"])
 
         # Назначаем формулы (используем тот же вызов, что и пайплайн)
         from src.core.spectrum_ops import assign_formulas_simple
-        src_sp = assign_formulas_simple(src_sp, rel_error_ppm=0.5, ion_mode='[M-H]-')
+        src_sp = assign_formulas_simple(src_sp, rel_error_ppm=_p["rel_error"], ion_mode='[M-H]-')
 
-        df_dmet = find_series(src_sp, dmet_sp, delta=DELTA_CD3, ppm_tol=0.5, max_groups=20, allow_gaps=True)
-        df_dacet = find_series(src_sp, dacet_sp, delta=DELTA_CD3CO, ppm_tol=0.5, max_groups=20, allow_gaps=True)
+        df_dmet = find_series(src_sp, dmet_sp, delta=DELTA_CD3, ppm_tol=_p["ppm_tol"], max_groups=_p["max_groups"], allow_gaps=_p["allow_gaps"])
+        df_dacet = find_series(src_sp, dacet_sp, delta=DELTA_CD3CO, ppm_tol=_p["ppm_tol"], max_groups=_p["max_groups"], allow_gaps=_p["allow_gaps"])
 
         if not df_dmet.empty:
             series_dmet_png = output_dir / "series_dmet.png"

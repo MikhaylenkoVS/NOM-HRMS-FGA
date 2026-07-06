@@ -4,23 +4,21 @@ import pytest
 from pathlib import Path
 import re
 from src.core.spectrum_ops import load_spectrum, assign_formulas, denoise
+from src.configs import PIPELINE, PATHS
 
 THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
 
-TEST_SETS = [
-    PROJECT_ROOT / "data" / "test_sets" / "set_01",
-    PROJECT_ROOT / "data" / "test_sets" / "set_02",
-    PROJECT_ROOT / "data" / "test_sets" / "set_03",
-    PROJECT_ROOT / "data" / "test_sets" / "set_04",
-    PROJECT_ROOT / "data" / "test_sets" / "set_05",
-]
+# ── Единый источник истины: src/configs/pipeline.json ──
+_TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
+TEST_SETS = sorted(
+    p for p in _TEST_SETS_ROOT.glob("set_*") if p.is_dir()
+)
 
+# bruto_dict из pipeline.json -> default_brutto_dict
+_RAW_BRUTTO = PIPELINE.default_brutto_dict
 DEFAULT_BRUTTO_DICT = {
-    "C": (0, 50),
-    "H": (0, 100),
-    "O": (0, 25),
-    "N": (0, 10),
+    el: tuple(rng) for el, rng in _RAW_BRUTTO.items()
 }
 
 FORMULA_RE = re.compile(r"([A-Z][a-z]?)(\d*)")
@@ -127,10 +125,15 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
     assert ann_path.exists(), f"Нет annotations.csv в {set_dir}"
 
     # 1. Загружаем спектр
-    src = load_spectrum(src_path, mass_min=100, mass_max=1000)
+    _load_cfg = PIPELINE.test_mode["load"]
+    src = load_spectrum(
+        src_path,
+        mass_min=_load_cfg["original_mass_min"],
+        mass_max=_load_cfg["original_mass_max"],
+    )
 
     # 2. Назначаем формулы простым режимом (генерация по brutto_dict в spectrum_ops)
-    rel_error_ppm = 0.5
+    rel_error_ppm = PIPELINE.test_mode["assign"]["rel_error_ppm"]
 
     src = assign_formulas(
         src,

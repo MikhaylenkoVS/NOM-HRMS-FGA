@@ -38,6 +38,12 @@
     "allow_gaps": true
   },
   "test_mode": {
+    "load": {
+      "original_mass_min": 100.0,
+      "original_mass_max": 1000.0,
+      "derivatized_mass_min": 100.0,
+      "derivatized_mass_max": 2000.0
+    },
     "denoise": {
       "force": 10.0,
       "intensity": 100,

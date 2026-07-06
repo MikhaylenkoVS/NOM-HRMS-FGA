@@ -154,7 +154,9 @@ def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
         with config_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
-    # Дефолтная конфигурация (можно адаптировать под конкретный набор)
+    # Дефолтная конфигурация (значения из chemistry.json для точных сдвигов)
+    _dm_shift = CHEM.derivatization_shifts["delta_cd3"]
+    _da_shift = CHEM.derivatization_shifts["delta_cd3co"]
     default_config: Dict[str, Any] = {
         "set_id": set_dir.name,
         "mass_range": {
@@ -178,13 +180,13 @@ def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
         "derivatization": {
             "deutermethyl": {
                 "target_groups": ["COOH"],
-                "mass_shift_per_group": 15.0,
+                "mass_shift_per_group": _dm_shift,
                 "label": "CD3",
                 "conversion_yield": 1.0,
             },
             "deuteroacyl": {
                 "target_groups": ["OH"],
-                "mass_shift_per_group": 45.0,
+                "mass_shift_per_group": _da_shift,
                 "label": "CD3CO",
                 "conversion_yield": 1.0,
             },
