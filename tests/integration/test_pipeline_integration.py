@@ -45,6 +45,8 @@ ASSIGN_KWARGS = {
     "rel_error_ppm": ASSIGN_MATCH_PPM,
     "mass_min": 0,  # явно — см. TODO ниже
     "mass_max": 1000,
+    "nom_prioritize": True,
+    "nom_weight": 5.0,
 }
 # TODO: Разобрать зависимость assign_formulas от диапазона масс.
 #  Сейчас интеграционный тест зелёный только при явном указании:
@@ -251,6 +253,8 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
         rel_error_ppm=0.5,
         mass_min=None,
         mass_max=None,
+        nom_prioritize=True,
+        nom_weight=5.0,
     )
 
     assigned_raw_df = assigned_raw.table.copy()

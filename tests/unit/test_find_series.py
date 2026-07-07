@@ -386,6 +386,8 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
         rel_error_ppm=rel_error_assign_ppm,
         mass_min=0,
         mass_max=1000,
+        nom_prioritize=True,
+        nom_weight=5.0,
     )
 
     assigned_df = assigned_src.table.copy()
@@ -621,11 +623,13 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
 def _make_src_spectrum(masses, assign=True, brutto="C7H6O2"):
     """Helper: build a minimal source Spectrum with assign/brutto columns."""
-    df = pd.DataFrame({
-        "mass": masses,
-        "brutto": brutto,
-        "assign": assign,
-    })
+    df = pd.DataFrame(
+        {
+            "mass": masses,
+            "brutto": brutto,
+            "assign": assign,
+        }
+    )
     return Spectrum(table=df)
 
 
@@ -633,10 +637,12 @@ def _make_deriv_spectrum(masses, intensities=None):
     """Helper: build a minimal derivatized Spectrum."""
     if intensities is None:
         intensities = [1000.0] * len(masses)
-    df = pd.DataFrame({
-        "mass": masses,
-        "intensity": intensities,
-    })
+    df = pd.DataFrame(
+        {
+            "mass": masses,
+            "intensity": intensities,
+        }
+    )
     return Spectrum(table=df)
 
 
@@ -648,6 +654,7 @@ class TestMaxConsecutiveMisses:
     def test_default_value_is_three(self):
         """Default max_consecutive_misses should be 3."""
         import inspect
+
         sig = inspect.signature(find_series)
         default = sig.parameters["max_consecutive_misses"].default
         assert default == 3
@@ -665,8 +672,11 @@ class TestMaxConsecutiveMisses:
         src = _make_src_spectrum([100.0])
         deriv = _make_deriv_spectrum([117.03448])  # step 1 only
         result = find_series(
-            src, deriv, self.DELTA,
-            max_groups=10, max_consecutive_misses=3,
+            src,
+            deriv,
+            self.DELTA,
+            max_groups=10,
+            max_consecutive_misses=3,
         )
         assert not result.empty
         # n_groups should be 1 (only step 1 found, then 3 misses stops)
@@ -680,8 +690,11 @@ class TestMaxConsecutiveMisses:
         step3_mz = 100.0 + 3 * self.DELTA
         deriv = _make_deriv_spectrum([117.03448, step3_mz])
         result = find_series(
-            src, deriv, self.DELTA,
-            max_groups=5, max_consecutive_misses=3,
+            src,
+            deriv,
+            self.DELTA,
+            max_groups=5,
+            max_consecutive_misses=3,
         )
         assert not result.empty
         row = result.iloc[0]
@@ -695,8 +708,11 @@ class TestMaxConsecutiveMisses:
         mz_list = [100.0 + i * self.DELTA for i in range(1, 6)]
         deriv = _make_deriv_spectrum(mz_list)
         result = find_series(
-            src, deriv, self.DELTA,
-            max_groups=10, max_consecutive_misses=3,
+            src,
+            deriv,
+            self.DELTA,
+            max_groups=10,
+            max_consecutive_misses=3,
         )
         assert not result.empty
         assert int(result.iloc[0]["n_groups"]) == 5

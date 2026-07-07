@@ -31,6 +31,8 @@ import itertools
 import math
 import re
 from src.simulations.generate_test_sets import exact_mass_from_formula
+from src.core.van_krevelen import NOM_REGIONS
+from src.core.molecule import parse_formula
 from src.configs import CHEM, PIPELINE
 from typing import Literal, Sequence
 
@@ -377,6 +379,9 @@ def _generate_candidate_formulas(
     # в "soft" режиме можно не заставлять C >= cfg.min_c, если хочешь максимально мягко
     c_start = max(c_min, cfg.min_c) if mode == "nom_like" else c_min
 
+    # Максимальная масса, добавляемая гетероатомами (O, N)
+    max_extra = o_max * ATOMIC_MASS.get("O", 0) + n_max * ATOMIC_MASS.get("N", 0)
+
     for c in range(c_start, c_max + 1):
         counts = {"C": c}
         base_mass_c = c * ATOMIC_MASS["C"]
@@ -388,7 +393,8 @@ def _generate_candidate_formulas(
             mass_ch = exact_mass_from_counts(counts)
             if mass_ch > mass_max_abs:
                 break
-            if mass_ch < mass_min_abs:
+            # Пропускаем H, только если даже с макс. O/N масса ниже min
+            if mass_ch + max_extra < mass_min_abs:
                 continue
 
             for o in range(o_min, o_max + 1):
@@ -482,6 +488,26 @@ def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     raise ValueError(f"Unknown ion_mode: {ion_mode}")
 
 
+# ── NOM-приоритизация ────────────────────────────────────────────────────────
+
+# Центры NOM-областей (усреднённые вершины) для расчёта расстояния
+_NOM_REGION_CENTERS: list[tuple[float, float]] = [
+    (
+        sum(v[0] for v in r["vertices"]) / len(r["vertices"]),
+        sum(v[1] for v in r["vertices"]) / len(r["vertices"]),
+    )
+    for r in NOM_REGIONS
+]
+
+
+def _nom_distance(hc: float, oc: float) -> float:
+    """Минимальное евклидово расстояние от (O/C, H/C) до центра NOM-области."""
+    if hc <= 0:
+        return 10.0  # заведомо большой штраф для не-NOM
+    best = min(math.hypot(oc - cx, hc - cy) for cx, cy in _NOM_REGION_CENTERS)
+    return best
+
+
 def assign_formulas_simple(
     src,
     rel_error_ppm: float = 1.0,
@@ -490,6 +516,8 @@ def assign_formulas_simple(
     search_config: FormulaSearchConfig | None = None,
     brutto_generation_mode: str = "nom_like",  # "nom_like" или "soft"
     ion_mode: str = CHEM.default_ion_mode,  # тип иона; по умолчанию из chemistry.json
+    nom_prioritize: bool = False,  # включить NOM-приоритизацию
+    nom_weight: float = 1.0,  # вес NOM-расстояния: score = |ppm| + nom_weight * nom_dist
 ):
     """Assign brutto formulas by brute-force CHON enumeration.
 
@@ -511,6 +539,12 @@ def assign_formulas_simple(
         Passed to the candidate generator. Default ``"nom_like"``.
     ion_mode : str, optional
         Ionization mode for the neutral-to-ion conversion. Default ``"[M-H]-"``.
+    nom_prioritize : bool, optional
+        If True, break ties by proximity to NOM regions (H/C, O/C space).
+        Default False for backward compatibility.
+    nom_weight : float, optional
+        Weight for the NOM-distance term in the composite score:
+        ``score = |ppm| + nom_weight * nom_distance``. Default 1.0.
 
     Returns
     -------
@@ -577,17 +611,35 @@ def assign_formulas_simple(
         if not mask.any():
             continue
 
-        # TODO [NOM-soft]: добавить мягкий NOM-приоритет при выборе формулы.
-        # Сейчас, если в окне ±rel_error_ppm несколько формул с одинаковым ppm,
-        # выбирается первая по порядку генерации cand_formulas.
-        # К релизу:
-        # - считать для кандидатов простые NOM-показатели (H/C, O/C, N/C, DBE),
-        # - среди формул с близким ppm выбирать ту, что ближе к типичному NOM-полю
-        #   (например, через штраф в виде w_ppm * |ppm| + w_nom * distance_to_nom).
-
-        best_local = np.argmin(abs_ppm[mask])
-        global_indices = np.where(mask)[0]
-        chosen_global = global_indices[best_local]
+        if nom_prioritize:
+            # NOM-приоритизация: score = |ppm| + nom_weight * nom_distance(H/C, O/C)
+            local_indices = np.where(mask)[0]
+            best_local: int | None = None
+            best_score = float("inf")
+            for li in local_indices:
+                formula_str = cand_formulas[li]
+                try:
+                    counts = parse_formula(formula_str)
+                except Exception:
+                    continue
+                c_val = counts.get("C", 0)
+                if c_val <= 0:
+                    continue
+                hc = counts.get("H", 0) / c_val
+                oc = counts.get("O", 0) / c_val
+                ndist = _nom_distance(hc, oc)
+                score = abs_ppm[li] + nom_weight * ndist
+                if score < best_score:
+                    best_score = score
+                    best_local = li
+            if best_local is None:
+                continue
+            chosen_global = int(best_local)
+        else:
+            # Original behaviour: pick candidate with smallest ppm
+            best_local = int(np.argmin(abs_ppm[mask]))
+            global_indices = np.where(mask)[0]
+            chosen_global = int(global_indices[best_local])
 
         best_formula = cand_formulas[chosen_global]
         table.at[idx, "brutto"] = best_formula
@@ -843,6 +895,8 @@ def assign_formulas(
     kwargs.pop("brutto_dict", None)
 
     if mode == "simple":
+        kwargs.pop("nom_prioritize", None)
+        kwargs.pop("nom_weight", None)
         return assign_formulas_simple(
             src,
             rel_error_ppm=rel_error_ppm,
@@ -851,6 +905,8 @@ def assign_formulas(
             search_config=search_config,
             brutto_generation_mode=brutto_generation_mode,
             ion_mode=ion_mode,
+            nom_prioritize=kwargs.pop("nom_prioritize", False),
+            nom_weight=kwargs.pop("nom_weight", 1.0),
         )
 
     if mode == "simple_from_molecules":
