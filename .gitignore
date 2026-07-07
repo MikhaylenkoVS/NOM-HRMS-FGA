@@ -4,7 +4,7 @@
 .venv/
 venv/
 __pycache__/
-.deepcode/
+# .deepcode/ — теперь в git (skills, конфиги Deep Code для команды)
 
 # pytest и прочий мусор
 .pytest_cache/
