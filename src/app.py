@@ -91,6 +91,7 @@ try:
     from src.core import (
         DELTA_CD3,
         DELTA_CD3CO,
+        create_van_krevelen_plot,
         find_series,
         load_spectrum,
         run_pipeline,
@@ -102,14 +103,13 @@ try:
 except Exception as _core_err:
     CORE_LOADED = False
     _CORE_ERROR = traceback.format_exc()
-    # Fallback for names so they are not undefined at startup. Derivatization
-    # shifts still come from the single source of truth (chemistry config),
-    # so their values never diverge from src.core.
+    # Fallback for names so they are not undefined at startup.
     from src.configs import CHEM
 
     DELTA_CD3 = CHEM.derivatization_shifts["delta_cd3"]
     DELTA_CD3CO = CHEM.derivatization_shifts["delta_cd3co"]
     run_pipeline = load_spectrum = find_series = visualize_series = None
+    create_van_krevelen_plot = None
 
 # ── Импорт конфигурации: единый источник дефолтов GUI ─────────────────────
 from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
@@ -368,12 +368,14 @@ class App(tk.Tk):
         self.tab_spectra = ttk.Frame(nb)
         self.tab_series = ttk.Frame(nb)
         self.tab_result = ttk.Frame(nb)
+        self.tab_van_krevelen = ttk.Frame(nb)
         self.tab_log = ttk.Frame(nb)
 
         nb.add(self.tab_params, text="⚙  Параметры")
         nb.add(self.tab_spectra, text="📈  Спектры")
         nb.add(self.tab_series, text="🔗  Серии")
         nb.add(self.tab_result, text="📊  Результаты")
+        nb.add(self.tab_van_krevelen, text="🌿  Van Krevelen")
         nb.add(self.tab_log, text="📋  Лог")
 
         if StructureViewerTab is not None:
@@ -389,6 +391,7 @@ class App(tk.Tk):
         self._build_spectra_tab()
         self._build_series_tab()
         self._build_result_tab()
+        self._build_van_krevelen_tab()
         self._build_log_tab()
 
         self.status_var = tk.StringVar(value="Готов к работе")
@@ -619,6 +622,32 @@ class App(tk.Tk):
 
         self.hist_frame = ttk.Frame(frame)
         self.hist_frame.pack(fill="x", padx=8, pady=4)
+
+    # ── ВКЛАДКА VAN KREVELEN ─────────────────────────────────────────────────
+
+    def _build_van_krevelen_tab(self):
+        frame = self.tab_van_krevelen
+        ctrl = ttk.Frame(frame)
+        ctrl.pack(fill="x", pady=4, padx=8)
+        ttk.Button(
+            ctrl,
+            text="📈 Построить диаграмму Ван Кревелена",
+            command=self._plot_van_krevelen,
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            ctrl,
+            text="💾 Скачать PNG",
+            command=self._save_van_krevelen_png,
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            ctrl,
+            text="🗑 Очистить",
+            command=lambda: self._clear_frame(self.vk_canvas_frame),
+        ).pack(side="left", padx=4)
+        self.vk_canvas_frame = ttk.Frame(frame)
+        self.vk_canvas_frame.pack(fill="both", expand=True)
+        # Храним ссылку на последнюю построенную фигуру для сохранения
+        self._vk_figure = None
 
     # ── ВКЛАДКА ЛОГ ──────────────────────────────────────────────────────────
 
@@ -933,6 +962,65 @@ class App(tk.Tk):
             except Exception as e:
                 self._log(f"[ОШИБКА] Сохранение не удалось: {e}", color=WARN)
                 messagebox.showerror("Ошибка", str(e))
+
+    # ── Van Krevelen ──────────────────────────────────────────────────────────
+
+    def _plot_van_krevelen(self):
+        if self.result_df is None or self.result_df.empty:
+            messagebox.showinfo(
+                "Нет данных",
+                "Сначала запустите анализ, чтобы получить таблицу результатов.",
+            )
+            return
+        if create_van_krevelen_plot is None:
+            messagebox.showerror(
+                "Ошибка", "Модуль Van Krevelen не загружен (core import failed)."
+            )
+            return
+
+        self._log("[DEBUG] _plot_van_krevelen: построение диаграммы...", color="info")
+        self._clear_frame(self.vk_canvas_frame)
+        try:
+            # Закрываем предыдущую фигуру, если она есть
+            if self._vk_figure is not None:
+                plt.close(self._vk_figure)
+
+            fig = create_van_krevelen_plot(self.result_df)
+            self._vk_figure = fig
+            embed_figure(fig, self.vk_canvas_frame)
+            self._log("[DEBUG] _plot_van_krevelen: диаграмма построена", color=OK)
+        except Exception:
+            self._log(
+                f"[ОШИБКА] _plot_van_krevelen:\n{traceback.format_exc()}",
+                color=WARN,
+            )
+            plt.close("all")
+            messagebox.showerror(
+                "Ошибка", "Не удалось построить диаграмму Ван Кревелена."
+            )
+
+    def _save_van_krevelen_png(self):
+        if self._vk_figure is None:
+            messagebox.showinfo(
+                "Нет диаграммы",
+                "Сначала постройте диаграмму, нажав «Построить диаграмму Ван Кревелена».",
+            )
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[
+                ("PNG image", "*.png"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        try:
+            self._vk_figure.savefig(path, dpi=300)
+            self._log(f"Van Krevelen диаграмма сохранена: {path}", color=OK)
+        except Exception as e:
+            self._log(f"[ОШИБКА] Сохранение Van Krevelen PNG: {e}", color=WARN)
+            messagebox.showerror("Ошибка", str(e))
 
     # ── Графики спектров ──────────────────────────────────────────────────────
 

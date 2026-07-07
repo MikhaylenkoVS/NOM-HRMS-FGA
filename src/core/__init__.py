@@ -14,6 +14,11 @@ from .fragment_combinations import (
 )
 from .molecule import Molecule
 from .pipeline import run_pipeline
+from .van_krevelen import (
+    NOM_REGIONS,
+    compute_van_krevelen_data,
+    create_van_krevelen_plot,
+)
 from .spectrum_ops import (
     load_spectrum,
     denoise,

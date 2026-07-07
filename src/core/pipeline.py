@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 from src.core.molecule import parse_formula
+from src.core.van_krevelen import create_van_krevelen_plot
 import pandas as pd
 
 from src.configs import CHEM, PIPELINE, PATHS
@@ -391,6 +392,8 @@ def run_pipeline(
     visualize: bool = True,
     save_dmet=None,
     save_dacet=None,
+    # Van Krevelen диаграмма
+    van_krevelen_output: str | None = None,
     # Выходной файл
     output_csv=None,
     # Тест-режим
@@ -863,6 +866,21 @@ def run_pipeline(
             _debug(f"CSV сохранён в {output_csv}, строк={len(result)}")
         except Exception as e:
             msg = f"[PIPELINE] ОШИБКА сохранения CSV: {e}"
+            print(msg, file=sys.stderr)
+            messages.append(msg)
+
+    # -----------------------------------------------------------------------
+    # ШАГ 7: Van Krevelen диаграмма (опционально)
+    # -----------------------------------------------------------------------
+    if van_krevelen_output and not result.empty:
+        print()
+        print("=" * 60)
+        print("ШАГ 7: Van Krevelen диаграмма")
+        print("=" * 60)
+        try:
+            create_van_krevelen_plot(result, output_path=van_krevelen_output)
+        except Exception as e:
+            msg = f"[PIPELINE] ОШИБКА Van Krevelen: {e}\n{traceback.format_exc()}"
             print(msg, file=sys.stderr)
             messages.append(msg)
 
