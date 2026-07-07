@@ -15,6 +15,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
+
 def _get_set_dir(set_id: str) -> Path:
     return TEST_SETS_ROOT / set_id
 
@@ -54,8 +55,9 @@ def test_config_json_has_basic_keys():
 
     # базовые проверки вложенных структур
     assert isinstance(data["mass_range"], dict), "mass_range должен быть dict"
-    assert "min" in data["mass_range"] and "max" in data["mass_range"], \
-        "mass_range должен содержать поля 'min' и 'max'"
+    assert (
+        "min" in data["mass_range"] and "max" in data["mass_range"]
+    ), "mass_range должен содержать поля 'min' и 'max'"
 
     assert isinstance(data["ppm_error"], dict), "ppm_error должен быть dict"
     for key in ["type", "mean", "std", "max_abs"]:
@@ -67,7 +69,9 @@ def test_config_json_has_basic_keys():
 
     assert isinstance(data["derivatization"], dict), "derivatization должен быть dict"
     for key in ["deutermethyl", "deuteroacyl"]:
-        assert key in data["derivatization"], f"В derivatization отсутствует ключ: {key}"
+        assert (
+            key in data["derivatization"]
+        ), f"В derivatization отсутствует ключ: {key}"
 
 
 def test_spectra_csv_headers_use_mass_and_intensity():
@@ -88,8 +92,10 @@ def test_spectra_csv_headers_use_mass_and_intensity():
             reader = csv.reader(f)
             header = next(reader, None)
         assert header is not None, f"{filename} пустой или без заголовка"
-        assert header == ["mass", "intensity"], \
-            f"В {filename} ожидается заголовок ['mass', 'intensity'], получено {header}"
+        assert header == [
+            "mass",
+            "intensity",
+        ], f"В {filename} ожидается заголовок ['mass', 'intensity'], получено {header}"
 
 
 def test_molecules_csv_header_structure():
@@ -120,8 +126,7 @@ def test_molecules_csv_header_structure():
         "comment",
     ]
 
-    assert header == expected_header, \
-        f"Некорректный заголовок molecules.csv: {header}"
+    assert header == expected_header, f"Некорректный заголовок molecules.csv: {header}"
 
 
 def test_annotations_csv_header_structure():
@@ -153,5 +158,6 @@ def test_annotations_csv_header_structure():
         "is_signal",
     ]
 
-    assert header == expected_header, \
-        f"Некорректный заголовок annotations.csv: {header}"
+    assert (
+        header == expected_header
+    ), f"Некорректный заголовок annotations.csv: {header}"

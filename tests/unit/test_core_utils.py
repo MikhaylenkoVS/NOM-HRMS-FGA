@@ -13,6 +13,7 @@ Target modules
                            _row_to_brutto, _neutral_to_ion_mass, _find_peak
 * src.core.molecule      — parse_formula, calculate_IHD, add_formula
 """
+
 from __future__ import annotations
 
 import math
@@ -55,6 +56,7 @@ from src.core.molecule import (
 # _ppm_error
 # ===================================================================
 
+
 class TestPpmError:
     """Tests for pipeline._ppm_error (absolute mass error in ppm)."""
 
@@ -87,6 +89,7 @@ class TestPpmError:
 # ===================================================================
 # _normalize_brutto
 # ===================================================================
+
 
 class TestNormalizeBrutto:
     """Tests for pipeline._normalize_brutto (Hill-ordered canonicalization)."""
@@ -135,6 +138,7 @@ class TestNormalizeBrutto:
 # _subtract_one_h
 # ===================================================================
 
+
 class TestSubtractOneH:
     """Tests for pipeline._subtract_one_h ([M-H]- adjustment)."""
 
@@ -166,6 +170,7 @@ class TestSubtractOneH:
 # ===================================================================
 # _match_row_by_mass
 # ===================================================================
+
 
 class TestMatchRowByMass:
     """Tests for pipeline._match_row_by_mass."""
@@ -202,10 +207,12 @@ class TestMatchRowByMass:
 
     def test_require_assigned(self):
         """With require_assigned=True, only rows with assign=True match."""
-        df = pd.DataFrame({
-            "mass": [100.0, 200.0, 300.0],
-            "assign": [False, True, False],
-        })
+        df = pd.DataFrame(
+            {
+                "mass": [100.0, 200.0, 300.0],
+                "assign": [False, True, False],
+            }
+        )
         result = _match_row_by_mass(df, 200.0, 5.0, require_assigned=True)
         assert result is not None
         assert result["mass"] == 200.0
@@ -220,6 +227,7 @@ class TestMatchRowByMass:
 # ===================================================================
 # parse_formula (molecule.py)
 # ===================================================================
+
 
 class TestParseFormula:
     """Tests for molecule.parse_formula."""
@@ -262,6 +270,7 @@ class TestParseFormula:
 # calculate_IHD (molecule.py — module-level function)
 # ===================================================================
 
+
 class TestCalculateIHD:
     """Tests for molecule.calculate_IHD (module-level function)."""
 
@@ -292,6 +301,7 @@ class TestCalculateIHD:
 # exact_mass_from_counts (spectrum_ops.py)
 # ===================================================================
 
+
 class TestExactMassFromCounts:
     """Tests for spectrum_ops.exact_mass_from_counts."""
 
@@ -300,6 +310,7 @@ class TestExactMassFromCounts:
         mass = exact_mass_from_counts({"H": 2, "O": 1})
         # Use actual ATOMIC_MASS values to verify correctness at 1e-6
         from src.core.spectrum_ops import ATOMIC_MASS
+
         expected = 2 * ATOMIC_MASS["H"] + ATOMIC_MASS["O"]
         assert abs(mass - expected) < 1e-12
 
@@ -307,6 +318,7 @@ class TestExactMassFromCounts:
         """Element with count 0 is skipped."""
         mass = exact_mass_from_counts({"C": 12, "H": 0})
         from src.core.spectrum_ops import ATOMIC_MASS
+
         expected = 12 * ATOMIC_MASS["C"]
         assert abs(mass - expected) < 1e-12
 
@@ -324,6 +336,7 @@ class TestExactMassFromCounts:
 # ===================================================================
 # dbe_from_counts (spectrum_ops.py)
 # ===================================================================
+
 
 class TestDbeFromCounts:
     """Tests for spectrum_ops.dbe_from_counts."""
@@ -348,6 +361,7 @@ class TestDbeFromCounts:
 # ===================================================================
 # _row_to_brutto (spectrum_ops.py)
 # ===================================================================
+
 
 class TestRowToBrutto:
     """Tests for spectrum_ops._row_to_brutto."""
@@ -399,6 +413,7 @@ class TestRowToBrutto:
 # _neutral_to_ion_mass (spectrum_ops.py)
 # ===================================================================
 
+
 class TestNeutralToIonMass:
     """Tests for spectrum_ops._neutral_to_ion_mass."""
 
@@ -410,12 +425,14 @@ class TestNeutralToIonMass:
     def test_m_h_minus(self):
         """[M-H]- subtracts one hydrogen mass (actual ATOMIC_MASS value)."""
         from src.core.spectrum_ops import ATOMIC_MASS
+
         result = _neutral_to_ion_mass(100.0, "[M-H]-")
         assert abs(result - (100.0 - ATOMIC_MASS["H"])) < 1e-12
 
     def test_m_h_minus_short_aliases(self):
         """Short aliases 'm-h' and 'mh-' work too."""
         from src.core.spectrum_ops import ATOMIC_MASS
+
         r1 = _neutral_to_ion_mass(100.0, "m-h")
         r2 = _neutral_to_ion_mass(100.0, "mh-")
         expected = 100.0 - ATOMIC_MASS["H"]
@@ -425,12 +442,14 @@ class TestNeutralToIonMass:
     def test_m_h_plus(self):
         """[M+H]+ adds one hydrogen mass (actual ATOMIC_MASS value)."""
         from src.core.spectrum_ops import ATOMIC_MASS
+
         result = _neutral_to_ion_mass(100.0, "[M+H]+")
         assert abs(result - (100.0 + ATOMIC_MASS["H"])) < 1e-12
 
     def test_m_h_plus_short_aliases(self):
         """Short aliases 'm+h' and 'mh+' work too."""
         from src.core.spectrum_ops import ATOMIC_MASS
+
         r1 = _neutral_to_ion_mass(100.0, "m+h")
         r2 = _neutral_to_ion_mass(100.0, "mh+")
         expected = 100.0 + ATOMIC_MASS["H"]
@@ -446,6 +465,7 @@ class TestNeutralToIonMass:
 # ===================================================================
 # _find_peak (spectrum_ops.py)
 # ===================================================================
+
 
 class TestFindPeak:
     """Tests for spectrum_ops._find_peak."""
@@ -481,6 +501,7 @@ class TestFindPeak:
 # add_formula (molecule.py)
 # ===================================================================
 
+
 class TestAddFormula:
     """Tests for molecule.add_formula (in-place addition of formula dicts)."""
 
@@ -513,28 +534,34 @@ class TestAddFormula:
 # Edge-case integration: _normalize_brutto → parse_formula round-trip
 # ===================================================================
 
+
 class TestFormulaRoundTrip:
     """Round-trip: parse → normalize should be idempotent."""
 
-    @pytest.mark.parametrize("formula", [
-        "C7H6O2",
-        "C20H29O2",
-        "C10H14O2N",
-        "C6H6",
-        "C6H5Cl",
-        "C7H6ClBr",
-        "CHO",
-        "CHON",
-        "C2H6S",
-        "C10H14O5P",
-    ])
+    @pytest.mark.parametrize(
+        "formula",
+        [
+            "C7H6O2",
+            "C20H29O2",
+            "C10H14O2N",
+            "C6H6",
+            "C6H5Cl",
+            "C7H6ClBr",
+            "CHO",
+            "CHON",
+            "C2H6S",
+            "C10H14O5P",
+        ],
+    )
     def test_round_trip(self, formula):
         """parse → normalize → normalize yields the same result."""
         parsed = parse_formula(formula)
         # rebuild formula from parsed counts using _normalize_brutto
         # by constructing a pseudo-formula string out of order
-        reordered = "".join(f"{el}{parsed[el]}" if parsed[el] > 1 else el
-                            for el in sorted(parsed.keys(), reverse=True))
+        reordered = "".join(
+            f"{el}{parsed[el]}" if parsed[el] > 1 else el
+            for el in sorted(parsed.keys(), reverse=True)
+        )
         first = _normalize_brutto(reordered)
         second = _normalize_brutto(first)
         assert first == second, f"Normalisation not idempotent for {formula}"

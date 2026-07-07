@@ -13,6 +13,7 @@ JSON files are resolved relative to this module's directory
 directory, so configuration loads identically regardless of where the
 program is launched from.
 """
+
 from __future__ import annotations
 
 import json

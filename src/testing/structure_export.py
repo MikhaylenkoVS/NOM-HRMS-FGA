@@ -20,15 +20,16 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 # Настройки (можно переопределить через переменные окружения)
 # ----------------------------------------------------------------------
-MAX_BASES = 3                # максимальное число базовых фрагментов
-STRUCTURE_TIMEOUT = 20        # секунд на одно соединение
-EXPORT_PNG = False           # генерировать PNG (медленно)
+MAX_BASES = 3  # максимальное число базовых фрагментов
+STRUCTURE_TIMEOUT = 20  # секунд на одно соединение
+EXPORT_PNG = False  # генерировать PNG (медленно)
 
 # ----------------------------------------------------------------------
 # Проверка зависимостей
 # ----------------------------------------------------------------------
 try:
     from src.core.fragment_combinations import find_and_visualize_molecules
+
     _HAS_FRAGMENT_SEARCH = True
 except ImportError as e:
     warnings.warn(f"Fragment search not available: {e}")
@@ -37,9 +38,11 @@ except ImportError as e:
 try:
     from rdkit import Chem
     from rdkit.Chem import Draw, AllChem
+
     _HAS_RDKIT = True
 except ImportError:
     _HAS_RDKIT = False
+
 
 # ----------------------------------------------------------------------
 def export_structures_for_compound(
@@ -82,16 +85,18 @@ def export_structures_for_compound(
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(
-                _export_structures_impl,
-                brutto, n_cooh, n_oh, output_dir, max_bases
+                _export_structures_impl, brutto, n_cooh, n_oh, output_dir, max_bases
             )
             return future.result(timeout=timeout_sec)
     except concurrent.futures.TimeoutError:
-        logger.warning(f"TIMEOUT ({timeout_sec}s) while exporting structures for {brutto}")
+        logger.warning(
+            f"TIMEOUT ({timeout_sec}s) while exporting structures for {brutto}"
+        )
         return []
     except Exception as e:
         logger.warning(f"Structure export failed for {brutto}: {e}")
         return []
+
 
 def _export_structures_impl(
     brutto: str,
@@ -108,22 +113,18 @@ def _export_structures_impl(
     # 1. Поиск комбинаций фрагментов
     try:
         result = find_and_visualize_molecules(
-            brutto,
-            num_cooh=n_cooh,
-            num_oh=n_oh,
-            max_bases=max_bases,
-            show_images=False
+            brutto, num_cooh=n_cooh, num_oh=n_oh, max_bases=max_bases, show_images=False
         )
     except Exception as e:
         raise RuntimeError(f"Fragment search failed: {e}") from e
 
-    molecules = result.get('molecules', [])
+    molecules = result.get("molecules", [])
     logger.info(f"Found {len(molecules)} structures for {brutto}")
 
     # 2. Экспорт каждой структуры
     for i, mol_info in enumerate(molecules):
         try:
-            frag = mol_info.get('fragment_object')
+            frag = mol_info.get("fragment_object")
             if frag is None:
                 continue
             # Сохраняем .mol
@@ -143,12 +144,14 @@ def _export_structures_impl(
 
     return generated
 
+
 def _fragment_to_rdkit(fragment):
     """Конвертирует MoleculeFragment в rdkit.Mol (headless, безопасно)."""
     if not _HAS_RDKIT:
         return None
     try:
         from src.core.rdkit_bridge import to_rdkit_mol
+
         return to_rdkit_mol(fragment)
     except Exception:
         # Fallback: ручная сборка
@@ -160,13 +163,18 @@ def _fragment_to_rdkit(fragment):
                 atom_idx = rw.AddAtom(atom)
                 atom_map[idx] = atom_idx
             for a, b, order in fragment.bonds:
-                bond_type = {1: Chem.BondType.SINGLE, 2: Chem.BondType.DOUBLE,
-                             3: Chem.BondType.TRIPLE}.get(order, Chem.BondType.SINGLE)
+                bond_type = {
+                    1: Chem.BondType.SINGLE,
+                    2: Chem.BondType.DOUBLE,
+                    3: Chem.BondType.TRIPLE,
+                }.get(order, Chem.BondType.SINGLE)
                 rw.AddBond(atom_map[a], atom_map[b], bond_type)
             mol = rw.GetMol()
             # Санитизация
             try:
-                Chem.SanitizeMol(mol, sanitizeOps=Chem.SANITIZE_ALL ^ Chem.SANITIZE_PROPERTIES)
+                Chem.SanitizeMol(
+                    mol, sanitizeOps=Chem.SANITIZE_ALL ^ Chem.SANITIZE_PROPERTIES
+                )
             except Exception:
                 pass
             mol = Chem.AddHs(mol)
@@ -175,6 +183,7 @@ def _fragment_to_rdkit(fragment):
         except Exception as e:
             logger.debug(f"RDKit fallback failed: {e}")
             return None
+
 
 def _save_png(rdmol, path: Path):
     """Сохраняет PNG изображение молекулы."""

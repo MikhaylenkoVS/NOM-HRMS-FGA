@@ -14,6 +14,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
+
 def _get_set_dir(set_id: str) -> Path:
     return TEST_SETS_ROOT / set_id
 
@@ -78,8 +79,9 @@ def test_annotations_have_matching_peaks_in_spectra_and_ppm_limits():
     # Основная проверка по аннотациям
     for ann in annotations:
         spectrum_type = ann.get("spectrum_type")
-        assert spectrum_type in spectra_index, \
-            f"Неизвестный spectrum_type в annotations: {spectrum_type}"
+        assert (
+            spectrum_type in spectra_index
+        ), f"Неизвестный spectrum_type в annotations: {spectrum_type}"
 
         mass_obs = _to_float(ann.get("mass_obs"))
         mass_theor = _to_float(ann.get("mass_theor"))

@@ -12,6 +12,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
+
 def _get_set_dir(set_id: str) -> Path:
     return TEST_SETS_ROOT / set_id
 
@@ -38,10 +39,12 @@ def test_carboxyl_and_hydroxyl_counts_in_range_if_present():
 
         if carboxyl:
             carboxyl_value = int(carboxyl)
-            assert 1 <= carboxyl_value <= 10, \
-                f"carboxyl_count вне диапазона [1, 10]: {carboxyl_value}"
+            assert (
+                1 <= carboxyl_value <= 10
+            ), f"carboxyl_count вне диапазона [1, 10]: {carboxyl_value}"
 
         if hydroxyl:
             hydroxyl_value = int(hydroxyl)
-            assert 1 <= hydroxyl_value <= 10, \
-                f"hydroxyl_count вне диапазона [1, 10]: {hydroxyl_value}"
+            assert (
+                1 <= hydroxyl_value <= 10
+            ), f"hydroxyl_count вне диапазона [1, 10]: {hydroxyl_value}"

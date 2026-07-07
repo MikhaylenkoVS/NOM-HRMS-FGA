@@ -7,6 +7,7 @@ In order to use this module, the MSFileReader library must be intalled
 on your computer. The installer can be downloaded from the official website:
 https://thermo.flexnetoperations.com/control/thmo/search?query=MSFileReader&search=Search&sortby=rank
 """
+
 from ctypes import *
 import math
 
@@ -18,14 +19,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-plt.rcParams.update({'font.size': 7})
+plt.rcParams.update({"font.size": 7})
 
 
 class PyMSFileReader:
-    """ Uses the MSFileReader interface for working with a RAW file.
+    """Uses the MSFileReader interface for working with a RAW file.
 
     This class wraps the specified RAW file and provides an interface to
-    interact with it. 
+    interact with it.
 
     Note
     ----
@@ -62,16 +63,15 @@ class PyMSFileReader:
         False. A block is a collection of successive indices.
     """
 
-    def __init__(self,
-                 raw_file_path: str):
-        """ A constructor.
+    def __init__(self, raw_file_path: str):
+        """A constructor.
 
         Parameters
         ----------
         raw_file_path : str
             Path to a RAW file.
         """
-        self.xraw = comtypes.client.CreateObject('MSFileReader.XRawFile.1')
+        self.xraw = comtypes.client.CreateObject("MSFileReader.XRawFile.1")
         self.xraw.Open(raw_file_path)
         self.xraw.SetCurrentController(0, 1)
 
@@ -90,11 +90,13 @@ class PyMSFileReader:
             scan_type = self._get_scan_type(c_long(i))
 
             # ignore magic 0th scan
-            if scan_info["pdHighMass"] == 0: 
+            if scan_info["pdHighMass"] == 0:
                 continue
 
-            key = f'{scan_info["pdLowMass"]}-{scan_info["pdHighMass"]}__'\
-                  f'{scan_type.value}'
+            key = (
+                f'{scan_info["pdLowMass"]}-{scan_info["pdHighMass"]}__'
+                f"{scan_type.value}"
+            )
 
             if key not in self.segment_indices:
                 self.segment_indices[key] = []
@@ -108,16 +110,19 @@ class PyMSFileReader:
 
         if self.is_segmented:
             self.segment_blocks = list(
-                zip(*[self.segment_indices[k] for k
-                      in list(self.segment_indices.keys())])
+                zip(
+                    *[
+                        self.segment_indices[k]
+                        for k in list(self.segment_indices.keys())
+                    ]
+                )
             )
 
     # ------------------------------------------------------------------------
     # PUBLIC METHODS
     # ------------------------------------------------------------------------
-    def get_mass_list_from_SCAN_NUM(self,
-                                    pnScanNumber: c_long) -> np.ndarray:
-        """ Returns a mass spectum for a given scan number.
+    def get_mass_list_from_SCAN_NUM(self, pnScanNumber: c_long) -> np.ndarray:
+        """Returns a mass spectum for a given scan number.
 
         A mass spectrum contains all m/z values, not just for peaks.
 
@@ -132,35 +137,37 @@ class PyMSFileReader:
             A mass spectrum (N, 6).
         """
         # Inputs
-        szFilter              = ""
-        nIntensityCutoffType  = c_long(0)  # None
+        szFilter = ""
+        nIntensityCutoffType = c_long(0)  # None
         nIntensityCutoffValue = c_long(0)
-        nMaxNumberOfPeaks     = c_long(0)  # All data points
-        bCentroidResults      = False
-        nCentroidPeakWidth    = c_double(0)
+        nMaxNumberOfPeaks = c_long(0)  # All data points
+        bCentroidResults = False
+        nCentroidPeakWidth = c_double(0)
 
         # Outputs
-        data = np.array('F')
+        data = np.array("F")
         pvarMassList = VARIANT()
         pvarFlags = VARIANT()
         pnArraySize = c_long(0)
 
         result = self.xraw.GetMassListFromScanNum(
-                pnScanNumber,
-                szFilter,
-                nIntensityCutoffType,
-                nIntensityCutoffValue,
-                nMaxNumberOfPeaks,
-                bCentroidResults,
-                nCentroidPeakWidth,
-                pvarMassList,
-                pvarFlags,
-                byref(pnArraySize)
+            pnScanNumber,
+            szFilter,
+            nIntensityCutoffType,
+            nIntensityCutoffValue,
+            nMaxNumberOfPeaks,
+            bCentroidResults,
+            nCentroidPeakWidth,
+            pvarMassList,
+            pvarFlags,
+            byref(pnArraySize),
         )
 
         if result != 0:
-            print(f'Error code from GetMassListFromScanNum: {result}',
-                  '- see the Reference guide!')
+            print(
+                f"Error code from GetMassListFromScanNum: {result}",
+                "- see the Reference guide!",
+            )
             quit()
 
         data = np.array(pvarMassList.value).transpose()
@@ -168,9 +175,8 @@ class PyMSFileReader:
 
         return data
 
-    def get_spectrum_list_from_SCAN_NUM(self,
-                                        pnScanNumber: c_long) -> np.ndarray:
-        """ Returns a spectum list for a given scan number.
+    def get_spectrum_list_from_SCAN_NUM(self, pnScanNumber: c_long) -> np.ndarray:
+        """Returns a spectum list for a given scan number.
 
         Returns one non-averaged spectrum list.
 
@@ -185,7 +191,7 @@ class PyMSFileReader:
             A spectrum list (N, 6).
         """
         # Outputs
-        data = np.array('F')
+        data = np.array("F")
         # Inputs
         pvarLabels = VARIANT()
         pvarFlags = VARIANT()
@@ -193,8 +199,9 @@ class PyMSFileReader:
         result = self.xraw.GetLabelData(pvarLabels, pvarFlags, pnScanNumber)
 
         if result != 0:
-            print(f'Error code from GetLabelData: {result}',
-                  '- see the Reference guide!')
+            print(
+                f"Error code from GetLabelData: {result}", "- see the Reference guide!"
+            )
             quit()
 
         data = np.array(pvarLabels.value).transpose()
@@ -202,9 +209,10 @@ class PyMSFileReader:
 
         return data
 
-    def get_averaged_spectrum_list_from_SCAN_NUMLIST(self,
-            scan_indices: list) -> np.ndarray:
-        """ Returns a spectum list averaged from several scans.
+    def get_averaged_spectrum_list_from_SCAN_NUMLIST(
+        self, scan_indices: list
+    ) -> np.ndarray:
+        """Returns a spectum list averaged from several scans.
 
         Note
         ----
@@ -221,16 +229,18 @@ class PyMSFileReader:
         """
 
         if self.is_segmented:
-            print('Use the method',
-                  '`get_averaged_spectrum_list_from_SCAN_NUMLIST`',
-                  'only for unsegmented RAW files.')
+            print(
+                "Use the method",
+                "`get_averaged_spectrum_list_from_SCAN_NUMLIST`",
+                "only for unsegmented RAW files.",
+            )
             return None
 
         scan_indices = [0] + scan_indices  # magic 0th scan
         c_long_array = c_long * len(scan_indices)
 
         # Outputs
-        data = np.array('F')
+        data = np.array("F")
         # Inputs
         pnScanNumbers = c_long_array(*scan_indices)
         nScansToAverage = c_long(len(scan_indices))
@@ -238,15 +248,15 @@ class PyMSFileReader:
         pvarPeakFlags = VARIANT()
         pnArraySize = c_long()
 
-        res = self.xraw.GetAveragedLabelData(pnScanNumbers,
-                                             nScansToAverage,
-                                             pvarMassList,
-                                             pvarPeakFlags,
-                                             pnArraySize)
+        res = self.xraw.GetAveragedLabelData(
+            pnScanNumbers, nScansToAverage, pvarMassList, pvarPeakFlags, pnArraySize
+        )
 
         if res != 0:
-            print(f'Error code from GetAveragedLabelData: {res}',
-                  '- see the Reference guide!')
+            print(
+                f"Error code from GetAveragedLabelData: {res}",
+                "- see the Reference guide!",
+            )
             quit()
 
         data = np.array(pvarMassList.value).transpose()
@@ -255,7 +265,7 @@ class PyMSFileReader:
         return data
 
     def get_averaged_spectrum_list_from_FILE(self) -> dict:
-        """ Returns a spectum list averaged from ALL scans.
+        """Returns a spectum list averaged from ALL scans.
 
         Note
         ----
@@ -275,7 +285,7 @@ class PyMSFileReader:
             c_long_array = c_long * len(scan_indices)
 
             # Outputs
-            data = np.array('F')
+            data = np.array("F")
             # Inputs
             pnScanNumbers = c_long_array(*scan_indices)
             nScansToAverage = c_long(len(scan_indices))
@@ -283,15 +293,15 @@ class PyMSFileReader:
             pvarPeakFlags = VARIANT()
             pnArraySize = c_long()
 
-            res = self.xraw.GetAveragedLabelData(pnScanNumbers,
-                                                 nScansToAverage,
-                                                 pvarMassList,
-                                                 pvarPeakFlags,
-                                                 pnArraySize)
+            res = self.xraw.GetAveragedLabelData(
+                pnScanNumbers, nScansToAverage, pvarMassList, pvarPeakFlags, pnArraySize
+            )
 
             if res != 0:
-                print(f'Error code from GetAveragedLabelData: {res}',
-                      '- see the Reference guide!')
+                print(
+                    f"Error code from GetAveragedLabelData: {res}",
+                    "- see the Reference guide!",
+                )
                 quit()
 
             data = np.array(pvarMassList.value).transpose()
@@ -301,10 +311,10 @@ class PyMSFileReader:
 
         return result
 
-    def get_averaged_spectrum_list_from_RT(self,
-                                           start_rt: c_double,
-                                           end_rt: c_double) -> dict:
-        """ Returns a spectum list averaged from several scans.
+    def get_averaged_spectrum_list_from_RT(
+        self, start_rt: c_double, end_rt: c_double
+    ) -> dict:
+        """Returns a spectum list averaged from several scans.
 
         This function takes into account scans whose retention time is between
         'start_rt' and 'finish_rt' (This is approximately because
@@ -332,8 +342,7 @@ class PyMSFileReader:
         # Include an integer number of blocks if the file contains segments
         if self.is_segmented:
             start_scan_num, end_scan_num = self._align_with_block_borders(
-                    start_scan_num.value,
-                    end_scan_num.value
+                start_scan_num.value, end_scan_num.value
             )
         else:
             start_scan_num = start_scan_num.value
@@ -344,15 +353,15 @@ class PyMSFileReader:
         # Average segments of the same type between RT1 and RT2
         for scan_type, scan_indices in self.segment_indices.items():
 
-            indices = self._get_slice_of_indices(start_scan_num,
-                                                 end_scan_num,
-                                                 scan_indices)
+            indices = self._get_slice_of_indices(
+                start_scan_num, end_scan_num, scan_indices
+            )
 
             indices.insert(0, 0)  # magic 0th scan
             c_long_array = c_long * len(indices)
 
             # Outputs
-            data = np.array('F')
+            data = np.array("F")
             # Inputs
             pnScanNumbers = c_long_array(*indices)
             nScansToAverage = c_long(len(indices))
@@ -360,15 +369,15 @@ class PyMSFileReader:
             pvarPeakFlags = VARIANT()
             pnArraySize = c_long()
 
-            res = self.xraw.GetAveragedLabelData(pnScanNumbers,
-                                                 nScansToAverage,
-                                                 pvarMassList,
-                                                 pvarPeakFlags,
-                                                 pnArraySize)
+            res = self.xraw.GetAveragedLabelData(
+                pnScanNumbers, nScansToAverage, pvarMassList, pvarPeakFlags, pnArraySize
+            )
 
             if res != 0:
-                print(f'Error code from GetAveragedLabelData: {res}',
-                      '- see the Reference guide!')
+                print(
+                    f"Error code from GetAveragedLabelData: {res}",
+                    "- see the Reference guide!",
+                )
                 quit()
 
             data = np.array(pvarMassList.value).transpose()
@@ -379,31 +388,30 @@ class PyMSFileReader:
         return result
 
     def get_min_rt(self) -> c_double:
-        """ Returns the minimum retention time from the given file. """
+        """Returns the minimum retention time from the given file."""
         min_rt = c_double()
         self.xraw.GetStartTime(min_rt)
 
         return min_rt
 
     def get_max_rt(self) -> c_double:
-        """ Returns the maximum retention time from the given file. """
+        """Returns the maximum retention time from the given file."""
         max_rt = c_double()
         self.xraw.GetEndTime(max_rt)
 
         return max_rt
 
     def get_last_spectrum_number(self) -> c_long:
-        """ Returns the number of scans in the given file. """
+        """Returns the number of scans in the given file."""
         last_n = c_long()
         self.xraw.GetLastSpectrumNumber(last_n)
 
         return last_n
 
-    def save_csv_file(self,
-                      file_path: str,
-                      data: np.ndarray,
-                      all_data: bool=False) -> None:
-        """ Saves data to a CSV file.
+    def save_csv_file(
+        self, file_path: str, data: np.ndarray, all_data: bool = False
+    ) -> None:
+        """Saves data to a CSV file.
 
         Parameters
         ----------
@@ -412,26 +420,29 @@ class PyMSFileReader:
         data : numpy.ndarray
             A spectrum list.
         """
-        with open(file_path, 'w') as wf:
+        with open(file_path, "w") as wf:
             if not all_data:
-                wf.write('m/z,Intensity\n')
+                wf.write("m/z,Intensity\n")
                 for pair in data:
-                    wf.write(f'{self._round_half_up(pair[0], 12)},'
-                             f'{self._round_half_up(pair[1], 12)}\n')
+                    wf.write(
+                        f"{self._round_half_up(pair[0], 12)},"
+                        f"{self._round_half_up(pair[1], 12)}\n"
+                    )
             else:
                 for pair in data:
-                    wf.write(f'{self._round_half_up(pair[0], 12)},'
-                             f'{self._round_half_up(pair[1], 12)},'
-                             f'{self._round_half_up(pair[2], 5)},'
-                             f'{self._round_half_up(pair[3], 5)},'
-                             f'{self._round_half_up(pair[4], 5)},'
-                             f'{self._round_half_up(pair[5], 5)}\n')
+                    wf.write(
+                        f"{self._round_half_up(pair[0], 12)},"
+                        f"{self._round_half_up(pair[1], 12)},"
+                        f"{self._round_half_up(pair[2], 5)},"
+                        f"{self._round_half_up(pair[3], 5)},"
+                        f"{self._round_half_up(pair[4], 5)},"
+                        f"{self._round_half_up(pair[5], 5)}\n"
+                    )
 
-    def save_tab_separated_file(self,
-                                file_path: str,
-                                data: np.ndarray,
-                                all_data: bool=False) -> None:
-        """ Saves data to a tab separated TXT file.
+    def save_tab_separated_file(
+        self, file_path: str, data: np.ndarray, all_data: bool = False
+    ) -> None:
+        """Saves data to a tab separated TXT file.
 
         Parameters
         ----------
@@ -443,31 +454,31 @@ class PyMSFileReader:
         if not all_data:
             data = data[:, :2]
 
-        with open(file_path, 'w') as wf:
+        with open(file_path, "w") as wf:
             if not all_data:
-                wf.write('m/z\tIntensity\n')
+                wf.write("m/z\tIntensity\n")
                 for pair in data:
-                    wf.write(f'{self._round_half_up(pair[0], 12)}\t'
-                             f'{self._round_half_up(pair[1], 12)}\n')
+                    wf.write(
+                        f"{self._round_half_up(pair[0], 12)}\t"
+                        f"{self._round_half_up(pair[1], 12)}\n"
+                    )
             else:
-                wf.write('m/z\tIntensity\tResolution\tBaseline\t'
-                         'Noise\tCharge\n')
+                wf.write("m/z\tIntensity\tResolution\tBaseline\t" "Noise\tCharge\n")
                 for pair in data:
-                    wf.write(f'{self._round_half_up(pair[0], 12)}\t'
-                             f'{self._round_half_up(pair[1], 12)}\t'
-                             f'{self._round_half_up(pair[2], 5)}\t'
-                             f'{self._round_half_up(pair[3], 5)}\t'
-                             f'{self._round_half_up(pair[4], 5)}\t'
-                             f'{self._round_half_up(pair[5], 5)}\t')
-
+                    wf.write(
+                        f"{self._round_half_up(pair[0], 12)}\t"
+                        f"{self._round_half_up(pair[1], 12)}\t"
+                        f"{self._round_half_up(pair[2], 5)}\t"
+                        f"{self._round_half_up(pair[3], 5)}\t"
+                        f"{self._round_half_up(pair[4], 5)}\t"
+                        f"{self._round_half_up(pair[5], 5)}\t"
+                    )
 
     # ------------------------------------------------------------------------
     # PRIVATE METHODS
     # ------------------------------------------------------------------------
-    def _align_with_block_borders(self,
-                                  start_idx: int,
-                                  end_idx: int) -> tuple:
-        """ Corrects the start and end indices of a range.
+    def _align_with_block_borders(self, start_idx: int, end_idx: int) -> tuple:
+        """Corrects the start and end indices of a range.
 
         This function ensures that the program processes an integer number of
         blocks.
@@ -486,15 +497,14 @@ class PyMSFileReader:
 
         return start_idx, end_idx
 
-    def _get_info_from_scan_num(self,
-                                nScanNumber: c_long) -> dict:
-        """ Returns the header info values for the given scan number.
-        
+    def _get_info_from_scan_num(self, nScanNumber: c_long) -> dict:
+        """Returns the header info values for the given scan number.
+
         Parameters
         ----------
         nScanNumber : c_long
             The number of the scan.
-        
+
         Returns
         -------
         dict
@@ -512,17 +522,19 @@ class PyMSFileReader:
         pbUniformTime = c_long()
         pdFrequency = c_double()
 
-        self.xraw.GetScanHeaderInfoForScanNum(nScanNumber,
-                                              pnNumPackets,
-                                              pdStartTime,
-                                              pdLowMass,
-                                              pdHighMass,
-                                              pdTIC,
-                                              pdBasePeakMass,
-                                              pdBasePeakIntensity,
-                                              pnNumChannels,
-                                              pbUniformTime,
-                                              pdFrequency)
+        self.xraw.GetScanHeaderInfoForScanNum(
+            nScanNumber,
+            pnNumPackets,
+            pdStartTime,
+            pdLowMass,
+            pdHighMass,
+            pdTIC,
+            pdBasePeakMass,
+            pdBasePeakIntensity,
+            pnNumChannels,
+            pbUniformTime,
+            pdFrequency,
+        )
 
         scan_info = {
             "pnNumPackets": pnNumPackets.value,
@@ -540,8 +552,8 @@ class PyMSFileReader:
         return scan_info
 
     def _get_scan_type(self, nScanNumber: c_long) -> c_long:
-        """ Returns scan type for the given scan number.
-        
+        """Returns scan type for the given scan number.
+
         Possible values:
             0 - Full;
             1 - SIM;
@@ -554,11 +566,11 @@ class PyMSFileReader:
         return pnScanType
 
     @staticmethod
-    def _get_slice_of_indices(global_start_idx: int,
-                              global_end_idx: int,
-                              indices_of_this_type: list) -> list:
-        """ Finds which indices for this scan type to use.
-        
+    def _get_slice_of_indices(
+        global_start_idx: int, global_end_idx: int, indices_of_this_type: list
+    ) -> list:
+        """Finds which indices for this scan type to use.
+
         Parameters
         ----------
         global_start_idx : int
@@ -586,21 +598,21 @@ class PyMSFileReader:
                 slice_end_idx = i - 1
                 break
 
-        return indices_of_this_type[slice_start_idx: slice_end_idx + 1]
+        return indices_of_this_type[slice_start_idx : slice_end_idx + 1]
 
     @staticmethod
     def _round_half_up(n: float, decimals: int) -> float:
-        """ Realizes the XCalibur type of rounding for m/z values.
+        """Realizes the XCalibur type of rounding for m/z values.
 
         FreeStyle doesn't use it for abundance (I) values.
         """
-        multiplier = 10 ** decimals
+        multiplier = 10**decimals
         return math.floor(n * multiplier + 0.5) / multiplier
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    path = 'C:/Users/skype/Desktop/ms-stuff/Fulvagra_ESI.raw'
+    path = "C:/Users/skype/Desktop/ms-stuff/Fulvagra_ESI.raw"
     xrf = PyMSFileReader(path)
     data = xrf.get_averaged_spectrum_list_from_RT(90, 100)
-    data = data['100.0-800.0__0']
+    data = data["100.0-800.0__0"]

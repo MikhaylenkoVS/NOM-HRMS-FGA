@@ -5,6 +5,7 @@ from tkinter import ttk
 
 # ── Утилиты встраивания Matplotlib ────────────────────────────────────────
 
+
 def embed_figure(fig, parent, toolbar=True):
     """Embed a Matplotlib figure into a Tkinter container widget.
 
@@ -30,6 +31,7 @@ def embed_figure(fig, parent, toolbar=True):
         tb.update()
         tb.pack(side="bottom", fill="x")
     canvas.get_tk_widget().pack(fill="both", expand=True)
+
 
 def clear_canvas(self, parent: ttk.Frame):
     """Remove all child widgets from a frame and close open figures.

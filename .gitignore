@@ -4,16 +4,23 @@
 .venv/
 venv/
 __pycache__/
+.deepcode/
 
 # pytest и прочий мусор
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 .ipynb_checkpoints/
 
 # артефакты сборки exe и прочего
 build/
 dist/
 *.spec
+
+# резервные копии, бэкапы
+*.bak
+*.backup
+*.orig
 
 # большие данные и промежуточные результаты
 raw/
@@ -34,3 +41,10 @@ logs/
 *.wiff
 *.tdf
 *.tsf
+*.csv
+*.png
+
+# файлы Python — кеш байткода помельче
+*.pyc
+*.pyo
+*$py.class

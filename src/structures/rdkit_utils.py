@@ -3,6 +3,7 @@ from typing import Optional
 
 try:
     from PIL import Image, ImageTk
+
     PIL_OK = True
 except ImportError:
     PIL_OK = False
@@ -10,6 +11,7 @@ except ImportError:
 try:
     from rdkit import Chem
     from rdkit.Chem import Draw, AllChem
+
     RDKIT_OK = True
 except ImportError:
     RDKIT_OK = False
@@ -19,6 +21,7 @@ from src.ui import *
 # ═══════════════════════════════════════════════════════════════════════════════
 #  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def fragment_to_rdkit(mol_fragment):
     """Convert a ``MoleculeFragment`` to an RDKit ``Mol`` with 2D coordinates.
@@ -45,6 +48,7 @@ def fragment_to_rdkit(mol_fragment):
         return None
     try:
         from ..core import to_rdkit_mol
+
         return to_rdkit_mol(mol_fragment)
     except Exception:
         pass
@@ -61,8 +65,9 @@ def fragment_to_rdkit(mol_fragment):
             3: Chem.BondType.TRIPLE,
         }
         for a, b, order in mol_fragment.bonds:
-            rw.AddBond(atom_map[a], atom_map[b],
-                       bond_types.get(order, Chem.BondType.SINGLE))
+            rw.AddBond(
+                atom_map[a], atom_map[b], bond_types.get(order, Chem.BondType.SINGLE)
+            )
         mol = rw.GetMol()
         try:
             Chem.SanitizeMol(mol)

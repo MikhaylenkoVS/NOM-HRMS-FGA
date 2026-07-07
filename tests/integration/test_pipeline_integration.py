@@ -1,4 +1,4 @@
-#/test_pipeline_integration.py
+# /test_pipeline_integration.py
 from pathlib import Path
 
 import pandas as pd
@@ -22,12 +22,12 @@ from src.configs import CHEM, PIPELINE, PATHS
 # Параметры из pipeline.json -> test_mode
 _TEST_CFG = PIPELINE.test_mode
 REL_ERROR_PPM = _TEST_CFG["assign"]["rel_error_ppm"]
-MATCH_PPM     = _TEST_CFG["match_ppm"]
+MATCH_PPM = _TEST_CFG["match_ppm"]
 ASSIGN_MATCH_PPM = REL_ERROR_PPM  # тот же допуск для assign
 
 # Сдвиги дериватизации из chemistry.json
 DELTA_DEUTEROMETHYLATED = CHEM.derivatization_shifts["delta_cd3"]
-DELTA_DEUTEROACYLATED   = CHEM.derivatization_shifts["delta_cd3co"]
+DELTA_DEUTEROACYLATED = CHEM.derivatization_shifts["delta_cd3co"]
 
 # Пути из paths.json
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -35,8 +35,8 @@ TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 TEST_SETS = sorted([p for p in TEST_SETS_ROOT.glob("set_*") if p.is_dir()])
 
 # Пороги из pipeline.json -> thresholds
-MIN_DENOISE_RECALL      = PIPELINE.thresholds["min_denoise_recall"]
-MIN_ASSIGN_RECALL       = PIPELINE.thresholds["min_assign_recall"]
+MIN_DENOISE_RECALL = PIPELINE.thresholds["min_denoise_recall"]
+MIN_ASSIGN_RECALL = PIPELINE.thresholds["min_assign_recall"]
 MAX_SERIES_PROBLEM_RATIO = PIPELINE.thresholds["max_wrong_ratio"]
 
 DEBUG_PREVIEW_ROWS = 5
@@ -45,7 +45,7 @@ DENOISE_KWARGS = dict(_TEST_CFG["denoise"])
 ASSIGN_KWARGS = {
     "mode": _TEST_CFG["assign"]["mode"],
     "rel_error_ppm": ASSIGN_MATCH_PPM,
-    "mass_min": 0,   # явно — см. TODO ниже
+    "mass_min": 0,  # явно — см. TODO ниже
     "mass_max": 1000,
 }
 # TODO: Разобрать зависимость assign_formulas от диапазона масс.
@@ -60,7 +60,7 @@ ASSIGN_KWARGS = {
 _SF = PATHS.spectrum_files
 DERIV_SPECS = [
     (_SF["deutermethylated"], DELTA_DEUTEROMETHYLATED, "deutermethylated"),
-    (_SF["deuteroacylated"],  DELTA_DEUTEROACYLATED,   "deuteroacylated"),
+    (_SF["deuteroacylated"], DELTA_DEUTEROACYLATED, "deuteroacylated"),
 ]
 
 
@@ -119,6 +119,7 @@ def _print_pipeline_log(
         )
     )
 
+
 def _debug_candidates(label: str, df: pd.DataFrame, mass_obs: float, ppm: float = 0.5):
     diff_ppm = (df["mass"] - mass_obs) / mass_obs * 1e6
     cand = df.loc[diff_ppm.abs() <= ppm + 1e-6].copy()
@@ -127,19 +128,26 @@ def _debug_candidates(label: str, df: pd.DataFrame, mass_obs: float, ppm: float 
         return
 
     cand["ppm_err"] = diff_ppm.loc[cand.index].abs()
-    print(cand[["mass", "assign", "brutto", "ppm_err"]].sort_values("ppm_err").head(10).to_string(index=False))
+    print(
+        cand[["mass", "assign", "brutto", "ppm_err"]]
+        .sort_values("ppm_err")
+        .head(10)
+        .to_string(index=False)
+    )
+
 
 def _ppm_error(observed: float, theoretical: float) -> float:
     return abs(observed - theoretical) / theoretical * 1e6
+
 
 def _load_molecules_map(set_dir: Path) -> pd.DataFrame:
     molecules = pd.read_csv(set_dir / "molecules.csv")
 
     required_cols = {"compound_number", "carboxyl_count", "hydroxyl_count"}
     missing = required_cols - set(molecules.columns)
-    assert not missing, (
-        f"{set_dir.name}/molecules.csv: отсутствуют колонки {sorted(missing)}"
-    )
+    assert (
+        not missing
+    ), f"{set_dir.name}/molecules.csv: отсутствуют колонки {sorted(missing)}"
 
     return molecules
 
@@ -168,8 +176,10 @@ def _match_table_row_by_mass(
         return None
 
     work = table.copy()
-    work["_ppm"] = work[mass_col].astype(float).apply(
-        lambda x: _ppm_error(float(x), float(mass_obs))
+    work["_ppm"] = (
+        work[mass_col]
+        .astype(float)
+        .apply(lambda x: _ppm_error(float(x), float(mass_obs)))
     )
     work = work.loc[work["_ppm"] <= ppm_tol].copy()
 
@@ -231,8 +241,7 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
     )
 
     ann_orig_signal = ann[
-        (ann["spectrum_type"] == "original")
-        & (ann["is_signal"] == True)
+        (ann["spectrum_type"] == "original") & (ann["is_signal"] == True)
     ].copy()
 
     # A. assign по raw original — как в test_assign_formulas
@@ -248,16 +257,16 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
     assigned_raw_df = assigned_raw.table.copy()
     mask_assigned_raw = assigned_raw_df["assign"] == True
-    assigned_raw_df.loc[mask_assigned_raw, "brutto"] = (
-        assigned_raw_df.loc[mask_assigned_raw, "brutto"].apply(subtract_one_h)
+    assigned_raw_df.loc[mask_assigned_raw, "brutto"] = assigned_raw_df.loc[
+        mask_assigned_raw, "brutto"
+    ].apply(subtract_one_h)
+    assigned_raw_only = (
+        assigned_raw_df.loc[assigned_raw_df["assign"] == True]
+        .reset_index(drop=True)
+        .copy()
     )
-    assigned_raw_only = assigned_raw_df.loc[
-        assigned_raw_df["assign"] == True
-        ].reset_index(drop=True).copy()
 
-    _debug(
-        f"{set_dir.name}: raw assigned rows = {len(assigned_raw_only)}"
-    )
+    _debug(f"{set_dir.name}: raw assigned rows = {len(assigned_raw_only)}")
 
     # считаем assign_recall_raw так же, как в test_assign_formulas:
     assigned_ok_raw = 0
@@ -280,60 +289,65 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
         f"({assign_recall_raw:.3f})"
     )
 
-    assert not ann_orig_signal.empty, (
-        f"{set_dir.name}: в annotations.csv нет signal-пиков original"
-    )
+    assert (
+        not ann_orig_signal.empty
+    ), f"{set_dir.name}: в annotations.csv нет signal-пиков original"
 
     _debug(f"{set_dir.name}: annotations rows={len(ann)}")
     _debug(f"{set_dir.name}: original signal rows={len(ann_orig_signal)}")
-    _preview_table(ann_orig_signal[["mass_obs", "compound_number", "formula"]], f"{set_dir.name} ann_orig_signal")
+    _preview_table(
+        ann_orig_signal[["mass_obs", "compound_number", "formula"]],
+        f"{set_dir.name} ann_orig_signal",
+    )
 
     src = load_spectrum(set_dir / "original.csv", mass_min=100, mass_max=1000)
-    assert isinstance(src, Spectrum), f"{set_dir.name}: load_spectrum(original) не вернул Spectrum"
+    assert isinstance(
+        src, Spectrum
+    ), f"{set_dir.name}: load_spectrum(original) не вернул Spectrum"
     assert not src.table.empty, f"{set_dir.name}: original.csv после load_spectrum пуст"
 
     _preview_table(src.table, f"{set_dir.name} original loaded")
 
     denoised = denoise(src, **DENOISE_KWARGS)
-    assert isinstance(denoised, Spectrum), (
-        f"{set_dir.name}: denoise должен возвращать Spectrum"
-    )
-    assert not denoised.table.empty, (
-        f"{set_dir.name}: после denoise спектр пуст"
-    )
+    assert isinstance(
+        denoised, Spectrum
+    ), f"{set_dir.name}: denoise должен возвращать Spectrum"
+    assert not denoised.table.empty, f"{set_dir.name}: после denoise спектр пуст"
 
     _preview_table(denoised.table, f"{set_dir.name} denoised")
 
     assigned = assign_formulas(denoised, **ASSIGN_KWARGS)
-    assert isinstance(assigned, Spectrum), (
-        f"{set_dir.name}: assign_formulas должен возвращать Spectrum"
-    )
+    assert isinstance(
+        assigned, Spectrum
+    ), f"{set_dir.name}: assign_formulas должен возвращать Spectrum"
 
     assigned_table = assigned.table.copy()
 
-    assert "assign" in assigned_table.columns, (
-        f"{set_dir.name}: после assign_formulas нет колонки assign"
-    )
-    assert "brutto" in assigned_table.columns, (
-        f"{set_dir.name}: после assign_formulas нет колонки brutto"
-    )
+    assert (
+        "assign" in assigned_table.columns
+    ), f"{set_dir.name}: после assign_formulas нет колонки assign"
+    assert (
+        "brutto" in assigned_table.columns
+    ), f"{set_dir.name}: после assign_formulas нет колонки brutto"
 
     _preview_table(assigned_table, f"{set_dir.name} assigned")
 
     mask_assigned = assigned_table["assign"] == True
-    assigned_table.loc[mask_assigned, "brutto"] = (
-        assigned_table.loc[mask_assigned, "brutto"].apply(subtract_one_h)
-    )
+    assigned_table.loc[mask_assigned, "brutto"] = assigned_table.loc[
+        mask_assigned, "brutto"
+    ].apply(subtract_one_h)
     assigned.table = assigned_table
 
     assigned_only = assigned.copy()
-    assigned_only.table = assigned_table.loc[
-        assigned_table["assign"] == True
-        ].reset_index(drop=True).copy()
-
-    assert not assigned_only.table.empty, (
-        f"{set_dir.name}: assign_formulas не назначил ни одной формулы"
+    assigned_only.table = (
+        assigned_table.loc[assigned_table["assign"] == True]
+        .reset_index(drop=True)
+        .copy()
     )
+
+    assert (
+        not assigned_only.table.empty
+    ), f"{set_dir.name}: assign_formulas не назначил ни одной формулы"
 
     _debug(f"{set_dir.name}: raw assigned count = {len(assigned_raw_only)}")
     _debug(f"{set_dir.name}: denoised assigned count = {len(assigned_only.table)}")
@@ -417,17 +431,11 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
     )
 
     if denoise_missing_cases:
-        _debug(
-            f"{set_dir.name}: first denoise misses: {denoise_missing_cases[:3]}"
-        )
+        _debug(f"{set_dir.name}: first denoise misses: {denoise_missing_cases[:3]}")
     if assign_missing_cases:
-        _debug(
-            f"{set_dir.name}: first assign misses: {assign_missing_cases[:3]}"
-        )
+        _debug(f"{set_dir.name}: first assign misses: {assign_missing_cases[:3]}")
     if wrong_brutto_cases:
-        _debug(
-            f"{set_dir.name}: first wrong brutto cases: {wrong_brutto_cases[:3]}"
-        )
+        _debug(f"{set_dir.name}: first wrong brutto cases: {wrong_brutto_cases[:3]}")
 
     assert denoise_recall >= MIN_DENOISE_RECALL, (
         f"{set_dir.name}: denoise потерял слишком много signal-пиков "
@@ -446,12 +454,12 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
         _debug(f"{set_dir.name}: START deriv={deriv_filename}, delta={delta}")
 
         deriv = load_spectrum(set_dir / deriv_filename, mass_min=100, mass_max=2000)
-        assert isinstance(deriv, Spectrum), (
-            f"{set_dir.name}/{deriv_filename}: load_spectrum не вернул Spectrum"
-        )
-        assert not deriv.table.empty, (
-            f"{set_dir.name}/{deriv_filename}: deriv спектр пуст"
-        )
+        assert isinstance(
+            deriv, Spectrum
+        ), f"{set_dir.name}/{deriv_filename}: load_spectrum не вернул Spectrum"
+        assert (
+            not deriv.table.empty
+        ), f"{set_dir.name}/{deriv_filename}: deriv спектр пуст"
 
         _preview_table(deriv.table, f"{set_dir.name} {deriv_label} loaded")
 
@@ -465,9 +473,9 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
             min_series_length=1,
         )
 
-        assert not result.empty, (
-            f"{set_dir.name}/{deriv_filename}: find_series не нашел ни одной серии"
-        )
+        assert (
+            not result.empty
+        ), f"{set_dir.name}/{deriv_filename}: find_series не нашел ни одной серии"
 
         expected_columns = [
             "mass_src",
@@ -520,15 +528,15 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
             matched_series += 1
 
-            assert isinstance(row["steps_found"], list), (
-                f"{set_dir.name}/{deriv_filename}: steps_found должен быть list"
-            )
-            assert isinstance(row["missing"], list), (
-                f"{set_dir.name}/{deriv_filename}: missing должен быть list"
-            )
-            assert isinstance(row["series_mz"], list), (
-                f"{set_dir.name}/{deriv_filename}: series_mz должен быть list"
-            )
+            assert isinstance(
+                row["steps_found"], list
+            ), f"{set_dir.name}/{deriv_filename}: steps_found должен быть list"
+            assert isinstance(
+                row["missing"], list
+            ), f"{set_dir.name}/{deriv_filename}: missing должен быть list"
+            assert isinstance(
+                row["series_mz"], list
+            ), f"{set_dir.name}/{deriv_filename}: series_mz должен быть list"
 
             if int(row["n_groups"]) != expected_len:
                 wrong_length_cases.append(

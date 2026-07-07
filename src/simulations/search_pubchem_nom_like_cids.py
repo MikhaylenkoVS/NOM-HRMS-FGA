@@ -155,8 +155,8 @@ def count_carboxyl_and_hydroxyl(smiles: str) -> Dict[str, int]:
 
     charge = Chem.GetFormalCharge(mol)
 
-    carboxyl_smarts = "[CX3](=O)[OX2H1]"    # -C(=O)OH
-    hydroxyl_smarts = "[OX2H]"              # общие -OH
+    carboxyl_smarts = "[CX3](=O)[OX2H1]"  # -C(=O)OH
+    hydroxyl_smarts = "[OX2H]"  # общие -OH
 
     carboxyl = mol.GetSubstructMatches(Chem.MolFromSmarts(carboxyl_smarts))
     hydroxyl = mol.GetSubstructMatches(Chem.MolFromSmarts(hydroxyl_smarts))
@@ -344,6 +344,7 @@ def export_candidates_to_ref_csv(
 
     print(f"Total accumulated candidates in {ref_path}: {len(existing)}")
 
+
 def main():
     """Run the full random-sampling and filtering workflow once.
 
@@ -360,6 +361,7 @@ def main():
     filtered = filter_candidates(raw, max_take=100)
     print(f"Filtered candidates in this run: {len(filtered)}")
     export_candidates_to_ref_csv(filtered, set_id="set_01", ref_path=REF_PATH_ALL)
+
 
 if __name__ == "__main__":
     main()

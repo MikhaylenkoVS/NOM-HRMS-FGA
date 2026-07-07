@@ -25,7 +25,7 @@ class Molecule:
     """
 
     def __init__(self, formula: str = ""):
-        self.formula = formula          # stored label, not parsed into atoms
+        self.formula = formula  # stored label, not parsed into atoms
         self.atoms: List[Atom] = []
         self.edges: List[Tuple[int, int, int]] = []
 
@@ -70,7 +70,7 @@ class Molecule:
         if atom1 >= len(self.atoms) or atom2 >= len(self.atoms):
             return
         if atom1 == atom2:
-            return                     # самосвязывание запрещено
+            return  # самосвязывание запрещено
 
         a1 = self.atoms[atom1]
         a2 = self.atoms[atom2]
@@ -134,11 +134,15 @@ class Molecule:
         for atom in self.atoms:
             element_count[atom.symbol] += 1
 
-        C = element_count.get('C', 0)
-        H = element_count.get('H', 0)
-        N = element_count.get('N', 0)
-        X = (element_count.get('F', 0) + element_count.get('Cl', 0) +
-             element_count.get('Br', 0) + element_count.get('I', 0))
+        C = element_count.get("C", 0)
+        H = element_count.get("H", 0)
+        N = element_count.get("N", 0)
+        X = (
+            element_count.get("F", 0)
+            + element_count.get("Cl", 0)
+            + element_count.get("Br", 0)
+            + element_count.get("I", 0)
+        )
 
         IHD = (2 * C + 2 - H + N - X) / 2
         return max(0.0, IHD)
@@ -157,9 +161,9 @@ class Molecule:
         for atom in self.atoms:
             element_count[atom.symbol] += 1
 
-        if 'C' in element_count:
-            order = ['C', 'H'] + sorted(
-                el for el in element_count if el not in ('C', 'H')
+        if "C" in element_count:
+            order = ["C", "H"] + sorted(
+                el for el in element_count if el not in ("C", "H")
             )
         else:
             order = sorted(element_count.keys())
@@ -190,8 +194,10 @@ class Molecule:
         )
 
     def __repr__(self) -> str:
-        return (f"Molecule({self.get_formula()}, "
-                f"{len(self.atoms)} atoms, {len(self.edges)} bonds)")
+        return (
+            f"Molecule({self.get_formula()}, "
+            f"{len(self.atoms)} atoms, {len(self.edges)} bonds)"
+        )
 
 
 def parse_formula(formula: str) -> Dict[str, int]:
@@ -211,10 +217,11 @@ def parse_formula(formula: str) -> Dict[str, int]:
         e.g. ``{'C': 7, 'H': 6, 'O': 2}``.
     """
     import re
+
     elems = defaultdict(int)
-    for m in re.finditer(r'([A-Z][a-z]?)(\d*)', formula):
+    for m in re.finditer(r"([A-Z][a-z]?)(\d*)", formula):
         el = m.group(1)
-        n = int(m.group(2) or '1')
+        n = int(m.group(2) or "1")
         elems[el] += n
     return dict(elems)
 
@@ -234,10 +241,10 @@ def calculate_IHD(formula: Dict[str, int]) -> float:
         ``(2*C + 2 + N - H - X) / 2`` where ``X`` is the total number of
         halogen atoms (F, Cl, Br, I). Not clamped to be non-negative.
     """
-    C = formula.get('C', 0)
-    H = formula.get('H', 0)
-    N = formula.get('N', 0)
-    X = sum(formula.get(hal, 0) for hal in ['F', 'Cl', 'Br', 'I'])
+    C = formula.get("C", 0)
+    H = formula.get("H", 0)
+    N = formula.get("N", 0)
+    X = sum(formula.get(hal, 0) for hal in ["F", "Cl", "Br", "I"])
     return (2 * C + 2 + N - H - X) / 2
 
 

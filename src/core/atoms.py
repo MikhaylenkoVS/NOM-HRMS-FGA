@@ -2,17 +2,18 @@ from enum import Enum
 from typing import List
 
 ELEMENT_DATA = {
-    'H': {'atomic_number': 1, 'valence': 1},
-    'C': {'atomic_number': 6, 'valence': 4},
-    'N': {'atomic_number': 7, 'valence': 3, 'valence_charged': {-1: 2, 0: 3, 1: 4}},
-    'O': {'atomic_number': 8, 'valence': 2, 'valence_charged': {-1: 1, 0: 2, 1: 3}},
-    'F': {'atomic_number': 9, 'valence': 1},
-    'P': {'atomic_number': 15, 'valence': 3, 'valence_charged': {0: 3, 1: 4}},
-    'S': {'atomic_number': 16, 'valence': 2, 'valence_charged': {0: 2, 1: 3}},
-    'Cl': {'atomic_number': 17, 'valence': 1},
-    'Br': {'atomic_number': 35, 'valence': 1},
-    'I': {'atomic_number': 53, 'valence': 1},
+    "H": {"atomic_number": 1, "valence": 1},
+    "C": {"atomic_number": 6, "valence": 4},
+    "N": {"atomic_number": 7, "valence": 3, "valence_charged": {-1: 2, 0: 3, 1: 4}},
+    "O": {"atomic_number": 8, "valence": 2, "valence_charged": {-1: 1, 0: 2, 1: 3}},
+    "F": {"atomic_number": 9, "valence": 1},
+    "P": {"atomic_number": 15, "valence": 3, "valence_charged": {0: 3, 1: 4}},
+    "S": {"atomic_number": 16, "valence": 2, "valence_charged": {0: 2, 1: 3}},
+    "Cl": {"atomic_number": 17, "valence": 1},
+    "Br": {"atomic_number": 35, "valence": 1},
+    "I": {"atomic_number": 53, "valence": 1},
 }
+
 
 class Hybridization(Enum):
     """Atomic hybridization state.
@@ -30,10 +31,12 @@ class Hybridization(Enum):
     UNKNOWN : str
         Hybridization not yet determined.
     """
-    SP3 = 'sp3'
-    SP2 = 'sp2'
-    SP = 'sp'
-    UNKNOWN = 'unknown'
+
+    SP3 = "sp3"
+    SP2 = "sp2"
+    SP = "sp"
+    UNKNOWN = "unknown"
+
 
 class Atom:
     """A single atom within a molecular graph.
@@ -83,12 +86,12 @@ class Atom:
         self.formal_charge = formal_charge
 
         element = ELEMENT_DATA[symbol]
-        self.atomic_number = element['atomic_number']
+        self.atomic_number = element["atomic_number"]
 
-        if 'valence_charged' in element and formal_charge in element['valence_charged']:
-            self.valence = element['valence_charged'][formal_charge]
+        if "valence_charged" in element and formal_charge in element["valence_charged"]:
+            self.valence = element["valence_charged"][formal_charge]
         else:
-            self.valence = element['valence']
+            self.valence = element["valence"]
 
         self.connections: List[int] = []
         self.bond_orders: List[int] = []
@@ -132,7 +135,7 @@ class Atom:
         double bond or aromatic flag implies ``SP2``, otherwise ``SP3``.
         For non-carbon atoms the method returns without changes.
         """
-        if self.symbol != 'C':
+        if self.symbol != "C":
             return
 
         double_bonds = self.bond_orders.count(2)

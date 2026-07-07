@@ -24,7 +24,7 @@ MATCH_PPM = 1.2
 ASSIGN_MATCH_PPM = 0.1
 
 DELTA_DEUTEROMETHYLATED = CHEM.derivatization_shifts["delta_cd3"]
-DELTA_DEUTEROACYLATED   = CHEM.derivatization_shifts["delta_cd3co"]
+DELTA_DEUTEROACYLATED = CHEM.derivatization_shifts["delta_cd3co"]
 
 THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
@@ -35,7 +35,7 @@ TEST_SETS = sorted([p for p in TEST_SETS_ROOT.glob("set_*") if p.is_dir()])
 _SF = PATHS.spectrum_files
 DERIV_SPECS = [
     (_SF["deutermethylated"], DELTA_DEUTEROMETHYLATED, "deutermethylated"),
-    (_SF["deuteroacylated"],  DELTA_DEUTEROACYLATED,   "deuteroacylated"),
+    (_SF["deuteroacylated"], DELTA_DEUTEROACYLATED, "deuteroacylated"),
 ]
 
 # Порог из твоих тестов find_series был 0.07, оставим те же границы
@@ -50,6 +50,7 @@ DEBUG_PREVIEW_ROWS = 5
 # -------------------
 # Вспомогательные функции
 # -------------------
+
 
 def _debug(msg: str) -> None:
     print(f"[DEBUG] {msg}")
@@ -167,8 +168,10 @@ def _match_table_row_by_mass(
         return None
 
     work = table.copy()
-    work["_ppm"] = work[mass_col].astype(float).apply(
-        lambda x: _ppm_error(float(x), float(mass_obs))
+    work["_ppm"] = (
+        work[mass_col]
+        .astype(float)
+        .apply(lambda x: _ppm_error(float(x), float(mass_obs)))
     )
     work = work.loc[work["_ppm"] <= ppm_tol].copy()
 
@@ -201,9 +204,9 @@ def _load_molecules_map(set_dir: Path) -> pd.DataFrame:
 
     required_cols = {"compound_number", "carboxyl_count", "hydroxyl_count"}
     missing = required_cols - set(molecules.columns)
-    assert not missing, (
-        f"{set_dir.name}/molecules.csv: отсутствуют колонки {sorted(missing)}"
-    )
+    assert (
+        not missing
+    ), f"{set_dir.name}/molecules.csv: отсутствуют колонки {sorted(missing)}"
 
     return molecules
 
@@ -230,12 +233,13 @@ def _prepare_assigned_original_from_annotations(
     - по mass_obs из annotations расставляем brutto/assign,
     - отфильтровываем только совпавшие по mass.
     """
-    src = load_spectrum(set_dir / PATHS.spectrum_files["original"], mass_min=100, mass_max=1000)
+    src = load_spectrum(
+        set_dir / PATHS.spectrum_files["original"], mass_min=100, mass_max=1000
+    )
     ann = pd.read_csv(set_dir / PATHS.spectrum_files["annotations"])
 
     ann_orig_signal = ann[
-        (ann["spectrum_type"] == "original")
-        & (ann["is_signal"] == True)
+        (ann["spectrum_type"] == "original") & (ann["is_signal"] == True)
     ].copy()
 
     table = src.table.copy()
@@ -306,6 +310,7 @@ def _preview_table(df: pd.DataFrame, name: str) -> None:
 # Основной тест
 # -------------------
 
+
 @pytest.mark.parametrize("set_dir", TEST_SETS, ids=lambda p: p.name)
 def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
     assert TEST_SETS_ROOT.exists(), f"Не найдена папка test_sets: {TEST_SETS_ROOT}"
@@ -329,12 +334,11 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
     )
 
     ann_orig_signal = ann[
-        (ann["spectrum_type"] == "original")
-        & (ann["is_signal"] == True)
+        (ann["spectrum_type"] == "original") & (ann["is_signal"] == True)
     ].copy()
-    assert not ann_orig_signal.empty, (
-        f"{set_dir.name}: в annotations.csv нет signal-пиков original"
-    )
+    assert (
+        not ann_orig_signal.empty
+    ), f"{set_dir.name}: в annotations.csv нет signal-пиков original"
 
     total_signals = len(ann_orig_signal)
     _debug(f"{set_dir.name}: total original signals={total_signals}")
@@ -342,16 +346,16 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
     # -------------------
     # Шаг 1: denoise (как в test_denoise)
     # -------------------
-    src = load_spectrum(set_dir / PATHS.spectrum_files["original"], mass_min=100, mass_max=1000)
+    src = load_spectrum(
+        set_dir / PATHS.spectrum_files["original"], mass_min=100, mass_max=1000
+    )
     _preview_table(src.table, f"{set_dir.name} original")
 
     denoised = denoise(src, force=10.0, intensity=100, quantile=None)
-    assert isinstance(denoised, Spectrum), (
-        f"{set_dir.name}: denoise должен возвращать Spectrum"
-    )
-    assert not denoised.table.empty, (
-        f"{set_dir.name}: после denoise спектр пуст"
-    )
+    assert isinstance(
+        denoised, Spectrum
+    ), f"{set_dir.name}: denoise должен возвращать Spectrum"
+    assert not denoised.table.empty, f"{set_dir.name}: после denoise спектр пуст"
     _preview_table(denoised.table, f"{set_dir.name} denoised")
 
     denoised_kept = 0
@@ -410,9 +414,9 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
     # Временный костыль: subtract_one_h
     mask_assigned = assigned_df["assign"] == True
-    assigned_df.loc[mask_assigned, "brutto"] = (
-        assigned_df.loc[mask_assigned, "brutto"].apply(_subtract_one_h)
-    )
+    assigned_df.loc[mask_assigned, "brutto"] = assigned_df.loc[
+        mask_assigned, "brutto"
+    ].apply(_subtract_one_h)
     assigned_src.table = assigned_df
 
     _preview_table(assigned_df, f"{set_dir.name} assigned (simple + H-1)")
@@ -462,8 +466,7 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
         )
     if wrong_brutto_cases:
         _debug(
-            f"{set_dir.name}: first wrong_brutto_cases: "
-            f"{wrong_brutto_cases[:3]}"
+            f"{set_dir.name}: first wrong_brutto_cases: " f"{wrong_brutto_cases[:3]}"
         )
 
     assert assign_recall >= MIN_ASSIGN_RECALL, (
@@ -480,9 +483,9 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
     )
     src_true = _filter_to_signal_original_peaks(src_true, ann, ppm_tol=MATCH_PPM)
 
-    assert not src_true.table.empty, (
-        f"{set_dir.name}: после фильтрации не осталось signal-пиков original"
-    )
+    assert (
+        not src_true.table.empty
+    ), f"{set_dir.name}: после фильтрации не осталось signal-пиков original"
 
     _preview_table(src_true.table, f"{set_dir.name} src_true for find_series")
 
@@ -493,12 +496,12 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
         )
 
         deriv = load_spectrum(set_dir / deriv_filename, mass_min=100, mass_max=2000)
-        assert isinstance(deriv, Spectrum), (
-            f"{set_dir.name}/{deriv_filename}: load_spectrum не вернул Spectrum"
-        )
-        assert not deriv.table.empty, (
-            f"{set_dir.name}/{deriv_filename}: deriv спектр пуст"
-        )
+        assert isinstance(
+            deriv, Spectrum
+        ), f"{set_dir.name}/{deriv_filename}: load_spectrum не вернул Spectrum"
+        assert (
+            not deriv.table.empty
+        ), f"{set_dir.name}/{deriv_filename}: deriv спектр пуст"
 
         _preview_table(deriv.table, f"{set_dir.name} {deriv_label} deriv")
 
@@ -512,9 +515,9 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
             min_series_length=1,
         )
 
-        assert not result.empty, (
-            f"{set_dir.name}/{deriv_filename}: find_series не нашел ни одной серии"
-        )
+        assert (
+            not result.empty
+        ), f"{set_dir.name}/{deriv_filename}: find_series не нашел ни одной серии"
 
         expected_columns = [
             "mass_src",
@@ -567,15 +570,15 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
             matched_series += 1
 
-            assert isinstance(row["steps_found"], list), (
-                f"{set_dir.name}/{deriv_filename}: steps_found должен быть list"
-            )
-            assert isinstance(row["missing"], list), (
-                f"{set_dir.name}/{deriv_filename}: missing должен быть list"
-            )
-            assert isinstance(row["series_mz"], list), (
-                f"{set_dir.name}/{deriv_filename}: series_mz должен быть list"
-            )
+            assert isinstance(
+                row["steps_found"], list
+            ), f"{set_dir.name}/{deriv_filename}: steps_found должен быть list"
+            assert isinstance(
+                row["missing"], list
+            ), f"{set_dir.name}/{deriv_filename}: missing должен быть list"
+            assert isinstance(
+                row["series_mz"], list
+            ), f"{set_dir.name}/{deriv_filename}: series_mz должен быть list"
 
             if int(row["n_groups"]) != expected_len:
                 wrong_length_cases.append(

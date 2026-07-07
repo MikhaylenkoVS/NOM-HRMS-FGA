@@ -35,6 +35,7 @@ TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 # Monoisotopic element masses (single source of truth: chemistry.json).
 element_masses: Dict[str, float] = dict(CHEM.monoisotopic_masses)
 
+
 def parse_formula(formula: str) -> Dict[str, int]:
     """Parse a simple brutto formula such as ``C7H6O5``.
 
@@ -75,6 +76,7 @@ def parse_formula(formula: str) -> Dict[str, int]:
 
     return composition
 
+
 def exact_mass_from_formula(formula: str) -> float:
     """Compute the monoisotopic mass of a brutto formula.
 
@@ -103,6 +105,7 @@ def exact_mass_from_formula(formula: str) -> float:
         mass += element_masses[element] * count
     return mass
 
+
 def load_molecules_for_set(set_path: Path) -> pd.DataFrame:
     """Load the ``molecules.csv`` table for one test set.
 
@@ -119,6 +122,7 @@ def load_molecules_for_set(set_path: Path) -> pd.DataFrame:
     df = pd.read_csv(set_path / PATHS.spectrum_files["molecules"])
     return df
 
+
 def init_test_sets_structure() -> None:
     """Create the base directory layout for the test sets.
 
@@ -132,6 +136,7 @@ def init_test_sets_structure() -> None:
     for i in range(1, PATHS.num_test_sets + 1):
         set_dir = TEST_SETS_ROOT / f"set_{i:02d}"
         set_dir.mkdir(parents=True, exist_ok=True)
+
 
 def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
     """Load a test set's ``config.json``, creating a default if absent.
@@ -207,6 +212,7 @@ def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
 
     return default_config
 
+
 def generate_all_test_sets(overwrite: bool = False) -> None:
     """Generate every test set (``set_01``..``set_05``).
 
@@ -224,6 +230,7 @@ def generate_all_test_sets(overwrite: bool = False) -> None:
     for i in range(1, PATHS.num_test_sets + 1):
         set_id = f"set_{i:02d}"
         generate_single_test_set(set_id=set_id, overwrite=overwrite)
+
 
 def generate_spectra_for_set(
     set_id: str,
@@ -386,6 +393,7 @@ def generate_spectra_for_set(
 
     return spectra
 
+
 def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
     """Generate one test set from its ``molecules.csv``.
 
@@ -427,6 +435,7 @@ def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
     # 3. при желании можно здесь не хранить mass в файле, а только использовать её в расчётах
     #    но для генерации спектров mass нам всё равно нужна -> считаем на лету, если нет
     if "mass" not in df_mol.columns:
+
         def safe_exact_mass(formula: str) -> float | None:
             if not isinstance(formula, str) or not formula:
                 return None
@@ -442,10 +451,14 @@ def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
     molecules = df_mol.to_dict(orient="records")
 
     # 5. генерация теоретических спектров (без ошибки)
-    spectra_raw = generate_spectra_for_set(set_id=set_id, molecules=molecules, config=config)
+    spectra_raw = generate_spectra_for_set(
+        set_id=set_id, molecules=molecules, config=config
+    )
 
     # 6. применяем mass error и добавляем его в записи (mass -> mass_obs)
-    spectra_raw = generate_spectra_for_set(set_id=set_id, molecules=molecules, config=config)
+    spectra_raw = generate_spectra_for_set(
+        set_id=set_id, molecules=molecules, config=config
+    )
 
     spectra_with_obs = apply_observed_mass_to_spectra(
         spectra=spectra_raw,
@@ -453,7 +466,13 @@ def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
     )
 
     write_spectra_csv(set_dir=set_dir, spectra=spectra_with_obs, overwrite=overwrite)
-    write_annotations_csv(set_dir=set_dir, spectra=spectra_with_obs, molecules=molecules, overwrite=overwrite)
+    write_annotations_csv(
+        set_dir=set_dir,
+        spectra=spectra_with_obs,
+        molecules=molecules,
+        overwrite=overwrite,
+    )
+
 
 def generate_spectra_for_set(
     set_id: str,
@@ -538,7 +557,7 @@ def generate_spectra_for_set(
                 "intensity": base_intensity,
                 "derivatization_state": "none",
                 "deriv_degree": 0,
-                "is_signal": True
+                "is_signal": True,
             }
         )
 
@@ -555,7 +574,7 @@ def generate_spectra_for_set(
                 "intensity": base_intensity,
                 "derivatization_state": "deutermethyl",
                 "deriv_degree": 0,
-                "is_signal": True
+                "is_signal": True,
             }
         )
 
@@ -572,7 +591,7 @@ def generate_spectra_for_set(
                     "intensity": base_intensity,
                     "derivatization_state": "deutermethyl",
                     "deriv_degree": k,
-                    "is_signal": True
+                    "is_signal": True,
                 }
             )
 
@@ -588,7 +607,7 @@ def generate_spectra_for_set(
                 "intensity": base_intensity,
                 "derivatization_state": "deuteroacyl",
                 "deriv_degree": 0,
-                "is_signal": True
+                "is_signal": True,
             }
         )
 
@@ -605,7 +624,7 @@ def generate_spectra_for_set(
                     "intensity": base_intensity,
                     "derivatization_state": "deuteroacyl",
                     "deriv_degree": k,
-                    "is_signal": True
+                    "is_signal": True,
                 }
             )
 
@@ -622,7 +641,10 @@ def generate_spectra_for_set(
 
     return spectra
 
-def write_molecules_csv(set_dir: Path, molecules: List[Dict[str, Any]], overwrite: bool = False) -> None:
+
+def write_molecules_csv(
+    set_dir: Path, molecules: List[Dict[str, Any]], overwrite: bool = False
+) -> None:
     """Write the ``molecules.csv`` table for a test set.
 
     Parameters
@@ -672,7 +694,10 @@ def write_molecules_csv(set_dir: Path, molecules: List[Dict[str, Any]], overwrit
             row = {key: mol.get(key) for key in fieldnames}
             writer.writerow(row)
 
-def write_spectra_csv(set_dir: Path, spectra: Dict[str, Any], overwrite: bool = False) -> None:
+
+def write_spectra_csv(
+    set_dir: Path, spectra: Dict[str, Any], overwrite: bool = False
+) -> None:
     """Write the three spectrum CSVs (``mass``/``intensity`` columns).
 
     Parameters
@@ -691,7 +716,9 @@ def write_spectra_csv(set_dir: Path, spectra: Dict[str, Any], overwrite: bool = 
         ``deuteroacylated.csv``.
     """
 
-    def _write_single_spectrum(filename: str, records: List[Dict[str, Any]] | None) -> None:
+    def _write_single_spectrum(
+        filename: str, records: List[Dict[str, Any]] | None
+    ) -> None:
         file_path = set_dir / filename
         if file_path.exists() and not overwrite:
             return
@@ -712,8 +739,13 @@ def write_spectra_csv(set_dir: Path, spectra: Dict[str, Any], overwrite: bool = 
                     )
 
     _write_single_spectrum(PATHS.spectrum_files["original"], spectra.get("original"))
-    _write_single_spectrum(PATHS.spectrum_files["deutermethylated"], spectra.get("deutermethylated"))
-    _write_single_spectrum(PATHS.spectrum_files["deuteroacylated"], spectra.get("deuteroacylated"))
+    _write_single_spectrum(
+        PATHS.spectrum_files["deutermethylated"], spectra.get("deutermethylated")
+    )
+    _write_single_spectrum(
+        PATHS.spectrum_files["deuteroacylated"], spectra.get("deuteroacylated")
+    )
+
 
 def apply_observed_mass_to_spectra(
     spectra: dict[str, list[dict]],
@@ -764,6 +796,7 @@ def apply_observed_mass_to_spectra(
 
     return new_spectra
 
+
 def apply_mass_error(mass_theor: float, config: Dict[str, Any]) -> tuple[float, float]:
     """Add a small ppm-scale mass error to a theoretical mass.
 
@@ -800,6 +833,7 @@ def apply_mass_error(mass_theor: float, config: Dict[str, Any]) -> tuple[float, 
 
     mass_obs = mass_theor * (1.0 + err * 1e-6)
     return mass_obs, err
+
 
 def generate_noise_peaks(
     config: Dict[str, Any],
@@ -862,6 +896,7 @@ def generate_noise_peaks(
         )
 
     return peaks
+
 
 def write_annotations_csv(
     set_dir: Path,
@@ -952,6 +987,7 @@ def write_annotations_csv(
                     }
                 )
 
+
 def normalize_molecules_header_for_all_sets() -> None:
     """Rewrite every set's ``molecules.csv`` with a canonical header.
 
@@ -983,7 +1019,9 @@ def normalize_molecules_header_for_all_sets() -> None:
         set_dir = TEST_SETS_ROOT / f"set_{i:02d}"
         molecules_path = set_dir / PATHS.spectrum_files["molecules"]
         if not molecules_path.exists():
-            print(f"[normalize_molecules_header] Файл не найден: {molecules_path}, пропускаю")
+            print(
+                f"[normalize_molecules_header] Файл не найден: {molecules_path}, пропускаю"
+            )
             continue
 
         df = pd.read_csv(molecules_path)
@@ -995,6 +1033,7 @@ def normalize_molecules_header_for_all_sets() -> None:
         df_norm = pd.DataFrame(data, columns=expected_header)
         df_norm.to_csv(molecules_path, index=False)
         print(f"[normalize_molecules_header] Обновлён header: {molecules_path}")
+
 
 if __name__ == "__main__":
     generate_all_test_sets(overwrite=True)

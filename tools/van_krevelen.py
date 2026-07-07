@@ -52,14 +52,14 @@ def parse_formula(formula: str) -> Dict[str, int]:
     dict of {str: int}
         Element counts restricted to C, H, O, N, S and P.
     """
-    pattern = re.compile(r'([A-Z][a-z]?)(\d*)')
+    pattern = re.compile(r"([A-Z][a-z]?)(\d*)")
     counts: Dict[str, int] = {}
     for match in pattern.finditer(formula):
         elem, num_str = match.groups()
         num = int(num_str) if num_str else 1
         counts[elem] = counts.get(elem, 0) + num
     # Keep only expected elements
-    expected = {'C', 'H', 'O', 'N', 'S', 'P'}
+    expected = {"C", "H", "O", "N", "S", "P"}
     return {el: counts[el] for el in expected if el in counts}
 
 
@@ -68,34 +68,34 @@ def parse_formula(formula: str) -> Dict[str, int]:
 # ----------------------------------------------------------------------
 NOM_REGIONS = [
     {
-        'name': 'Lipids',
-        'color': '#F4A582',   # light red/orange
-        'vertices': [(0.0, 1.5), (0.3, 1.5), (0.3, 2.2), (0.0, 2.2)]
+        "name": "Lipids",
+        "color": "#F4A582",  # light red/orange
+        "vertices": [(0.0, 1.5), (0.3, 1.5), (0.3, 2.2), (0.0, 2.2)],
     },
     {
-        'name': 'Proteins',
-        'color': '#92C5DE',   # light blue
-        'vertices': [(0.3, 1.5), (0.55, 1.5), (0.55, 2.2), (0.3, 2.2)]
+        "name": "Proteins",
+        "color": "#92C5DE",  # light blue
+        "vertices": [(0.3, 1.5), (0.55, 1.5), (0.55, 2.2), (0.3, 2.2)],
     },
     {
-        'name': 'Carbohydrates',
-        'color': '#B2ABD2',   # light purple
-        'vertices': [(0.6, 1.5), (1.2, 1.5), (1.2, 2.2), (0.6, 2.2)]
+        "name": "Carbohydrates",
+        "color": "#B2ABD2",  # light purple
+        "vertices": [(0.6, 1.5), (1.2, 1.5), (1.2, 2.2), (0.6, 2.2)],
     },
     {
-        'name': 'Lignin',
-        'color': '#A6D96A',   # light green
-        'vertices': [(0.1, 0.7), (0.45, 0.7), (0.45, 1.5), (0.1, 1.5)]
+        "name": "Lignin",
+        "color": "#A6D96A",  # light green
+        "vertices": [(0.1, 0.7), (0.45, 0.7), (0.45, 1.5), (0.1, 1.5)],
     },
     {
-        'name': 'Tannins',
-        'color': '#FDAE61',   # light orange
-        'vertices': [(0.5, 0.5), (0.9, 0.5), (0.9, 1.5), (0.5, 1.5)]
+        "name": "Tannins",
+        "color": "#FDAE61",  # light orange
+        "vertices": [(0.5, 0.5), (0.9, 0.5), (0.9, 1.5), (0.5, 1.5)],
     },
     {
-        'name': 'Condensed aromatics\n(black carbon)',
-        'color': '#B3B3B3',   # light grey
-        'vertices': [(0.0, 0.2), (0.2, 0.2), (0.2, 0.7), (0.0, 0.7)]
+        "name": "Condensed aromatics\n(black carbon)",
+        "color": "#B3B3B3",  # light grey
+        "vertices": [(0.0, 0.2), (0.2, 0.2), (0.2, 0.7), (0.0, 0.7)],
     },
 ]
 
@@ -104,8 +104,7 @@ NOM_REGIONS = [
 # Main plot creation
 # ----------------------------------------------------------------------
 def create_van_krevelen_plot(
-    input_path: str = DEFAULT_INPUT_CSV,
-    output_path: str = DEFAULT_OUTPUT_PNG
+    input_path: str = DEFAULT_INPUT_CSV, output_path: str = DEFAULT_OUTPUT_PNG
 ) -> None:
     """
     Read the result table, compute elemental ratios, and produce a
@@ -120,7 +119,7 @@ def create_van_krevelen_plot(
     """
     # --- 1. Load data ---
     try:
-        df = pd.read_csv(input_path, sep=';', encoding='utf-8-sig')
+        df = pd.read_csv(input_path, sep=";", encoding="utf-8-sig")
     except FileNotFoundError:
         print(f"Error: file '{input_path}' not found.", file=sys.stderr)
         sys.exit(1)
@@ -128,8 +127,16 @@ def create_van_krevelen_plot(
         print(f"Error reading CSV: {e}", file=sys.stderr)
         sys.exit(1)
 
-    required = ['mass', 'intensity', 'brutto', 'N_COOH', 'N_OH_total', 'N_OH',
-                'missing_dmet', 'missing_dacet']
+    required = [
+        "mass",
+        "intensity",
+        "brutto",
+        "N_COOH",
+        "N_OH_total",
+        "N_OH",
+        "missing_dmet",
+        "missing_dacet",
+    ]
     missing = [col for col in required if col not in df.columns]
     if missing:
         print(f"Error: missing required columns: {missing}", file=sys.stderr)
@@ -144,14 +151,14 @@ def create_van_krevelen_plot(
     skipped = 0
 
     for _, row in df.iterrows():
-        brutto = str(row['brutto'])
-        if not brutto or brutto.lower() == 'nan':
+        brutto = str(row["brutto"])
+        if not brutto or brutto.lower() == "nan":
             continue
 
         counts = parse_formula(brutto)
-        c = counts.get('C', 0)
-        h = counts.get('H', 0)
-        o = counts.get('O', 0)
+        c = counts.get("C", 0)
+        h = counts.get("H", 0)
+        o = counts.get("O", 0)
 
         if c == 0:
             warnings.warn(f"Skipping row: zero carbon atoms in formula '{brutto}'")
@@ -160,8 +167,8 @@ def create_van_krevelen_plot(
 
         h_c.append(h / c)
         o_c.append(o / c)
-        n_cooh.append(int(row['N_COOH']))
-        intensities.append(float(row['intensity']))
+        n_cooh.append(int(row["N_COOH"]))
+        intensities.append(float(row["intensity"]))
 
     if skipped:
         print(f"Warning: {skipped} rows skipped due to C=0.", file=sys.stderr)
@@ -181,42 +188,64 @@ def create_van_krevelen_plot(
     if intensity_max == intensity_min:
         sizes = np.full_like(intensities_arr, 100, dtype=float)
     else:
-        sizes = 20 + (intensities_arr - intensity_min) / (intensity_max - intensity_min) * (200 - 20)
+        sizes = 20 + (intensities_arr - intensity_min) / (
+            intensity_max - intensity_min
+        ) * (200 - 20)
 
     # --- 4. Create plot ---
     fig, ax = plt.subplots(figsize=(10, 8))
 
     # Draw NOM class regions
     for region in NOM_REGIONS:
-        poly = Polygon(region['vertices'], closed=True,
-                       facecolor=region['color'], edgecolor='none',
-                       alpha=0.12)
+        poly = Polygon(
+            region["vertices"],
+            closed=True,
+            facecolor=region["color"],
+            edgecolor="none",
+            alpha=0.12,
+        )
         ax.add_patch(poly)
 
         # Compute centroid for label placement
-        verts = np.array(region['vertices'])
+        verts = np.array(region["vertices"])
         cx, cy = verts.mean(axis=0)
-        ax.text(cx, cy, region['name'],
-                ha='center', va='center', fontsize=9,
-                color='black', alpha=0.7, weight='bold')
+        ax.text(
+            cx,
+            cy,
+            region["name"],
+            ha="center",
+            va="center",
+            fontsize=9,
+            color="black",
+            alpha=0.7,
+            weight="bold",
+        )
 
     # Scatter points
-    sc = ax.scatter(o_c_arr, h_c_arr, c=n_cooh_arr, cmap='YlOrRd',
-                    s=sizes, edgecolor='k', linewidth=0.3, alpha=0.85)
+    sc = ax.scatter(
+        o_c_arr,
+        h_c_arr,
+        c=n_cooh_arr,
+        cmap="YlOrRd",
+        s=sizes,
+        edgecolor="k",
+        linewidth=0.3,
+        alpha=0.85,
+    )
 
     # Colorbar
     cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label('Number of –COOH groups')
+    cbar.set_label("Number of –COOH groups")
 
     # Axis limits and labels
     ax.set_xlim(0.0, 1.2)
     ax.set_ylim(0.0, 2.5)
-    ax.set_xlabel('O/C atomic ratio')
-    ax.set_ylabel('H/C atomic ratio')
-    ax.set_title('Van Krevelen Diagram')
+    ax.set_xlabel("O/C atomic ratio")
+    ax.set_ylabel("H/C atomic ratio")
+    ax.set_title("Van Krevelen Diagram")
 
     # Grid and layout
-    ax.grid(True, linestyle='--', alpha=0.4)
+    ax.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
 
     # --- 5. Save ---
@@ -241,17 +270,21 @@ def main() -> None:
         description="Create a Van Krevelen diagram from a result table."
     )
     parser.add_argument(
-        '--input', '-i', default=DEFAULT_INPUT_CSV,
-        help='Path to input CSV file (semicolon delimited). Default: result_table.csv'
+        "--input",
+        "-i",
+        default=DEFAULT_INPUT_CSV,
+        help="Path to input CSV file (semicolon delimited). Default: result_table.csv",
     )
     parser.add_argument(
-        '--output', '-o', default=DEFAULT_OUTPUT_PNG,
-        help='Path to output PNG file. Default: van_krevelen.png'
+        "--output",
+        "-o",
+        default=DEFAULT_OUTPUT_PNG,
+        help="Path to output PNG file. Default: van_krevelen.png",
     )
     args = parser.parse_args()
 
     create_van_krevelen_plot(input_path=args.input, output_path=args.output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

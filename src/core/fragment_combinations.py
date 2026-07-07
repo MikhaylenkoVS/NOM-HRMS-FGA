@@ -11,6 +11,7 @@ from rdkit import Chem
 from rdkit.Chem import Draw, AllChem
 from .molecule import parse_formula, add_formula
 
+
 def filter_fragments(target_heavy, target_ihd, fragment_library):
     """Keep only fragments that can fit inside the target formula and IHD.
 
@@ -47,9 +48,10 @@ def filter_fragments(target_heavy, target_ihd, fragment_library):
         filtered[name] = f
     return filtered
 
-def find_fragment_combinations(target_heavy_formula, target_ihd,
-                               num_cooh=0, num_oh=0,
-                               max_bases=10):
+
+def find_fragment_combinations(
+    target_heavy_formula, target_ihd, num_cooh=0, num_oh=0, max_bases=10
+):
     """Enumerate fragment multisets matching a target formula and IHD.
 
     Reserves the atoms and unsaturation contributed by the requested -COOH
@@ -120,15 +122,22 @@ def find_fragment_combinations(target_heavy_formula, target_ihd,
 
         # если прошли все фрагменты — проверяем точное совпадение
         if idx == len(names):
-            if current_heavy == base_target and abs(current_ihd - base_target_ihd) < 1e-6:
-                bases_dict = {names[i]: c for i, c in enumerate(current_counts) if c > 0}
-                results.append({
-                    "bases": bases_dict,
-                    "cooh": num_cooh,
-                    "oh": num_oh,
-                    "total_heavy_formula": target_heavy_formula.copy(),
-                    "total_ihd": target_ihd,
-                })
+            if (
+                current_heavy == base_target
+                and abs(current_ihd - base_target_ihd) < 1e-6
+            ):
+                bases_dict = {
+                    names[i]: c for i, c in enumerate(current_counts) if c > 0
+                }
+                results.append(
+                    {
+                        "bases": bases_dict,
+                        "cooh": num_cooh,
+                        "oh": num_oh,
+                        "total_heavy_formula": target_heavy_formula.copy(),
+                        "total_ihd": target_ihd,
+                    }
+                )
             return
 
         name = names[idx]
@@ -172,8 +181,10 @@ def find_fragment_combinations(target_heavy_formula, target_ihd,
 
     return results
 
-def assemble_molecule_from_combination(combination: dict,
-                                       fragment_library_dict: dict = None) -> MoleculeFragment:
+
+def assemble_molecule_from_combination(
+    combination: dict, fragment_library_dict: dict = None
+) -> MoleculeFragment:
     """Assemble one complete molecule from a fragment combination.
 
     Connects the base fragments sequentially, then attaches the requested
@@ -203,9 +214,9 @@ def assemble_molecule_from_combination(combination: dict,
         fragment_library_dict = ALL_FRAGMENTS
 
     # Извлекаем информацию из комбинации
-    bases = combination.get('bases', {})
-    num_cooh = combination.get('cooh', 0)
-    num_oh = combination.get('oh', 0)
+    bases = combination.get("bases", {})
+    num_cooh = combination.get("cooh", 0)
+    num_oh = combination.get("oh", 0)
 
     # === ШАГ 1: Создаём базовые фрагменты ===
     base_fragments = []
@@ -229,10 +240,14 @@ def assemble_molecule_from_combination(combination: dict,
             other_points = next_frag.get_free_attachment_points()
 
             if not my_points or not other_points:
-                raise ValueError(f"Нет свободных точек для соединения {current.name} и {next_frag.name}")
+                raise ValueError(
+                    f"Нет свободных точек для соединения {current.name} и {next_frag.name}"
+                )
 
             # Соединяем через первые доступные точки
-            current = current.connect_to(next_frag, my_points[0], other_points[0], bond_order=1)
+            current = current.connect_to(
+                next_frag, my_points[0], other_points[0], bond_order=1
+            )
     if not base_fragments:
         if num_cooh > 0:
             current = create_cooh()
@@ -247,7 +262,9 @@ def assemble_molecule_from_combination(combination: dict,
     for i in range(num_cooh):
         free_points = current.get_free_attachment_points()
         if not free_points:
-            raise ValueError(f"Не хватает свободных точек для добавления COOH группы #{i+1}")
+            raise ValueError(
+                f"Не хватает свободных точек для добавления COOH группы #{i+1}"
+            )
 
         cooh = create_cooh()
         current = current.connect_to(cooh, free_points[0], 0, bond_order=1)
@@ -256,7 +273,9 @@ def assemble_molecule_from_combination(combination: dict,
     for i in range(num_oh):
         free_points = current.get_free_attachment_points()
         if not free_points:
-            raise ValueError(f"Не хватает свободных точек для добавления OH группы #{i+1}")
+            raise ValueError(
+                f"Не хватает свободных точек для добавления OH группы #{i+1}"
+            )
 
         oh = create_oh()
         current = current.connect_to(oh, free_points[0], 0, bond_order=1)
@@ -264,8 +283,9 @@ def assemble_molecule_from_combination(combination: dict,
     return current
 
 
-def assemble_all_combinations(combinations: list,
-                              fragment_library_dict: dict = None) -> list:
+def assemble_all_combinations(
+    combinations: list, fragment_library_dict: dict = None
+) -> list:
     """Assemble molecules from every combination, capturing failures.
 
     Parameters
@@ -290,29 +310,31 @@ def assemble_all_combinations(combinations: list,
     for i, combo in enumerate(combinations):
         try:
             mol = assemble_molecule_from_combination(combo, fragment_library_dict)
-            molecules.append({
-                'index': i,
-                'combination': combo,
-                'molecule': mol,
-                'success': True
-            })
+            molecules.append(
+                {"index": i, "combination": combo, "molecule": mol, "success": True}
+            )
         except Exception as e:
-            molecules.append({
-                'index': i,
-                'combination': combo,
-                'molecule': None,
-                'success': False,
-                'error': str(e)
-            })
+            molecules.append(
+                {
+                    "index": i,
+                    "combination": combo,
+                    "molecule": None,
+                    "success": False,
+                    "error": str(e),
+                }
+            )
 
     return molecules
 
-def find_and_visualize_molecules(brutto_formula: str,
-                                 num_cooh: int = 0,
-                                 num_oh: int = 0,
-                                 max_bases: int = 10,
-                                 show_images: bool = True,
-                                 image_size: tuple = (400, 300)):
+
+def find_and_visualize_molecules(
+    brutto_formula: str,
+    num_cooh: int = 0,
+    num_oh: int = 0,
+    max_bases: int = 10,
+    show_images: bool = True,
+    image_size: tuple = (400, 300),
+):
     """Go from a brutto formula to assembled (and optionally drawn) molecules.
 
     Runs the full candidate-structure cycle: parse the formula, compute IHD,
@@ -349,15 +371,20 @@ def find_and_visualize_molecules(brutto_formula: str,
 
     # === ШАГ 2: Вычисление тяжёлой формулы и IHD ===
     full_formula = parse_formula(brutto_formula)
-    X = full_formula.get('F', 0) + full_formula.get('Cl', 0) + full_formula.get('Br', 0) + full_formula.get('I', 0)
+    X = (
+        full_formula.get("F", 0)
+        + full_formula.get("Cl", 0)
+        + full_formula.get("Br", 0)
+        + full_formula.get("I", 0)
+    )
 
     # Убираем водороды для тяжёлой формулы
-    heavy_formula = {k: v for k, v in full_formula.items() if k != 'H'}
+    heavy_formula = {k: v for k, v in full_formula.items() if k != "H"}
 
     # Вычисляем IHD по формуле: IHD = (2C + 2 - H + N) / 2
-    C = full_formula.get('C', 0)
-    H = full_formula.get('H', 0)
-    N = full_formula.get('N', 0)
+    C = full_formula.get("C", 0)
+    H = full_formula.get("H", 0)
+    N = full_formula.get("N", 0)
 
     ihd = (2 * C + 2 - H + N - X) / 2
 
@@ -373,32 +400,31 @@ def find_and_visualize_molecules(brutto_formula: str,
     print("🔍 Поиск возможных комбинаций фрагментов...")
 
     combinations = find_fragment_combinations(
-    target_heavy_formula=heavy_formula,
-    target_ihd=ihd,
-    num_cooh=num_cooh,
-    num_oh=num_oh,
-    max_bases=max_bases
-        )
+        target_heavy_formula=heavy_formula,
+        target_ihd=ihd,
+        num_cooh=num_cooh,
+        num_oh=num_oh,
+        max_bases=max_bases,
+    )
     print(f"✅ Найдено {len(combinations)} комбинаций")
-
 
     if not combinations:
         print("⚠️  Подходящих комбинаций не найдено")
         return {
-            'input': {'brutto': brutto_formula, 'cooh': num_cooh, 'oh': num_oh},
-            'heavy_formula': heavy_formula,
-            'ihd': ihd,
-            'combinations': [],
-            'molecules': [],
-            'images': []
+            "input": {"brutto": brutto_formula, "cooh": num_cooh, "oh": num_oh},
+            "heavy_formula": heavy_formula,
+            "ihd": ihd,
+            "combinations": [],
+            "molecules": [],
+            "images": [],
         }
 
     # === ШАГ 4: Сборка молекул ===
     print("\n🔧 Сборка молекул из комбинаций...")
     assembled = assemble_all_combinations(combinations)
 
-    successful = [r for r in assembled if r['success']]
-    failed = [r for r in assembled if not r['success']]
+    successful = [r for r in assembled if r["success"]]
+    failed = [r for r in assembled if not r["success"]]
 
     print(f"✅ Успешно собрано: {len(successful)}")
     if failed:
@@ -409,19 +435,19 @@ def find_and_visualize_molecules(brutto_formula: str,
     images = []
 
     for result in successful:
-        mol = result['molecule']
-        combo = result['combination']
+        mol = result["molecule"]
+        combo = result["combination"]
 
         mol_info = {
-            'index': result['index'],
-            'name': mol.name,
-            'formula': mol.heavy_formula,
-            'ihd': mol.ihd,
-            'num_atoms': mol.get_num_atoms(),
-            'num_bonds': len(mol.bonds),
-            'free_points': len(mol.get_free_attachment_points()),
-            'combination': combo,
-            'fragment_object': mol
+            "index": result["index"],
+            "name": mol.name,
+            "formula": mol.heavy_formula,
+            "ihd": mol.ihd,
+            "num_atoms": mol.get_num_atoms(),
+            "num_bonds": len(mol.bonds),
+            "free_points": len(mol.get_free_attachment_points()),
+            "combination": combo,
+            "fragment_object": mol,
         }
         molecules_data.append(mol_info)
 
@@ -430,7 +456,7 @@ def find_and_visualize_molecules(brutto_formula: str,
         print("\n🎨 Визуализация структур...")
         try:
             for mol_data in molecules_data:
-                mol_obj = mol_data['fragment_object']
+                mol_obj = mol_data["fragment_object"]
 
                 # Создаём RDKit молекулу
                 rdkit_mol = Chem.RWMol()
@@ -438,8 +464,12 @@ def find_and_visualize_molecules(brutto_formula: str,
                     rdkit_mol.AddAtom(Chem.Atom(symbol))
 
                 for i, j, order in mol_obj.bonds:
-                    bond_types = [Chem.BondType.SINGLE, Chem.BondType.DOUBLE, Chem.BondType.TRIPLE]
-                    rdkit_mol.AddBond(i, j, bond_types[order-1])
+                    bond_types = [
+                        Chem.BondType.SINGLE,
+                        Chem.BondType.DOUBLE,
+                        Chem.BondType.TRIPLE,
+                    ]
+                    rdkit_mol.AddBond(i, j, bond_types[order - 1])
 
                 rdkit_mol = rdkit_mol.GetMol()
 
@@ -448,7 +478,10 @@ def find_and_visualize_molecules(brutto_formula: str,
                     Chem.SanitizeMol(rdkit_mol)
                 except:
                     try:
-                        Chem.SanitizeMol(rdkit_mol, sanitizeOps=Chem.SANITIZE_ALL ^ Chem.SANITIZE_PROPERTIES)
+                        Chem.SanitizeMol(
+                            rdkit_mol,
+                            sanitizeOps=Chem.SANITIZE_ALL ^ Chem.SANITIZE_PROPERTIES,
+                        )
                     except:
                         pass
 
@@ -459,7 +492,7 @@ def find_and_visualize_molecules(brutto_formula: str,
                 # Генерируем изображение
                 img = Draw.MolToImage(rdkit_mol, size=image_size)
                 images.append(img)
-                mol_data['image'] = img
+                mol_data["image"] = img
 
             print(f"✅ Создано {len(images)} изображений")
 
@@ -468,29 +501,31 @@ def find_and_visualize_molecules(brutto_formula: str,
             print("   Установите: pip install rdkit")
 
     # === ШАГ 7: Вывод результатов ===
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print(f"📊 ИТОГО: найдено {len(molecules_data)} структур для {brutto_formula}")
-    print("="*60)
+    print("=" * 60)
 
     for i, mol_data in enumerate(molecules_data, 1):
         print(f"\n{i}. {mol_data['name']}")
         print(f"   Формула: {mol_data['formula']}")
         print(f"   IHD: {mol_data['ihd']}")
         print(f"   Фрагменты: {mol_data['combination']['bases']}")
-        print(f"   COOH: {mol_data['combination']['cooh']}, OH: {mol_data['combination']['oh']}")
+        print(
+            f"   COOH: {mol_data['combination']['cooh']}, OH: {mol_data['combination']['oh']}"
+        )
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
 
     return {
-        'input': {
-            'brutto': brutto_formula,
-            'cooh': num_cooh,
-            'oh': num_oh,
-            'max_bases': max_bases
+        "input": {
+            "brutto": brutto_formula,
+            "cooh": num_cooh,
+            "oh": num_oh,
+            "max_bases": max_bases,
         },
-        'heavy_formula': heavy_formula,
-        'ihd': ihd,
-        'combinations': combinations,
-        'molecules': molecules_data,
-        'images': images
+        "heavy_formula": heavy_formula,
+        "ihd": ihd,
+        "combinations": combinations,
+        "molecules": molecules_data,
+        "images": images,
     }

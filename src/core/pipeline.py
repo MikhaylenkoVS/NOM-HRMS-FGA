@@ -41,15 +41,20 @@ try:
         DELTA_CD3,
         DELTA_CD3CO,
     )
+
     _IMPORT_ERROR: Optional[str] = None
 except Exception as _e:
     _IMPORT_ERROR = str(_e)
-    print(f"[PIPELINE] CRITICAL: не удалось импортировать spectrum_ops: {_e}", file=sys.stderr)
+    print(
+        f"[PIPELINE] CRITICAL: не удалось импортировать spectrum_ops: {_e}",
+        file=sys.stderr,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Вспомогательные утилиты
 # ---------------------------------------------------------------------------
+
 
 def _debug(msg: str) -> None:
     print(f"[DEBUG] {msg}", flush=True)
@@ -91,6 +96,7 @@ def _normalize_brutto(value) -> Optional[str]:
         e.g. ``"C7H6O2"``; ``None`` for missing/empty input.
     """
     import re
+
     if pd.isna(value):
         return None
     s = str(value).strip()
@@ -107,10 +113,12 @@ def _normalize_brutto(value) -> Optional[str]:
             counts[elem] = counts.get(elem, 0) + n
         # Убираем нули
         counts = {k: v for k, v in counts.items() if v > 0}
+
         # Сортировка: C, H, потом остальные по алфавиту
         def sort_key(e: str) -> tuple:
             order = {"C": 0, "H": 1}
             return (order.get(e, 2), e)
+
         parts = []
         for elem in sorted(counts.keys(), key=sort_key):
             cnt = counts[elem]
@@ -137,14 +145,14 @@ def _subtract_one_h(brutto: str) -> str:
     if not brutto:
         return brutto
     counts = parse_formula(brutto)
-    h = counts.get('H', 0)
+    h = counts.get("H", 0)
     if h <= 1:
         return brutto
-    counts['H'] = h - 1
+    counts["H"] = h - 1
     # rebuild using Hill notation (or simple loop)
     # You can use the helper from molecule.py or write a small rebuild:
     parts = []
-    for el in ['C', 'H'] + sorted(k for k in counts if k not in ('C', 'H')):
+    for el in ["C", "H"] + sorted(k for k in counts if k not in ("C", "H")):
         if el in counts and counts[el] > 0:
             parts.append(el if counts[el] == 1 else f"{el}{counts[el]}")
     return "".join(parts)
@@ -181,16 +189,22 @@ def _match_row_by_mass(
     if table is None or table.empty:
         return None
     if mass_col not in table.columns:
-        _debug(f"  _match_row_by_mass: колонка '{mass_col}' не найдена, доступны {list(table.columns)}")
+        _debug(
+            f"  _match_row_by_mass: колонка '{mass_col}' не найдена, доступны {list(table.columns)}"
+        )
         return None
     work = table.copy()
-    work["_ppm"] = work[mass_col].astype(float).apply(
-        lambda x: _ppm_error(float(x), float(mass_obs))
+    work["_ppm"] = (
+        work[mass_col]
+        .astype(float)
+        .apply(lambda x: _ppm_error(float(x), float(mass_obs)))
     )
     work = work.loc[work["_ppm"] <= ppm_tol].copy()
     if require_assigned:
         if "assign" not in work.columns:
-            _debug("  _match_row_by_mass: require_assigned=True, но колонки 'assign' нет")
+            _debug(
+                "  _match_row_by_mass: require_assigned=True, но колонки 'assign' нет"
+            )
             return None
         work = work.loc[work["assign"] == True].copy()  # noqa: E712
     if work.empty:
@@ -201,6 +215,7 @@ def _match_row_by_mass(
 # ---------------------------------------------------------------------------
 # Датаклассы статистики
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SeriesStats:
@@ -215,6 +230,7 @@ class SeriesStats:
     missing_total : int
         Total number of missing (gap) steps across all series.
     """
+
     rows: int = 0
     max_groups: int = 0
     missing_total: int = 0
@@ -242,6 +258,7 @@ class PipelineStats:
     result_n_cooh_gt0, result_n_oh_gt0 : int
         Count of result rows with at least one -COOH / -OH group.
     """
+
     src_loaded: int = 0
     dmet_loaded: int = 0
     dacet_loaded: int = 0
@@ -274,6 +291,7 @@ class PipelineRunResult:
     messages : list of str
         Human-readable status/diagnostic messages produced during the run.
     """
+
     table: pd.DataFrame
     stats: PipelineStats
     messages: list[str] = field(default_factory=list)
@@ -282,6 +300,7 @@ class PipelineRunResult:
 # ---------------------------------------------------------------------------
 # Датаклассы тест-режима
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TestSetResult:
@@ -308,6 +327,7 @@ class TestSetResult:
     assigned_only : pandas.DataFrame or None
         Subset of assigned peaks, if produced.
     """
+
     set_name: str
     total_signals: int = 0
     denoised_kept: int = 0
@@ -342,6 +362,7 @@ class TestSetResult:
 # ---------------------------------------------------------------------------
 # Основной пайплайн
 # ---------------------------------------------------------------------------
+
 
 def run_pipeline(
     src_path=None,
@@ -466,7 +487,9 @@ def run_pipeline(
     if messages:
         for m in messages:
             print(m, file=sys.stderr)
-        return PipelineRunResult(table=pd.DataFrame(), stats=PipelineStats(), messages=messages)
+        return PipelineRunResult(
+            table=pd.DataFrame(), stats=PipelineStats(), messages=messages
+        )
 
     stats = PipelineStats()
 
@@ -483,9 +506,14 @@ def run_pipeline(
 
     _mapper = {"mass": "mass", "intensity": "intensity"}
     try:
-        src = load_spectrum(src_path, mapper=_mapper, sep=sep,
-                            mass_min=load_mass_min, mass_max=load_mass_max,
-                            metadata={"name": "src"})
+        src = load_spectrum(
+            src_path,
+            mapper=_mapper,
+            sep=sep,
+            mass_min=load_mass_min,
+            mass_max=load_mass_max,
+            metadata={"name": "src"},
+        )
         stats.src_loaded = len(src.table) if hasattr(src, "table") else 0
         _debug(f"src загружен: {stats.src_loaded} пиков")
     except Exception as e:
@@ -494,9 +522,14 @@ def run_pipeline(
         return PipelineRunResult(table=pd.DataFrame(), stats=stats, messages=[msg])
 
     try:
-        dmet = load_spectrum(dmet_path, mapper=_mapper, sep=sep,
-                             mass_min=load_mass_min, mass_max=load_mass_max,
-                             metadata={"name": "dmet"})
+        dmet = load_spectrum(
+            dmet_path,
+            mapper=_mapper,
+            sep=sep,
+            mass_min=load_mass_min,
+            mass_max=load_mass_max,
+            metadata={"name": "dmet"},
+        )
         stats.dmet_loaded = len(dmet.table) if hasattr(dmet, "table") else 0
         _debug(f"dmet загружен: {stats.dmet_loaded} пиков")
     except Exception as e:
@@ -505,9 +538,14 @@ def run_pipeline(
         return PipelineRunResult(table=pd.DataFrame(), stats=stats, messages=[msg])
 
     try:
-        dacet = load_spectrum(dacet_path, mapper=_mapper, sep=sep,
-                              mass_min=load_mass_min, mass_max=load_mass_max,
-                              metadata={"name": "dacet"})
+        dacet = load_spectrum(
+            dacet_path,
+            mapper=_mapper,
+            sep=sep,
+            mass_min=load_mass_min,
+            mass_max=load_mass_max,
+            metadata={"name": "dacet"},
+        )
         stats.dacet_loaded = len(dacet.table) if hasattr(dacet, "table") else 0
         _debug(f"dacet загружен: {stats.dacet_loaded} пиков")
     except Exception as e:
@@ -515,7 +553,9 @@ def run_pipeline(
         print(msg, file=sys.stderr)
         return PipelineRunResult(table=pd.DataFrame(), stats=stats, messages=[msg])
 
-    print(f"  Загружено пиков:  src={stats.src_loaded},  dmet={stats.dmet_loaded},  dacet={stats.dacet_loaded}")
+    print(
+        f"  Загружено пиков:  src={stats.src_loaded},  dmet={stats.dmet_loaded},  dacet={stats.dacet_loaded}"
+    )
 
     # -----------------------------------------------------------------------
     # ШАГ 2a: Шумоподавление
@@ -524,10 +564,14 @@ def run_pipeline(
     print("=" * 60)
     print("ШАГ 2a: Шумоподавление")
     print("=" * 60)
-    _debug(f"noise_force={noise_force}, noise_intensity={noise_intensity}, noise_quantile={noise_quantile}")
+    _debug(
+        f"noise_force={noise_force}, noise_intensity={noise_intensity}, noise_quantile={noise_quantile}"
+    )
 
     try:
-        src = denoise(src, force=noise_force, intensity=noise_intensity, quantile=noise_quantile)
+        src = denoise(
+            src, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
+        )
         stats.src_denoised = len(src.table) if hasattr(src, "table") else 0
         _debug(f"src после денойса: {stats.src_denoised} пиков")
     except Exception as e:
@@ -536,7 +580,9 @@ def run_pipeline(
         messages.append(msg)
 
     try:
-        dmet = denoise(dmet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile)
+        dmet = denoise(
+            dmet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
+        )
         stats.dmet_denoised = len(dmet.table) if hasattr(dmet, "table") else 0
         _debug(f"dmet после денойса: {stats.dmet_denoised} пиков")
     except Exception as e:
@@ -545,7 +591,9 @@ def run_pipeline(
         messages.append(msg)
 
     try:
-        dacet = denoise(dacet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile)
+        dacet = denoise(
+            dacet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
+        )
         stats.dacet_denoised = len(dacet.table) if hasattr(dacet, "table") else 0
         _debug(f"dacet после денойса: {stats.dacet_denoised} пиков")
     except Exception as e:
@@ -553,7 +601,9 @@ def run_pipeline(
         print(msg, file=sys.stderr)
         messages.append(msg)
 
-    print(f"  После шумоподавления: src={stats.src_denoised},  dmet={stats.dmet_denoised},  dacet={stats.dacet_denoised}")
+    print(
+        f"  После шумоподавления: src={stats.src_denoised},  dmet={stats.dmet_denoised},  dacet={stats.dacet_denoised}"
+    )
 
     # -----------------------------------------------------------------------
     # ШАГ 2b: Назначение брутто-формул
@@ -562,8 +612,10 @@ def run_pipeline(
     print("=" * 60)
     print("ШАГ 2b: Назначение брутто-формул исходному спектру")
     print("=" * 60)
-    _debug(f"assign_formulas: mode=simple, rel_error={rel_error}, sign={sign}, "
-           f"mass_min={assign_mass_min}, mass_max={assign_mass_max}")
+    _debug(
+        f"assign_formulas: mode=simple, rel_error={rel_error}, sign={sign}, "
+        f"mass_min={assign_mass_min}, mass_max={assign_mass_max}"
+    )
     _debug(f"brutto_dict={'default' if brutto_dict is None else brutto_dict}")
 
     try:
@@ -578,15 +630,21 @@ def run_pipeline(
         )
         n_assigned = int(src.table.get("assign", pd.Series(dtype=bool)).sum())
         stats.assigned_count = n_assigned
-        stats.assigned_ratio = n_assigned / stats.src_denoised if stats.src_denoised else 0.0
-        _debug(f"assign_formulas результат: {n_assigned}/{stats.src_denoised} пиков назначено "
-               f"({stats.assigned_ratio:.1%})")
+        stats.assigned_ratio = (
+            n_assigned / stats.src_denoised if stats.src_denoised else 0.0
+        )
+        _debug(
+            f"assign_formulas результат: {n_assigned}/{stats.src_denoised} пиков назначено "
+            f"({stats.assigned_ratio:.1%})"
+        )
         _debug(f"Колонки src.table после assign: {list(src.table.columns)}")
         # Превью первых 5 назначенных
         assigned_mask = src.table.get("assign", pd.Series(False, index=src.table.index))
         assigned_preview = src.table.loc[assigned_mask == True].head(5)  # noqa: E712
         if not assigned_preview.empty:
-            _debug(f"Первые назначенные пики:\n{assigned_preview.to_string(index=False)}")
+            _debug(
+                f"Первые назначенные пики:\n{assigned_preview.to_string(index=False)}"
+            )
         else:
             _debug("ВНИМАНИЕ: назначенных пиков нет!")
     except Exception as e:
@@ -603,11 +661,15 @@ def run_pipeline(
         if "brutto" in src.table.columns and "assign" in src.table.columns:
             mask = src.table["assign"] == True  # noqa: E712
             before = src.table.loc[mask, "brutto"].head(3).tolist()
-            src.table.loc[mask, "brutto"] = src.table.loc[mask, "brutto"].apply(_subtract_one_h)
+            src.table.loc[mask, "brutto"] = src.table.loc[mask, "brutto"].apply(
+                _subtract_one_h
+            )
             after = src.table.loc[mask, "brutto"].head(3).tolist()
             _debug(f"subtract_one_h: до={before}, после={after}")
         else:
-            _debug(f"ВНИМАНИЕ: нет колонок 'brutto'/'assign' в src.table, колонки: {list(src.table.columns)}")
+            _debug(
+                f"ВНИМАНИЕ: нет колонок 'brutto'/'assign' в src.table, колонки: {list(src.table.columns)}"
+            )
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА subtract_one_h: {e}\n{traceback.format_exc()}"
         print(msg, file=sys.stderr)
@@ -615,10 +677,16 @@ def run_pipeline(
 
     # Строим копию только с назначенными пиками
     try:
-        assigned_only_table = src.table.loc[src.table["assign"] == True].reset_index(drop=True).copy()  # noqa: E712
-        _debug(f"assigned_only: {len(assigned_only_table)} строк, колонки: {list(assigned_only_table.columns)}")
+        assigned_only_table = (
+            src.table.loc[src.table["assign"] == True].reset_index(drop=True).copy()
+        )  # noqa: E712
+        _debug(
+            f"assigned_only: {len(assigned_only_table)} строк, колонки: {list(assigned_only_table.columns)}"
+        )
         if assigned_only_table.empty:
-            _debug("КРИТИЧНО: assigned_only пуст – find_series вернёт пустой результат!")
+            _debug(
+                "КРИТИЧНО: assigned_only пуст – find_series вернёт пустой результат!"
+            )
     except Exception as e:
         _debug(f"ОШИБКА при создании assigned_only: {e}")
         assigned_only_table = pd.DataFrame()
@@ -630,12 +698,15 @@ def run_pipeline(
     print("=" * 60)
     print("ШАГ 3: Серии дейтерометилирования (-> N_COOH)")
     print("=" * 60)
-    _debug(f"find_series: delta={DELTA_CD3:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}")
+    _debug(
+        f"find_series: delta={DELTA_CD3:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}"
+    )
 
     df_dmet = pd.DataFrame()
     try:
         df_dmet = find_series(
-            src, dmet,
+            src,
+            dmet,
             delta=DELTA_CD3,
             ppm_tol=ppm_tol,
             max_groups=max_groups,
@@ -643,12 +714,18 @@ def run_pipeline(
         )
         stats.dmet.rows = len(df_dmet)
         if not df_dmet.empty:
-            stats.dmet.max_groups = int(df_dmet["n_groups"].max()) if "n_groups" in df_dmet.columns else 0
+            stats.dmet.max_groups = (
+                int(df_dmet["n_groups"].max()) if "n_groups" in df_dmet.columns else 0
+            )
             if "missing" in df_dmet.columns:
                 stats.dmet.missing_total = int(df_dmet["missing"].apply(len).sum())
-        _debug(f"find_series(dmet): {len(df_dmet)} строк, колонки={list(df_dmet.columns) if not df_dmet.empty else '[]'}")
+        _debug(
+            f"find_series(dmet): {len(df_dmet)} строк, колонки={list(df_dmet.columns) if not df_dmet.empty else '[]'}"
+        )
         if not df_dmet.empty:
-            _debug(f"  max_groups={stats.dmet.max_groups}, missing_total={stats.dmet.missing_total}")
+            _debug(
+                f"  max_groups={stats.dmet.max_groups}, missing_total={stats.dmet.missing_total}"
+            )
             _debug(f"Превью df_dmet:\n{df_dmet.head(3).to_string(index=False)}")
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА find_series(dmet): {e}\n{traceback.format_exc()}"
@@ -659,7 +736,9 @@ def run_pipeline(
     if not df_dmet.empty:
         print(f"  Макс. N_COOH = {stats.dmet.max_groups}")
         if stats.dmet.missing_total:
-            print(f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dmet.missing_total}")
+            print(
+                f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dmet.missing_total}"
+            )
 
     # -----------------------------------------------------------------------
     # ШАГ 4: Серии CD3CO (N_OH)
@@ -668,12 +747,15 @@ def run_pipeline(
     print("=" * 60)
     print("ШАГ 4: Серии дейтероацилирования (-> N_OH_total)")
     print("=" * 60)
-    _debug(f"find_series: delta={DELTA_CD3CO:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}")
+    _debug(
+        f"find_series: delta={DELTA_CD3CO:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}"
+    )
 
     df_dacet = pd.DataFrame()
     try:
         df_dacet = find_series(
-            src, dacet,
+            src,
+            dacet,
             delta=DELTA_CD3CO,
             ppm_tol=ppm_tol,
             max_groups=max_groups,
@@ -681,12 +763,16 @@ def run_pipeline(
         )
         stats.dacet.rows = len(df_dacet)
         if not df_dacet.empty:
-            stats.dacet.max_groups = int(df_dacet["n_groups"].max()) if "n_groups" in df_dacet.columns else 0
+            stats.dacet.max_groups = (
+                int(df_dacet["n_groups"].max()) if "n_groups" in df_dacet.columns else 0
+            )
             if "missing" in df_dacet.columns:
                 stats.dacet.missing_total = int(df_dacet["missing"].apply(len).sum())
         _debug(f"find_series(dacet): {len(df_dacet)} строк")
         if not df_dacet.empty:
-            _debug(f"  max_groups={stats.dacet.max_groups}, missing_total={stats.dacet.missing_total}")
+            _debug(
+                f"  max_groups={stats.dacet.max_groups}, missing_total={stats.dacet.missing_total}"
+            )
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА find_series(dacet): {e}\n{traceback.format_exc()}"
         print(msg, file=sys.stderr)
@@ -696,7 +782,9 @@ def run_pipeline(
     if not df_dacet.empty:
         print(f"  Макс. N_OH_total = {stats.dacet.max_groups}")
         if stats.dacet.missing_total:
-            print(f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dacet.missing_total}")
+            print(
+                f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dacet.missing_total}"
+            )
 
     # -----------------------------------------------------------------------
     # ШАГ 5: Итоговая таблица
@@ -737,17 +825,29 @@ def run_pipeline(
         print("ШАГ 6: Визуализация пропущенных пиков")
         print("=" * 60)
         try:
-            visualize_series(src, dmet, df_dmet,
-                             delta=DELTA_CD3, label="дейтерометилирования",
-                             ppm_tol=ppm_tol, save_path=save_dmet)
+            visualize_series(
+                src,
+                dmet,
+                df_dmet,
+                delta=DELTA_CD3,
+                label="дейтерометилирования",
+                ppm_tol=ppm_tol,
+                save_path=save_dmet,
+            )
         except Exception as e:
             msg = f"[PIPELINE] ОШИБКА visualize dmet: {e}"
             print(msg, file=sys.stderr)
             messages.append(msg)
         try:
-            visualize_series(src, dacet, df_dacet,
-                             delta=DELTA_CD3CO, label="дейтероацилирования",
-                             ppm_tol=ppm_tol, save_path=save_dacet)
+            visualize_series(
+                src,
+                dacet,
+                df_dacet,
+                delta=DELTA_CD3CO,
+                label="дейтероацилирования",
+                ppm_tol=ppm_tol,
+                save_path=save_dacet,
+            )
         except Exception as e:
             msg = f"[PIPELINE] ОШИБКА visualize dacet: {e}"
             print(msg, file=sys.stderr)
@@ -850,12 +950,18 @@ def _run_test_mode(
     print("=" * 70)
 
     if not test_sets_root.exists():
-        print(f"[TEST] ОШИБКА: директория тест-сетов не найдена: {test_sets_root}", file=sys.stderr)
+        print(
+            f"[TEST] ОШИБКА: директория тест-сетов не найдена: {test_sets_root}",
+            file=sys.stderr,
+        )
         return []
 
     test_sets = sorted(p for p in test_sets_root.glob("set_0*") if p.is_dir())
     if not test_sets:
-        print(f"[TEST] ОШИБКА: не найдено ни одного set* в {test_sets_root}", file=sys.stderr)
+        print(
+            f"[TEST] ОШИБКА: не найдено ни одного set* в {test_sets_root}",
+            file=sys.stderr,
+        )
         return []
 
     print(f"  Найдено сетов: {len(test_sets)} → {[p.name for p in test_sets]}")
@@ -939,19 +1045,27 @@ def _run_test_mode(
     any_fail = False
     for r in results:
         if r.denoise_recall < MIN_DENOISE_RECALL:
-            print(f"  FAIL denoise  {r.set_name}: {r.denoise_recall:.3f} < {MIN_DENOISE_RECALL}")
+            print(
+                f"  FAIL denoise  {r.set_name}: {r.denoise_recall:.3f} < {MIN_DENOISE_RECALL}"
+            )
             any_fail = True
         if r.assign_recall < MIN_ASSIGN_RECALL:
-            print(f"  FAIL assign   {r.set_name}: {r.assign_recall:.3f} < {MIN_ASSIGN_RECALL}")
+            print(
+                f"  FAIL assign   {r.set_name}: {r.assign_recall:.3f} < {MIN_ASSIGN_RECALL}"
+            )
             any_fail = True
         total = r.total_signals
         dmet_wrong_ratio = r.dmet_wrong / total if total else 0
         dacet_wrong_ratio = r.dacet_wrong / total if total else 0
         if dmet_wrong_ratio > MAX_WRONG_RATIO:
-            print(f"  FAIL dmet_wrong {r.set_name}: {dmet_wrong_ratio:.3f} > {MAX_WRONG_RATIO}")
+            print(
+                f"  FAIL dmet_wrong {r.set_name}: {dmet_wrong_ratio:.3f} > {MAX_WRONG_RATIO}"
+            )
             any_fail = True
         if dacet_wrong_ratio > MAX_WRONG_RATIO:
-            print(f"  FAIL dacet_wrong {r.set_name}: {dacet_wrong_ratio:.3f} > {MAX_WRONG_RATIO}")
+            print(
+                f"  FAIL dacet_wrong {r.set_name}: {dacet_wrong_ratio:.3f} > {MAX_WRONG_RATIO}"
+            )
             any_fail = True
     if not any_fail:
         print("  Все пороги пройдены ✓")
@@ -1037,15 +1151,25 @@ def _run_single_test_set(
     # ── читаем annotations ───────────────────────────────────────────────
     try:
         ann = pd.read_csv(ann_path)
-        _debug(f"{set_dir.name} annotations: {len(ann)} строк, колонки={list(ann.columns)}")
-        required_cols = {"spectrum_type", "is_signal", "mass_obs", "compound_number", "formula"}
+        _debug(
+            f"{set_dir.name} annotations: {len(ann)} строк, колонки={list(ann.columns)}"
+        )
+        required_cols = {
+            "spectrum_type",
+            "is_signal",
+            "mass_obs",
+            "compound_number",
+            "formula",
+        }
         missing_cols = required_cols - set(ann.columns)
         if missing_cols:
             msg = f"annotations.csv: отсутствуют колонки {sorted(missing_cols)}"
             print(f"  [ERROR] {msg}")
             res.errors.append(msg)
             return res
-        ann_orig = ann[(ann["spectrum_type"] == "original") & (ann["is_signal"] == True)].copy()  # noqa: E712
+        ann_orig = ann[
+            (ann["spectrum_type"] == "original") & (ann["is_signal"] == True)
+        ].copy()  # noqa: E712
         _debug(f"{set_dir.name} ann_orig (original+is_signal): {len(ann_orig)} строк")
         res.total_signals = len(ann_orig)
     except Exception as e:
@@ -1058,7 +1182,9 @@ def _run_single_test_set(
     molecules = pd.DataFrame()
     try:
         molecules = pd.read_csv(molecules_path)
-        _debug(f"{set_dir.name} molecules: {len(molecules)} строк, колонки={list(molecules.columns)}")
+        _debug(
+            f"{set_dir.name} molecules: {len(molecules)} строк, колонки={list(molecules.columns)}"
+        )
     except Exception as e:
         msg = f"ошибка чтения molecules: {e}"
         print(f"  [WARN] {msg}")
@@ -1107,8 +1233,12 @@ def _run_single_test_set(
 
     # ── денойс ──────────────────────────────────────────────────────────
     try:
-        src_d = denoise(src, force=noise_force, intensity=noise_intensity, quantile=noise_quantile)
-        _debug(f"{set_dir.name} denoised: {len(src_d.table)} строк (было {len(src.table)})")
+        src_d = denoise(
+            src, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
+        )
+        _debug(
+            f"{set_dir.name} denoised: {len(src_d.table)} строк (было {len(src.table)})"
+        )
     except Exception as e:
         msg = f"denoise: {e}\n{traceback.format_exc()}"
         print(f"  [ERROR] {msg}")
@@ -1120,14 +1250,20 @@ def _run_single_test_set(
     denoise_missing = []
     for _, row in ann_orig.iterrows():
         mass_obs = float(row["mass_obs"])
-        match = _match_row_by_mass(src_d.table, mass_obs, ppm_tol=_TEST_MATCH_PPM, require_assigned=False)
+        match = _match_row_by_mass(
+            src_d.table, mass_obs, ppm_tol=_TEST_MATCH_PPM, require_assigned=False
+        )
         if match is None:
-            denoise_missing.append({"mass_obs": mass_obs, "compound_number": row.get("compound_number")})
+            denoise_missing.append(
+                {"mass_obs": mass_obs, "compound_number": row.get("compound_number")}
+            )
         else:
             denoised_kept += 1
     res.denoised_kept = denoised_kept
     denoise_recall = denoised_kept / res.total_signals if res.total_signals else 0.0
-    _debug(f"{set_dir.name} denoise recall: {denoised_kept}/{res.total_signals} = {denoise_recall:.3f}")
+    _debug(
+        f"{set_dir.name} denoise recall: {denoised_kept}/{res.total_signals} = {denoise_recall:.3f}"
+    )
     if denoise_missing:
         _debug(f"{set_dir.name} denoise missing (первые 3): {denoise_missing[:3]}")
 
@@ -1161,9 +1297,9 @@ def _run_single_test_set(
     try:
         assigned_table = src_a.table.copy()
         mask_assigned = assigned_table["assign"] == True  # noqa: E712
-        assigned_table.loc[mask_assigned, "brutto"] = (
-            assigned_table.loc[mask_assigned, "brutto"].apply(_subtract_one_h)
-        )
+        assigned_table.loc[mask_assigned, "brutto"] = assigned_table.loc[
+            mask_assigned, "brutto"
+        ].apply(_subtract_one_h)
         src_a.table = assigned_table
         _debug(f"{set_dir.name} subtract_one_h применён к {mask_assigned} строкам")
     except Exception as e:
@@ -1173,7 +1309,9 @@ def _run_single_test_set(
 
     # assigned_only: только назначенные
     try:
-        assigned_only = src_a.table.loc[src_a.table["assign"] == True].reset_index(drop=True).copy()  # noqa: E712
+        assigned_only = (
+            src_a.table.loc[src_a.table["assign"] == True].reset_index(drop=True).copy()
+        )  # noqa: E712
         _debug(f"{set_dir.name} assigned_only: {len(assigned_only)} строк")
         if assigned_only.empty:
             msg = "assigned_only пуст – find_series не найдёт серий!"
@@ -1194,30 +1332,40 @@ def _run_single_test_set(
     for _, row in ann_orig.iterrows():
         mass_obs = float(row["mass_obs"])
         formula_true = _normalize_brutto(str(row["formula"]))
-        match = _match_row_by_mass(src_a.table, mass_obs, ppm_tol=_TEST_MATCH_PPM, require_assigned=True)
+        match = _match_row_by_mass(
+            src_a.table, mass_obs, ppm_tol=_TEST_MATCH_PPM, require_assigned=True
+        )
         if match is None:
-            assign_missing.append({"mass_obs": mass_obs, "compound_number": row.get("compound_number")})
+            assign_missing.append(
+                {"mass_obs": mass_obs, "compound_number": row.get("compound_number")}
+            )
             continue
         brutto_found = _normalize_brutto(match.get("brutto"))
         if brutto_found != formula_true:
-            wrong_brutto.append({
-                "mass_obs": mass_obs,
-                "compound_number": row.get("compound_number"),
-                "expected": formula_true,
-                "actual": brutto_found,
-            })
+            wrong_brutto.append(
+                {
+                    "mass_obs": mass_obs,
+                    "compound_number": row.get("compound_number"),
+                    "expected": formula_true,
+                    "actual": brutto_found,
+                }
+            )
             continue
         assigned_ok += 1
 
     res.assigned_ok = assigned_ok
     assign_recall = assigned_ok / res.total_signals if res.total_signals else 0.0
-    _debug(f"{set_dir.name} assign recall: {assigned_ok}/{res.total_signals} = {assign_recall:.3f}")
+    _debug(
+        f"{set_dir.name} assign recall: {assigned_ok}/{res.total_signals} = {assign_recall:.3f}"
+    )
     if assign_missing:
         _debug(f"{set_dir.name} assign missing (первые 3): {assign_missing[:3]}")
     if wrong_brutto:
         _debug(f"{set_dir.name} wrong brutto (первые 3): {wrong_brutto[:3]}")
 
-    print(f"  denoise recall: {denoised_kept}/{res.total_signals} = {denoise_recall:.1%}")
+    print(
+        f"  denoise recall: {denoised_kept}/{res.total_signals} = {denoise_recall:.1%}"
+    )
     print(f"  assign  recall: {assigned_ok}/{res.total_signals} = {assign_recall:.1%}")
 
     # ── Создаём Spectrum для assigned_only ───────────────────────────────
@@ -1230,7 +1378,9 @@ def _run_single_test_set(
         src_assigned_only_sp = src_a.copy()
         src_assigned_only_sp.table = assigned_only
     except Exception as e:
-        _debug(f"{set_dir.name} не удалось создать assigned_only Spectrum: {e}, используем src_a")
+        _debug(
+            f"{set_dir.name} не удалось создать assigned_only Spectrum: {e}, используем src_a"
+        )
         src_assigned_only_sp = src_a
 
     # ── find_series: dmet ────────────────────────────────────────────────
@@ -1239,7 +1389,8 @@ def _run_single_test_set(
     if dmet_sp is not None and not assigned_only.empty:
         try:
             df_dmet_res = find_series(
-                src_assigned_only_sp, dmet_sp,
+                src_assigned_only_sp,
+                dmet_sp,
                 delta=DELTA_CD3,
                 ppm_tol=ppm_tol,
                 max_groups=max_groups,
@@ -1248,7 +1399,9 @@ def _run_single_test_set(
             )
             res.dmet_found = len(df_dmet_res)
             _debug(f"{set_dir.name} find_series(dmet): {len(df_dmet_res)} строк")
-            _debug(f"  Колонки: {list(df_dmet_res.columns) if not df_dmet_res.empty else '[]'}")
+            _debug(
+                f"  Колонки: {list(df_dmet_res.columns) if not df_dmet_res.empty else '[]'}"
+            )
             if not df_dmet_res.empty:
                 _debug(f"Превью df_dmet:\n{df_dmet_res.head(3).to_string(index=False)}")
         except Exception as e:
@@ -1266,7 +1419,8 @@ def _run_single_test_set(
     if dacet_sp is not None and not assigned_only.empty:
         try:
             df_dacet_res = find_series(
-                src_assigned_only_sp, dacet_sp,
+                src_assigned_only_sp,
+                dacet_sp,
                 delta=DELTA_CD3CO,
                 ppm_tol=ppm_tol,
                 max_groups=max_groups,
@@ -1283,16 +1437,47 @@ def _run_single_test_set(
     # ── Сверка серий с annotations ───────────────────────────────────────
     _dm_file = _sf["deutermethylated"]
     _da_file = _sf["deuteroacylated"]
-    for deriv_file, delta, deriv_label, sp_result, res_found_attr, res_matched_attr, res_wrong_attr in [
-        (_dm_file, DELTA_CD3, "dmet", df_dmet_res, "dmet_found", "dmet_matched", "dmet_wrong"),
-        (_da_file, DELTA_CD3CO, "dacet", df_dacet_res, "dacet_found", "dacet_matched", "dacet_wrong"),
+    for (
+        deriv_file,
+        delta,
+        deriv_label,
+        sp_result,
+        res_found_attr,
+        res_matched_attr,
+        res_wrong_attr,
+    ) in [
+        (
+            _dm_file,
+            DELTA_CD3,
+            "dmet",
+            df_dmet_res,
+            "dmet_found",
+            "dmet_matched",
+            "dmet_wrong",
+        ),
+        (
+            _da_file,
+            DELTA_CD3CO,
+            "dacet",
+            df_dacet_res,
+            "dacet_found",
+            "dacet_matched",
+            "dacet_wrong",
+        ),
     ]:
         if sp_result.empty:
             _debug(f"{set_dir.name} {deriv_label}: результат пустой, сверка невозможна")
             continue
 
         # Проверяем обязательные колонки
-        expected_cols = {"mass_src", "brutto", "n_groups", "steps_found", "missing", "series_mz"}
+        expected_cols = {
+            "mass_src",
+            "brutto",
+            "n_groups",
+            "steps_found",
+            "missing",
+            "series_mz",
+        }
         actual_cols = set(sp_result.columns)
         missing_result_cols = expected_cols - actual_cols
         if missing_result_cols:
@@ -1326,7 +1511,13 @@ def _run_single_test_set(
             tol_da = mass_obs * _TEST_MATCH_PPM * 1e-6
             candidates = sp_result.loc[diff <= tol_da]
             if candidates.empty:
-                missing_series.append({"mass_obs": mass_obs, "compound_number": compound_num, "expected_len": expected_len})
+                missing_series.append(
+                    {
+                        "mass_obs": mass_obs,
+                        "compound_number": compound_num,
+                        "expected_len": expected_len,
+                    }
+                )
                 continue
 
             matched_series += 1
@@ -1335,12 +1526,14 @@ def _run_single_test_set(
             if expected_len is not None and "n_groups" in result_row:
                 actual_len = int(result_row["n_groups"])
                 if actual_len != expected_len:
-                    wrong_length.append({
-                        "mass_obs": mass_obs,
-                        "compound_number": compound_num,
-                        "expected": expected_len,
-                        "actual": actual_len,
-                    })
+                    wrong_length.append(
+                        {
+                            "mass_obs": mass_obs,
+                            "compound_number": compound_num,
+                            "expected": expected_len,
+                            "actual": actual_len,
+                        }
+                    )
 
         setattr(res, res_matched_attr, matched_series)
         wrong_count = len(missing_series) + len(wrong_length)
@@ -1375,9 +1568,11 @@ def _run_single_test_set(
         res.errors.append(msg)
 
     # Итог по сету
-    print(f"  ИТОГ {set_dir.name}: "
-          f"denoise={denoise_recall:.1%}, assign={assign_recall:.1%}, "
-          f"errors={len(res.errors)}")
+    print(
+        f"  ИТОГ {set_dir.name}: "
+        f"denoise={denoise_recall:.1%}, assign={assign_recall:.1%}, "
+        f"errors={len(res.errors)}"
+    )
     if res.errors:
         print(f"  ОШИБКИ ({len(res.errors)}):")
         for err in res.errors:
@@ -1395,12 +1590,20 @@ def _run_single_test_set(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="pipeline.py – анализ масс-спектров гуминовых веществ")
-    parser.add_argument("--test", action="store_true", help="Запустить тест-режим по set_01..set_05")
-    parser.add_argument("--sets-root", type=str, default=None, help="Путь к директории с тест-сетами")
+    parser = argparse.ArgumentParser(
+        description="pipeline.py – анализ масс-спектров гуминовых веществ"
+    )
+    parser.add_argument(
+        "--test", action="store_true", help="Запустить тест-режим по set_01..set_05"
+    )
+    parser.add_argument(
+        "--sets-root", type=str, default=None, help="Путь к директории с тест-сетами"
+    )
     args = parser.parse_args()
 
     if args.test:
         run_pipeline(test_mode=True, test_sets_root=args.sets_root)
     else:
-        print("Используйте --test для запуска тест-режима, или импортируйте run_pipeline() из кода.")
+        print(
+            "Используйте --test для запуска тест-режима, или импортируйте run_pipeline() из кода."
+        )

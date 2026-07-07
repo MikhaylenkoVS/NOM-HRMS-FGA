@@ -4,6 +4,7 @@ Reads a raw PubChem export, keeps neutral CHNO-only molecules, computes
 Van Krevelen ratios (H/C, O/C) and a NOM-like flag, plots the diagram and
 splits the survivors into five balanced ``molecules.csv`` test sets.
 """
+
 from pathlib import Path
 from typing import Dict
 import numpy as np
@@ -19,6 +20,7 @@ INPUT_PATH = REF_DIR / "ref_molecules_all_pubchem.csv"
 OUTPUT_FILTERED_PATH = REF_DIR / "ref_molecules_all_pubchem_filtered.csv"
 OUTPUT_VK_PATH = REF_DIR / "ref_molecules_all_pubchem_filtered.csv"
 VK_PLOT_PATH = REF_DIR / "van_krevelen_nom_like.png"
+
 
 def parse_formula(formula: str) -> Dict[str, int]:
     """Parse a brutto formula into an ``{element: count}`` dict.
@@ -86,6 +88,7 @@ def is_chno_only(formula: str) -> bool:
 
     allowed = {"C", "H", "N", "O"}
     return all(elem in allowed for elem in comp.keys())
+
 
 def filter_candidates() -> pd.DataFrame:
     """Keep neutral, CHNO-only candidates from the raw PubChem export.
@@ -184,6 +187,7 @@ def add_van_krevelen_and_nom_flag(df: pd.DataFrame) -> pd.DataFrame:
     df.to_csv(OUTPUT_VK_PATH, index=False)
     return df
 
+
 def plot_van_krevelen(df: pd.DataFrame) -> None:
     """Plot and save a Van Krevelen (H/C vs O/C) diagram.
 
@@ -216,6 +220,7 @@ def plot_van_krevelen(df: pd.DataFrame) -> None:
     plt.savefig(VK_PLOT_PATH, dpi=200)
     plt.close()
 
+
 def debug_input():
     """Print a quick summary of the raw PubChem input file.
 
@@ -234,6 +239,7 @@ def debug_input():
         print("mass describe:\n", df["mass"].describe())
     if "exact_mass" in df.columns:
         print("exact_mass describe:\n", df["exact_mass"].describe())
+
 
 def split_into_sets(df: pd.DataFrame, n_sets: int = 5) -> list[pd.DataFrame]:
     """Split candidates into balanced subsets by round-robin dealing.
@@ -258,7 +264,7 @@ def split_into_sets(df: pd.DataFrame, n_sets: int = 5) -> list[pd.DataFrame]:
     df_sorted = df.sort_values(["O_C", "H_C", "mass_val"]).reset_index(drop=True)
 
     # перемешаем блоками: будем раздавать по кругу
-    sets = [ [] for _ in range(n_sets) ]
+    sets = [[] for _ in range(n_sets)]
 
     for idx, row in df_sorted.iterrows():
         set_idx = idx % n_sets
@@ -266,6 +272,7 @@ def split_into_sets(df: pd.DataFrame, n_sets: int = 5) -> list[pd.DataFrame]:
 
     set_dfs = [pd.DataFrame(rows) for rows in sets]
     return set_dfs
+
 
 def save_sets(set_dfs: list[pd.DataFrame]) -> None:
     """Write each subset to ``data/test_sets/set_0i/molecules.csv``.
@@ -283,17 +290,25 @@ def save_sets(set_dfs: list[pd.DataFrame]) -> None:
     """
     for i, sdf in enumerate(set_dfs, start=1):
         set_id = f"set_0{i}"
-        out_path = SUBPROJECT_ROOT / PATHS.test_sets_dir / set_id / PATHS.spectrum_files["molecules"]
+        out_path = (
+            SUBPROJECT_ROOT
+            / PATHS.test_sets_dir
+            / set_id
+            / PATHS.spectrum_files["molecules"]
+        )
 
         # обновим set_id и compound_number 1..N внутри каждого набора
         sdf = sdf.copy()
         sdf["set_id"] = set_id
         sdf = sdf.reset_index(drop=True)
         sdf["compound_number"] = sdf.index + 1
-        sdf["compound_id"] = sdf["compound_number"].apply(lambda x: f"{set_id.upper()}_{x:03d}")
+        sdf["compound_id"] = sdf["compound_number"].apply(
+            lambda x: f"{set_id.upper()}_{x:03d}"
+        )
 
         sdf.to_csv(out_path, index=False)
         print(f"Saved {len(sdf)} rows to {out_path}")
+
 
 if __name__ == "__main__":
     filtered_df = filter_candidates()

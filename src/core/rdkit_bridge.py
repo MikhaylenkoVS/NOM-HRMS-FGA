@@ -5,7 +5,9 @@ Provides converters and visualization helpers that turn the project's own
 2D depictions. RDKit (and IPython, for inline display) is imported lazily so
 the rest of the pipeline can run without it installed.
 """
+
 from src.core.molecule import Molecule
+
 
 def to_rdkit_mol(fragment: Molecule):
     """Convert an internal molecule/fragment to a sanitized RDKit ``Mol``.
@@ -59,9 +61,12 @@ def to_rdkit_mol(fragment: Molecule):
         Chem.SanitizeMol(mol, sanitizeOps=Chem.SANITIZE_ALL ^ Chem.SANITIZE_PROPERTIES)
     except:
         # Если полная санитизация не удалась, пробуем базовую
-        Chem.SanitizeMol(mol, sanitizeOps=Chem.SANITIZE_FINDRADICALS |
-                                          Chem.SANITIZE_SETAROMATICITY |
-                                          Chem.SANITIZE_SETCONJUGATION)
+        Chem.SanitizeMol(
+            mol,
+            sanitizeOps=Chem.SANITIZE_FINDRADICALS
+            | Chem.SANITIZE_SETAROMATICITY
+            | Chem.SANITIZE_SETCONJUGATION,
+        )
 
     # Теперь можем добавить водороды
     mol = Chem.AddHs(mol)
@@ -72,9 +77,11 @@ def to_rdkit_mol(fragment: Molecule):
     return mol
 
 
-def visualize_fragment(fragment: Molecule,
-                       highlight_attachment_points: bool = True,
-                       size: tuple = (400, 300)):
+def visualize_fragment(
+    fragment: Molecule,
+    highlight_attachment_points: bool = True,
+    size: tuple = (400, 300),
+):
     """Render a single fragment to a PIL image with RDKit.
 
     Parameters
@@ -101,19 +108,18 @@ def visualize_fragment(fragment: Molecule,
         highlight_atoms = fragment.attachment_points
 
     img = Draw.MolToImage(
-        mol,
-        size=size,
-        highlightAtoms=highlight_atoms,
-        highlightColor=(0.8, 1.0, 0.8)
+        mol, size=size, highlightAtoms=highlight_atoms, highlightColor=(0.8, 1.0, 0.8)
     )
 
     return img
 
 
-def visualize_fragments_grid(fragments: list,
-                             names: list = None,
-                             mols_per_row: int = 3,
-                             subImgSize: tuple = (300, 250)):
+def visualize_fragments_grid(
+    fragments: list,
+    names: list = None,
+    mols_per_row: int = 3,
+    subImgSize: tuple = (300, 250),
+):
     """Render several fragments as a labelled grid image.
 
     Parameters
@@ -144,24 +150,22 @@ def visualize_fragments_grid(fragments: list,
 
     legends = []
     for i, frag in enumerate(fragments):
-        formula_str = ''.join(f"{el}{n if n > 1 else ''}"
-                             for el, n in sorted(frag.heavy_formula.items()))
+        formula_str = "".join(
+            f"{el}{n if n > 1 else ''}" for el, n in sorted(frag.heavy_formula.items())
+        )
         legend = f"{names[i]}\n{formula_str}, IHD={frag.ihd}"
         legends.append(legend)
 
     img = Draw.MolsToGridImage(
-        mols,
-        molsPerRow=mols_per_row,
-        subImgSize=subImgSize,
-        legends=legends
+        mols, molsPerRow=mols_per_row, subImgSize=subImgSize, legends=legends
     )
 
     return img
 
 
-def visualize_connection_sequence(fragments: list,
-                                  connections: list,
-                                  size: tuple = (400, 300)):
+def visualize_connection_sequence(
+    fragments: list, connections: list, size: tuple = (400, 300)
+):
     """Draw the stepwise assembly of a molecule from its fragments.
 
     Starting from the first fragment, each subsequent fragment is joined
@@ -190,7 +194,7 @@ def visualize_connection_sequence(fragments: list,
 
     current = fragments[0]
     img = visualize_fragment(current, size=size)
-    images.append(('Исходный: ' + current.name, img))
+    images.append(("Исходный: " + current.name, img))
 
     for i, (frag, conn) in enumerate(zip(fragments[1:], connections), 1):
         my_point, other_point, bond_order = conn
@@ -238,11 +242,11 @@ def print_molecule_info(mol: Molecule, index: int = None):
         print(f"  ... и еще {len(mol.atoms) - 10} атомов")
 
     print(f"\nСвязи (первые 10):")
-    bond_symbols = {1: '-', 2: '=', 3: '≡'}
+    bond_symbols = {1: "-", 2: "=", 3: "≡"}
     for i, (a1, a2, order) in enumerate(mol.edges[:10]):
         symbol1 = mol.atoms[a1].symbol
         symbol2 = mol.atoms[a2].symbol
-        bond = bond_symbols.get(order, '-')
+        bond = bond_symbols.get(order, "-")
         print(f"  {symbol1}{a1} {bond} {symbol2}{a2}")
     if len(mol.edges) > 10:
         print(f"  ... и еще {len(mol.edges) - 10} связей")
@@ -286,14 +290,12 @@ def visualize_with_rdkit(mol: Molecule):
         bond_types = {
             1: Chem.BondType.SINGLE,
             2: Chem.BondType.DOUBLE,
-            3: Chem.BondType.TRIPLE
+            3: Chem.BondType.TRIPLE,
         }
 
         for a1, a2, order in mol.edges:
             rdkit_mol.AddBond(
-                atom_map[a1],
-                atom_map[a2],
-                bond_types.get(order, Chem.BondType.SINGLE)
+                atom_map[a1], atom_map[a2], bond_types.get(order, Chem.BondType.SINGLE)
             )
 
         # Конвертируем в Mol
@@ -301,6 +303,7 @@ def visualize_with_rdkit(mol: Molecule):
 
         # Оптимизируем геометрию
         from rdkit.Chem import AllChem
+
         AllChem.Compute2DCoords(final_mol)
 
         # Отображаем

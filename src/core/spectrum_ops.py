@@ -18,6 +18,7 @@ A homologous "series" is a chain of peaks spaced by an integer multiple of
 one of these increments; the length of the series equals the number of
 reactive functional groups on the parent molecule.
 """
+
 import pandas as pd
 import logging
 from nomspectra.spectrum import Spectrum
@@ -36,8 +37,12 @@ from typing import Literal, Sequence
 # ---------------------------------------------------------------------------
 # Константы (единый источник — src/configs/chemistry.json)
 # ---------------------------------------------------------------------------
-DELTA_CD3   = CHEM.derivatization_shifts["delta_cd3"]    # Da: сдвиг m/z при замене COOH -> COOCD3
-DELTA_CD3CO = CHEM.derivatization_shifts["delta_cd3co"]  # Da: сдвиг m/z при замене OH  -> OCOCD3
+DELTA_CD3 = CHEM.derivatization_shifts[
+    "delta_cd3"
+]  # Da: сдвиг m/z при замене COOH -> COOCD3
+DELTA_CD3CO = CHEM.derivatization_shifts[
+    "delta_cd3co"
+]  # Da: сдвиг m/z при замене OH  -> OCOCD3
 
 
 # ===========================================================================
@@ -47,9 +52,7 @@ DELTA_CD3CO = CHEM.derivatization_shifts["delta_cd3co"]  # Da: сдвиг m/z п
 logger = logging.getLogger(__name__)
 # Monoisotopic masses of the elements handled by the [M-H]- assignment
 # (single source of truth: chemistry.json -> monoisotopic_masses).
-ATOMIC_MASS = {
-    el: CHEM.monoisotopic_masses[el] for el in CHEM.atomic_mass_elements
-}
+ATOMIC_MASS = {el: CHEM.monoisotopic_masses[el] for el in CHEM.atomic_mass_elements}
 
 # Formula-search defaults (single source of truth: pipeline.json -> formula_search).
 # JSON stores ranges as [min, max] lists; convert to tuples to preserve the
@@ -91,14 +94,15 @@ class FormulaSearchConfig:
     ValueError
         If any element in ``elements`` lacks a range in ``ranges``.
     """
+
     elements: tuple[str, ...] = _FS_ELEMENTS
     ranges: dict[str, tuple[int, int]] | None = None
     # Plausibility filters (defaults from pipeline.json -> formula_search).
-    max_hc: float = _FORMULA_SEARCH["max_hc"]      # H/C <= 3
-    max_oc: float = _FORMULA_SEARCH["max_oc"]      # O/C <= 1.2
-    max_nc: float = _FORMULA_SEARCH["max_nc"]      # N/C <= 1.0
-    max_dbe: float = _FORMULA_SEARCH["max_dbe"]    # DBE <= 30
-    min_c: int = _FORMULA_SEARCH["min_c"]          # minimum carbons
+    max_hc: float = _FORMULA_SEARCH["max_hc"]  # H/C <= 3
+    max_oc: float = _FORMULA_SEARCH["max_oc"]  # O/C <= 1.2
+    max_nc: float = _FORMULA_SEARCH["max_nc"]  # N/C <= 1.0
+    max_dbe: float = _FORMULA_SEARCH["max_dbe"]  # DBE <= 30
+    min_c: int = _FORMULA_SEARCH["min_c"]  # minimum carbons
 
     def __post_init__(self):
         if self.ranges is None:
@@ -149,6 +153,7 @@ def dbe_from_counts(counts: dict[str, int]) -> float:
     n = counts.get("N", 0)
     return 1 + c - h / 2.0 + n / 2.0
 
+
 def _row_to_brutto(row, element_order=None):
     """Build a Hill-like brutto formula string from element columns of a row.
 
@@ -180,6 +185,7 @@ def _row_to_brutto(row, element_order=None):
             if val > 0:
                 parts.append(el if val == 1 else f"{el}{val}")
     return "".join(parts) if parts else None
+
 
 def load_spectrum(
     path,
@@ -272,9 +278,11 @@ def load_spectrum(
     sp = Spectrum(table=df, metadata=metadata)
     return sp
 
+
 # ===========================================================================
 # Шумоподавление
 # ===========================================================================
+
 
 def denoise(
     spec,
@@ -320,6 +328,7 @@ def denoise(
 DEFAULT_BRUTTO_DICT = {
     el: tuple(rng) for el, rng in PIPELINE.default_brutto_dict.items()
 }
+
 
 def _generate_candidate_formulas(
     mass_min: float,
@@ -433,6 +442,7 @@ def _generate_candidate_formulas(
 
     return result
 
+
 def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     """Convert a neutral mass to observed m/z for a given ion type.
 
@@ -471,6 +481,7 @@ def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     # можно добавить другие аддукты позже
     raise ValueError(f"Unknown ion_mode: {ion_mode}")
 
+
 def assign_formulas_simple(
     src,
     rel_error_ppm: float = 1.0,
@@ -478,7 +489,7 @@ def assign_formulas_simple(
     mass_max: float | None = None,
     search_config: FormulaSearchConfig | None = None,
     brutto_generation_mode: str = "nom_like",  # "nom_like" или "soft"
-    ion_mode: str = CHEM.default_ion_mode,       # тип иона; по умолчанию из chemistry.json
+    ion_mode: str = CHEM.default_ion_mode,  # тип иона; по умолчанию из chemistry.json
 ):
     """Assign brutto formulas by brute-force CHON enumeration.
 
@@ -585,6 +596,7 @@ def assign_formulas_simple(
     src.table = table
     return src
 
+
 AssignMode = Literal["simple", "nomspectra"]
 
 
@@ -675,12 +687,13 @@ def _ensure_brutto_from_element_columns(src):
     src.table = df
     return src
 
+
 def assign_formulas_nomspectra(
     src,
     *,
     brutto_dict=None,
     rel_error=0.5,
-    sign='-',
+    sign="-",
     mass_min=None,
     mass_max=None,
 ):
@@ -727,7 +740,7 @@ def assign_formulas_nomspectra(
         warnings.warn("Mass_max is less than mass_min")
 
     if not isinstance(src, Spectrum):
-        raise TypeError(f'Некорректный формат файла {src}')
+        raise TypeError(f"Некорректный формат файла {src}")
 
     if brutto_dict is None:
         brutto_dict = DEFAULT_BRUTTO_DICT
@@ -736,7 +749,9 @@ def assign_formulas_nomspectra(
 
     for el, bounds in brutto_dict.items():
         if not (isinstance(bounds, (tuple, list)) and len(bounds) == 2):
-            raise ValueError(f"Для элемента {el!r} ожидается (min, max), получено {bounds!r}")
+            raise ValueError(
+                f"Для элемента {el!r} ожидается (min, max), получено {bounds!r}"
+            )
 
     src = src.assign(
         brutto_dict=brutto_dict,
@@ -760,7 +775,9 @@ def assign_formulas_nomspectra(
 
     n_assigned = int(assign_col.sum())
     if n_assigned == 0:
-        warnings.warn("Ни одной брутто-формулы не назначено (assign == False для всех пиков)")
+        warnings.warn(
+            "Ни одной брутто-формулы не назначено (assign == False для всех пиков)"
+        )
 
     return src
 
@@ -838,7 +855,9 @@ def assign_formulas(
 
     if mode == "simple_from_molecules":
         if formulas is None:
-            raise ValueError("Для mode='simple_from_molecules' нужно передать список formulas")
+            raise ValueError(
+                "Для mode='simple_from_molecules' нужно передать список formulas"
+            )
         raise NotImplementedError("mode='simple_from_molecules' пока не реализован")
 
     if mode == "nomspectra":
@@ -855,9 +874,11 @@ def assign_formulas(
 
     raise ValueError(f"Неизвестный режим assign: {mode}")
 
+
 # ===========================================================================
 # Поиск серий
 # ===========================================================================
+
 
 def _find_peak(mz_array, target_mz, ppm_tol):
     """Find the peak in ``mz_array`` closest to ``target_mz`` within tolerance.
@@ -949,11 +970,11 @@ def find_series(
             f"max_groups ({max_groups}) и min_series_length ({min_series_length}) "
             "должны быть >= 1"
         )
-    required_src = ['brutto', 'mass', 'assign']
+    required_src = ["brutto", "mass", "assign"]
     missing_src = [c for c in required_src if c not in src.table.columns]
     if missing_src:
         raise ValueError(f"В src не хватает столбца {missing_src}")
-    required_deriv = ['mass', 'intensity']
+    required_deriv = ["mass", "intensity"]
     missing_deriv = [c for c in required_deriv if c not in deriv.table.columns]
     if missing_deriv:
         raise ValueError(
@@ -961,16 +982,16 @@ def find_series(
             "Файл дериватизированного спектра некорректен."
         )
 
-    mz_deriv = deriv.table['mass'].values
-    records  = []
+    mz_deriv = deriv.table["mass"].values
+    records = []
 
     for _, row in src.table.iterrows():
-        if not row.get('assign', False):
+        if not row.get("assign", False):
             continue
 
-        m0          = row['mass']
+        m0 = row["mass"]
         found_steps = []
-        series_mz   = []
+        series_mz = []
 
         for step in range(1, max_groups + 1):
             target = m0 + step * delta
@@ -986,37 +1007,47 @@ def find_series(
                     break
 
         if not found_steps:
-            n_groups      = 0
+            n_groups = 0
             missing_steps = []
-            trimmed       = []
+            trimmed = []
         else:
-            n_groups      = max(found_steps)
-            all_steps     = set(range(1, n_groups + 1))
+            n_groups = max(found_steps)
+            all_steps = set(range(1, n_groups + 1))
             missing_steps = sorted(all_steps - set(found_steps))
-            trimmed       = series_mz[:n_groups]
+            trimmed = series_mz[:n_groups]
 
         if n_groups >= min_series_length:
-            records.append({
-                'mass_src':    m0,
-                'brutto':      row.get('brutto', ''),
-                'n_groups':    n_groups,
-                'steps_found': found_steps,
-                'missing':     missing_steps,
-                'series_mz':   trimmed,
-            })
+            records.append(
+                {
+                    "mass_src": m0,
+                    "brutto": row.get("brutto", ""),
+                    "n_groups": n_groups,
+                    "steps_found": found_steps,
+                    "missing": missing_steps,
+                    "series_mz": trimmed,
+                }
+            )
 
         if not found_steps:
             continue
 
     return pd.DataFrame(
         records,
-        columns=['mass_src', 'brutto', 'n_groups', 'steps_found', 'missing', 'series_mz'],
+        columns=[
+            "mass_src",
+            "brutto",
+            "n_groups",
+            "steps_found",
+            "missing",
+            "series_mz",
+        ],
     )
 
 
 # ===========================================================================
 # Сборка итоговой таблицы
 # ===========================================================================
+
 
 def build_result_table(src, df_dmet, df_dacet):
     """Assemble the final -COOH / -OH count table per brutto formula.
@@ -1044,46 +1075,60 @@ def build_result_table(src, df_dmet, df_dacet):
     Source and series peaks are joined on m/z rounded to 4 decimals.
     """
     base = (
-        src.table
-        .loc[src.table.get('assign', pd.Series(False, index=src.table.index)) == True]
-        [['mass', 'intensity', 'brutto']]
+        src.table.loc[
+            src.table.get("assign", pd.Series(False, index=src.table.index)) == True
+        ][["mass", "intensity", "brutto"]]
         .copy()
         .reset_index(drop=True)
     )
-    base['mass_key'] = base['mass'].round(4)
+    base["mass_key"] = base["mass"].round(4)
 
     def _enrich(df, prefix):
         if df.empty:
-            return pd.DataFrame(columns=['mass_key', f'n_{prefix}', f'missing_{prefix}'])
-        tmp = df[['mass_src', 'n_groups', 'missing']].copy()
-        tmp['mass_key'] = tmp['mass_src'].round(4)
-        return tmp.rename(columns={
-            'n_groups': f'n_{prefix}',
-            'missing':  f'missing_{prefix}',
-        })[['mass_key', f'n_{prefix}', f'missing_{prefix}']]
+            return pd.DataFrame(
+                columns=["mass_key", f"n_{prefix}", f"missing_{prefix}"]
+            )
+        tmp = df[["mass_src", "n_groups", "missing"]].copy()
+        tmp["mass_key"] = tmp["mass_src"].round(4)
+        return tmp.rename(
+            columns={
+                "n_groups": f"n_{prefix}",
+                "missing": f"missing_{prefix}",
+            }
+        )[["mass_key", f"n_{prefix}", f"missing_{prefix}"]]
 
-    result = (
-        base
-        .merge(_enrich(df_dmet,  'dmet'),  on='mass_key', how='left')
-        .merge(_enrich(df_dacet, 'dacet'), on='mass_key', how='left')
+    result = base.merge(_enrich(df_dmet, "dmet"), on="mass_key", how="left").merge(
+        _enrich(df_dacet, "dacet"), on="mass_key", how="left"
     )
 
-    result['n_dmet']  = result['n_dmet'].fillna(0).astype(int)
-    result['n_dacet'] = result['n_dacet'].fillna(0).astype(int)
-    result['N_COOH']     = result['n_dmet']
-    result['N_OH_total'] = result['n_dacet']
-    result['N_OH'] = result['n_dacet']
+    result["n_dmet"] = result["n_dmet"].fillna(0).astype(int)
+    result["n_dacet"] = result["n_dacet"].fillna(0).astype(int)
+    result["N_COOH"] = result["n_dmet"]
+    result["N_OH_total"] = result["n_dacet"]
+    result["N_OH"] = result["n_dacet"]
 
-    return result[[
-        'mass', 'intensity', 'brutto',
-        'N_COOH', 'N_OH_total', 'N_OH',
-        'missing_dmet', 'missing_dacet',
-    ]].sort_values('mass').reset_index(drop=True)
+    return (
+        result[
+            [
+                "mass",
+                "intensity",
+                "brutto",
+                "N_COOH",
+                "N_OH_total",
+                "N_OH",
+                "missing_dmet",
+                "missing_dacet",
+            ]
+        ]
+        .sort_values("mass")
+        .reset_index(drop=True)
+    )
 
 
 # ===========================================================================
 # Визуализация серий с пропущенными пиками
 # ===========================================================================
+
 
 def visualize_series(
     src,
@@ -1133,8 +1178,8 @@ def visualize_series(
         print(f"[{label}] Серии не найдены.")
         return
 
-    has_missing = df_series[df_series['missing'].apply(len) > 0]
-    display_df  = has_missing.head(max_rows)
+    has_missing = df_series[df_series["missing"].apply(len) > 0]
+    display_df = has_missing.head(max_rows)
 
     if display_df.empty:
         print(f"[{label}] Пропущенных пиков в сериях нет.")
@@ -1142,30 +1187,32 @@ def visualize_series(
 
     n_rows = len(display_df)
     fig, axes = plt.subplots(
-        n_rows, 1,
+        n_rows,
+        1,
         figsize=(figsize_per_row[0], figsize_per_row[1] * n_rows + 1.5),
         squeeze=False,
     )
     fig.suptitle(
         f"Серии {label} с пропущенными пиками "
         f"(delta_m = {delta:.5f} Da, допуск {ppm_tol} ppm)",
-        fontsize=11, fontweight="bold",
+        fontsize=11,
+        fontweight="bold",
     )
 
-    mz_src    = src.table['mass'].values
-    int_src   = src.table['intensity'].values
-    mz_deriv  = deriv.table['mass'].values
-    int_deriv = deriv.table['intensity'].values
+    mz_src = src.table["mass"].values
+    int_src = src.table["intensity"].values
+    mz_deriv = deriv.table["mass"].values
+    int_deriv = deriv.table["intensity"].values
 
     for ax_idx, (_, row) in enumerate(display_df.iterrows()):
-        ax       = axes[ax_idx][0]
-        m0       = row['mass_src']
-        n_groups = row['n_groups']
-        missing  = set(row['missing'])
-        series   = row['series_mz']
+        ax = axes[ax_idx][0]
+        m0 = row["mass_src"]
+        n_groups = row["n_groups"]
+        missing = set(row["missing"])
+        series = row["series_mz"]
 
         idx_s = _find_peak(mz_src, m0, ppm_tol * 10)
-        i0    = float(int_src[idx_s]) if idx_s is not None else 1.0
+        i0 = float(int_src[idx_s]) if idx_s is not None else 1.0
 
         max_i = i0
         for mz_step in series:
@@ -1175,25 +1222,44 @@ def visualize_series(
                     max_i = max(max_i, float(int_deriv[idx_d]))
 
         bar_w = delta * 0.08
-        ax.bar(m0, i0, width=bar_w, color='steelblue', alpha=0.85)
+        ax.bar(m0, i0, width=bar_w, color="steelblue", alpha=0.85)
 
         for step, mz_step in enumerate(series, start=1):
             expected = m0 + step * delta
             if step in missing or mz_step is None:
-                ax.axvline(x=expected, color='crimson',
-                           linestyle='--', linewidth=1.0, alpha=0.75)
-                ax.text(expected, max_i * 0.55, f"n={step}",
-                        color='crimson', fontsize=7, ha='center', va='bottom')
+                ax.axvline(
+                    x=expected,
+                    color="crimson",
+                    linestyle="--",
+                    linewidth=1.0,
+                    alpha=0.75,
+                )
+                ax.text(
+                    expected,
+                    max_i * 0.55,
+                    f"n={step}",
+                    color="crimson",
+                    fontsize=7,
+                    ha="center",
+                    va="bottom",
+                )
             else:
                 idx_d = _find_peak(mz_deriv, float(mz_step), ppm_tol * 2)
                 i_step = float(int_deriv[idx_d]) if idx_d is not None else max_i * 0.1
-                ax.bar(mz_step, i_step, width=bar_w, color='forestgreen', alpha=0.8)
-                ax.text(mz_step, i_step + max_i * 0.02, f"n={step}",
-                        color='darkgreen', fontsize=7, ha='center', va='bottom')
+                ax.bar(mz_step, i_step, width=bar_w, color="forestgreen", alpha=0.8)
+                ax.text(
+                    mz_step,
+                    i_step + max_i * 0.02,
+                    f"n={step}",
+                    color="darkgreen",
+                    fontsize=7,
+                    ha="center",
+                    va="bottom",
+                )
 
         ax.set_xlim(m0 - delta * 0.5, m0 + (n_groups + 1) * delta)
         ax.set_ylim(0, max_i * 1.25)
-        ax.set_ylabel('I', fontsize=8)
+        ax.set_ylabel("I", fontsize=8)
         ax.set_title(
             f"{row['brutto']}   m/z={m0:.4f}   "
             f"серия 1..{n_groups}   пропущено: {sorted(missing)}",
@@ -1203,11 +1269,16 @@ def visualize_series(
 
     fig.legend(
         handles=[
-            mpatches.Patch(color='steelblue',   label='Исходный пик'),
-            mpatches.Patch(color='forestgreen', label='Найденный пик серии'),
-            mpatches.Patch(color='crimson',     label='Пропущенный пик (ожидаемая позиция)'),
+            mpatches.Patch(color="steelblue", label="Исходный пик"),
+            mpatches.Patch(color="forestgreen", label="Найденный пик серии"),
+            mpatches.Patch(
+                color="crimson", label="Пропущенный пик (ожидаемая позиция)"
+            ),
         ],
-        loc='lower center', ncol=3, fontsize=9, frameon=True,
+        loc="lower center",
+        ncol=3,
+        fontsize=9,
+        frameon=True,
         bbox_to_anchor=(0.5, 0),
     )
     plt.tight_layout(rect=[0, 0.05, 1, 0.96])

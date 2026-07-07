@@ -1,4 +1,4 @@
-#/test_denoise.py
+# /test_denoise.py
 from pathlib import Path
 from src.configs import PATHS
 import pandas as pd
@@ -17,6 +17,7 @@ TEST_SETS = [
     PROJECT_ROOT / PATHS.test_sets_dir / "set_05",
 ]
 
+
 @pytest.mark.parametrize("set_dir", TEST_SETS)
 def test_denoise_original_preserves_signals_and_reduces_noise(set_dir: Path):
     src_path = set_dir / PATHS.spectrum_files["original"]
@@ -31,7 +32,9 @@ def test_denoise_original_preserves_signals_and_reduces_noise(set_dir: Path):
 
     rel_error_ppm = 0.5
 
-    denoised = denoise(src, force = 10.0, intensity = 100, quantile = None)  # текущий denoise из nomspectra / твоей обёртки
+    denoised = denoise(
+        src, force=10.0, intensity=100, quantile=None
+    )  # текущий denoise из nomspectra / твоей обёртки
     den_df = denoised.table.copy()
 
     # 1. recall по сигналам
@@ -57,5 +60,7 @@ def test_denoise_original_preserves_signals_and_reduces_noise(set_dir: Path):
     print(f"[{set_dir.name}] signal_recall={signal_recall:.3f}")
     print(f"[{set_dir.name}] noise_retention={noise_retention:.3f}")
 
-    assert signal_recall >= 0.90, f"{set_dir.name}: denoise удаляет слишком много сигналов"
+    assert (
+        signal_recall >= 0.90
+    ), f"{set_dir.name}: denoise удаляет слишком много сигналов"
     assert noise_retention <= 0.80, f"{set_dir.name}: denoise слишком слабо чистит шум"

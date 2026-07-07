@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 from pathlib import Path
 
+
 @dataclass
 class CompoundExportResult:
     """Outcome of structure generation/export for one assigned compound.
@@ -36,6 +37,7 @@ class CompoundExportResult:
     error : str or None
         Error message if export failed, else ``None``.
     """
+
     compound_index: int
     mass: float
     brutto: str
@@ -44,6 +46,7 @@ class CompoundExportResult:
     structures_found: int
     structure_paths: List[Path] = field(default_factory=list)
     error: Optional[str] = None
+
 
 @dataclass
 class SetSmokeResult:
@@ -76,8 +79,9 @@ class SetSmokeResult:
     artifacts_dir : pathlib.Path or None
         Directory holding all artifacts for this set.
     """
+
     set_name: str
-    success: bool = False          # <-- default
+    success: bool = False  # <-- default
     error: Optional[str] = None
     pipeline_success: bool = False  # <-- default
     result_table_path: Optional[Path] = None
@@ -88,6 +92,7 @@ class SetSmokeResult:
     hist_oh_path: Optional[Path] = None
     compound_results: List[CompoundExportResult] = field(default_factory=list)
     artifacts_dir: Optional[Path] = None
+
 
 @dataclass
 class SmokeSuiteResult:
@@ -104,6 +109,7 @@ class SmokeSuiteResult:
     finished_at : str
         ISO timestamp when the suite finished.
     """
+
     sets: List[SetSmokeResult] = field(default_factory=list)
     overall_success: bool = False
     started_at: str = ""

@@ -3,8 +3,9 @@ app.py  —  GUI-интерфейс для пайплайна определен
            Запускать: python app.py
            Требует: tkinter (стандартная библиотека Python), matplotlib, pandas
 """
-from __future__ import annotations
 
+from __future__ import annotations
+from src.core._safety import _safe_df
 import ast
 import io
 import os
@@ -12,51 +13,75 @@ import queue
 import threading
 import traceback
 import warnings
+import sys
 from pathlib import Path
 from typing import Optional
 from rdkit import *
-
 import matplotlib
-matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
+matplotlib.use("TkAgg")
 # ── Импорт UI-утилит ─────────────────────────────────────────────────────────
 try:
     from src.ui.plots import embed_figure
     from src.ui.theme import (
-        ACCENT, BG, FG, IMG_H, IMG_W, MONO, OK, PANEL, WARN,
-        _mpl_style, _style
+        ACCENT,
+        BG,
+        FG,
+        IMG_H,
+        IMG_W,
+        MONO,
+        OK,
+        PANEL,
+        WARN,
+        _mpl_style,
+        _style,
     )
     from src.structures.tab import StructureViewerTab
+
     _UI_LOADED = True
     _UI_ERROR = ""
 except Exception as _ui_err:
     _UI_LOADED = False
     _UI_ERROR = traceback.format_exc()
     # Fallback-константы, чтобы GUI хотя бы запустился без src.ui
-    BG = "#1e1e2e"; ACCENT = "#cba6f7"; PANEL = "#313244"
-    WARN = "#f38ba8"; FG = "#cdd6f4"; OK = "#a6e3a1"
+    BG = "#1e1e2e"
+    ACCENT = "#cba6f7"
+    PANEL = "#313244"
+    WARN = "#f38ba8"
+    FG = "#cdd6f4"
+    OK = "#a6e3a1"
     MONO = ("Consolas", 9)
-    IMG_H = 400; IMG_W = 800
-    def _mpl_style(): pass
-    def _style(root): pass
+    IMG_H = 400
+    IMG_W = 800
+
+    def _mpl_style():
+        pass
+
+    def _style(root):
+        pass
+
     StructureViewerTab = None
 
-    def embed_figure(app, fig, frame, toolbar=True):
+    def embed_figure(fig, parent, toolbar=True):
         """Минимальный fallback через FigureCanvasTkAgg."""
         try:
             from matplotlib.backends.backend_tkagg import (
-                FigureCanvasTkAgg, NavigationToolbar2Tk)
-            canvas = FigureCanvasTkAgg(fig, master=frame)
+                FigureCanvasTkAgg,
+                NavigationToolbar2Tk,
+            )
+
+            canvas = FigureCanvasTkAgg(fig, master=parent)
             canvas.draw()
             canvas.get_tk_widget().pack(fill="both", expand=True)
             if toolbar:
-                NavigationToolbar2Tk(canvas, frame)
+                NavigationToolbar2Tk(canvas, parent)
         except Exception:
             plt.show()
+
 
 # ── Импорт пайплайна ─────────────────────────────────────────────────────────
 # ВАЖНО: оставляем ТОЛЬКО один блок импорта из src.core.
@@ -71,6 +96,7 @@ try:
         run_pipeline,
         visualize_series,
     )
+
     CORE_LOADED = True
     _CORE_ERROR = ""
 except Exception as _core_err:
@@ -80,12 +106,14 @@ except Exception as _core_err:
     # shifts still come from the single source of truth (chemistry config),
     # so their values never diverge from src.core.
     from src.configs import CHEM
+
     DELTA_CD3 = CHEM.derivatization_shifts["delta_cd3"]
     DELTA_CD3CO = CHEM.derivatization_shifts["delta_cd3co"]
     run_pipeline = load_spectrum = find_series = visualize_series = None
 
 # ── Импорт конфигурации: единый источник дефолтов GUI ─────────────────────
 from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
+
 _GUI_DEFAULTS = _PIPE_CFG.run_pipeline_defaults
 _BRUTTO_DEFAULTS = _PIPE_CFG.default_brutto_dict
 _FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
@@ -94,6 +122,7 @@ _FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Перехват stdout/stderr → thread-safe очередь → GUI-лог
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class _QueueWriter:
     """Thread-safe stream shim that tees writes to a queue and a stream.
@@ -110,6 +139,7 @@ class _QueueWriter:
     original : io.TextIOBase, optional
         Underlying stream to also forward writes to. Default ``None``.
     """
+
     def __init__(self, q: queue.Queue, original=None):
         self._q = q
         self._orig = original
@@ -131,7 +161,7 @@ class _QueueWriter:
                 pass
 
     def fileno(self):
-        if self._orig and hasattr(self._orig, 'fileno'):
+        if self._orig and hasattr(self._orig, "fileno"):
             return self._orig.fileno()
         raise io.UnsupportedOperation("fileno")
 
@@ -139,6 +169,7 @@ class _QueueWriter:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  ГЛАВНОЕ ОКНО
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class App(tk.Tk):
     """Main Tkinter window for the -COOH/-OH functional-group analyzer.
@@ -176,38 +207,42 @@ class App(tk.Tk):
 
         # ── данные ──
         self.result_df: Optional[pd.DataFrame] = None
-        self.src_spec   = None
-        self.dmet_spec  = None
+        self.src_spec = None
+        self.dmet_spec = None
         self.dacet_spec = None
-        self.df_dmet_series  = None
+        self.df_dmet_series = None
         self.df_dacet_series = None
 
         # ── очередь для потоко-безопасного логирования ──
         self._log_queue: queue.Queue = queue.Queue()
 
         # ── файловые переменные ──
-        self.src_var   = tk.StringVar()
-        self.dmet_var  = tk.StringVar()
+        self.src_var = tk.StringVar()
+        self.dmet_var = tk.StringVar()
         self.dacet_var = tk.StringVar()
 
         # ── параметры (значения из pipeline.json -> run_pipeline_defaults) ──
-        self.sep_var         = tk.StringVar(value=str(_GUI_DEFAULTS["sep"]))
-        self.mass_min_var    = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_min"]))
-        self.mass_max_var    = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_max"]))
+        self.sep_var = tk.StringVar(value=str(_GUI_DEFAULTS["sep"]))
+        self.mass_min_var = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_min"]))
+        self.mass_max_var = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_max"]))
         self.noise_force_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
-        self.noise_int_var   = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
-        self.rel_error_var   = tk.StringVar(value=str(_GUI_DEFAULTS["rel_error"]))
-        self.sign_var        = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
-        self.ppm_tol_var     = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
-        self.max_groups_var  = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
-        self.allow_gaps_var  = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
-        self.output_csv_var  = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))
+        self.noise_int_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
+        self.rel_error_var = tk.StringVar(value=str(_GUI_DEFAULTS["rel_error"]))
+        self.sign_var = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
+        self.ppm_tol_var = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
+        self.max_groups_var = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
+        self.allow_gaps_var = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
+        self.output_csv_var = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))
         # Диапазоны элементов из pipeline.json -> formula_search.ranges
         _r = _FORMULA_RANGES
-        self.c_min = tk.StringVar(value=str(_r["C"][0])); self.c_max = tk.StringVar(value=str(_r["C"][1]))
-        self.h_min = tk.StringVar(value=str(_r["H"][0])); self.h_max = tk.StringVar(value=str(_r["H"][1]))
-        self.o_min = tk.StringVar(value=str(_r["O"][0])); self.o_max = tk.StringVar(value=str(_r["O"][1]))
-        self.n_min = tk.StringVar(value=str(_r["N"][0])); self.n_max = tk.StringVar(value=str(_r["N"][1]))
+        self.c_min = tk.StringVar(value=str(_r["C"][0]))
+        self.c_max = tk.StringVar(value=str(_r["C"][1]))
+        self.h_min = tk.StringVar(value=str(_r["H"][0]))
+        self.h_max = tk.StringVar(value=str(_r["H"][1]))
+        self.o_min = tk.StringVar(value=str(_r["O"][0]))
+        self.o_max = tk.StringVar(value=str(_r["O"][1]))
+        self.n_min = tk.StringVar(value=str(_r["N"][0]))
+        self.n_max = tk.StringVar(value=str(_r["N"][1]))
 
         self._build_ui()
 
@@ -218,7 +253,9 @@ class App(tk.Tk):
         if not CORE_LOADED:
             self._log(f"[ОШИБКА] src.core не загружен:\n{_CORE_ERROR}", color=WARN)
         if not _UI_LOADED:
-            self._log(f"[WARN] src.ui / src.structures не загружены:\n{_UI_ERROR}", color=WARN)
+            self._log(
+                f"[WARN] src.ui / src.structures не загружены:\n{_UI_ERROR}", color=WARN
+            )
 
     # ── потоко-безопасный опрос очереди ──────────────────────────────────────
 
@@ -268,8 +305,7 @@ class App(tk.Tk):
 
     def _save_log(self):
         path = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            filetypes=[("Text", "*.txt"), ("All", "*.*")]
+            defaultextension=".txt", filetypes=[("Text", "*.txt"), ("All", "*.*")]
         )
         if path:
             content = self.log_text.get("1.0", "end")
@@ -315,32 +351,39 @@ class App(tk.Tk):
     # ── ПОСТРОЕНИЕ ИНТЕРФЕЙСА ─────────────────────────────────────────────────
 
     def _build_ui(self):
-        hdr = tk.Label(self, text="⚗  MS Functional Groups Analyzer",
-                       bg=BG, fg=ACCENT, font=("Segoe UI", 16, "bold"))
+        hdr = tk.Label(
+            self,
+            text="⚗  MS Functional Groups Analyzer",
+            bg=BG,
+            fg=ACCENT,
+            font=("Segoe UI", 16, "bold"),
+        )
         hdr.pack(fill="x", padx=16, pady=(12, 4))
         ttk.Separator(self, orient="horizontal").pack(fill="x", padx=16, pady=2)
 
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True, padx=16, pady=8)
 
-        self.tab_params  = ttk.Frame(nb)
+        self.tab_params = ttk.Frame(nb)
         self.tab_spectra = ttk.Frame(nb)
-        self.tab_series  = ttk.Frame(nb)
-        self.tab_result  = ttk.Frame(nb)
-        self.tab_log     = ttk.Frame(nb)
+        self.tab_series = ttk.Frame(nb)
+        self.tab_result = ttk.Frame(nb)
+        self.tab_log = ttk.Frame(nb)
 
-        nb.add(self.tab_params,  text="⚙  Параметры")
+        nb.add(self.tab_params, text="⚙  Параметры")
         nb.add(self.tab_spectra, text="📈  Спектры")
-        nb.add(self.tab_series,  text="🔗  Серии")
-        nb.add(self.tab_result,  text="📊  Результаты")
-        nb.add(self.tab_log,     text="📋  Лог")
+        nb.add(self.tab_series, text="🔗  Серии")
+        nb.add(self.tab_result, text="📊  Результаты")
+        nb.add(self.tab_log, text="📋  Лог")
 
         if StructureViewerTab is not None:
             try:
                 self.tab_struct = StructureViewerTab(nb, app=self)
                 nb.add(self.tab_struct, text="🧪  Структуры")
             except Exception as e:
-                self._log_queue.put(("log", f"[WARN] StructureViewerTab init failed: {e}\n"))
+                self._log_queue.put(
+                    ("log", f"[WARN] StructureViewerTab init failed: {e}\n")
+                )
 
         self._build_params_tab()
         self._build_spectra_tab()
@@ -349,9 +392,15 @@ class App(tk.Tk):
         self._build_log_tab()
 
         self.status_var = tk.StringVar(value="Готов к работе")
-        tk.Label(self, textvariable=self.status_var,
-                 bg=PANEL, fg=FG, font=("Segoe UI", 9),
-                 anchor="w", padx=8).pack(fill="x", side="bottom")
+        tk.Label(
+            self,
+            textvariable=self.status_var,
+            bg=PANEL,
+            fg=FG,
+            font=("Segoe UI", 9),
+            anchor="w",
+            padx=8,
+        ).pack(fill="x", side="bottom")
         self.progress = ttk.Progressbar(self, mode="indeterminate", length=200)
         self.progress.pack(fill="x", side="bottom")
 
@@ -365,48 +414,74 @@ class App(tk.Tk):
         files_lf = ttk.LabelFrame(p, text="📂  Входные файлы")
         files_lf.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=6)
         files_lf.columnconfigure(1, weight=1)
-        for i, (label, var) in enumerate([
-            ("Исходный спектр:",     self.src_var),
-            ("Дейтерометилирование:", self.dmet_var),
-            ("Дейтероацилирование:",  self.dacet_var),
-        ]):
-            ttk.Label(files_lf, text=label).grid(row=i, column=0, sticky="w", padx=6, pady=3)
+        for i, (label, var) in enumerate(
+            [
+                ("Исходный спектр:", self.src_var),
+                ("Дейтерометилирование:", self.dmet_var),
+                ("Дейтероацилирование:", self.dacet_var),
+            ]
+        ):
+            ttk.Label(files_lf, text=label).grid(
+                row=i, column=0, sticky="w", padx=6, pady=3
+            )
             ttk.Entry(files_lf, textvariable=var, width=55).grid(
-                row=i, column=1, sticky="ew", padx=4, pady=3)
-            ttk.Button(files_lf, text="…",
-                       command=lambda v=var: self._browse(v)).grid(
-                row=i, column=2, padx=4, pady=3)
+                row=i, column=1, sticky="ew", padx=4, pady=3
+            )
+            ttk.Button(files_lf, text="…", command=lambda v=var: self._browse(v)).grid(
+                row=i, column=2, padx=4, pady=3
+            )
 
         load_lf = ttk.LabelFrame(p, text="📥  Загрузка и диапазон масс")
         load_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
-        for row, (lbl, var) in enumerate([
-            ("Разделитель CSV:",  self.sep_var),
-            ("m/z min:",         self.mass_min_var),
-            ("m/z max:",         self.mass_max_var),
-            ("Шум (force):",     self.noise_force_var),
-            ("Шум (intensity):", self.noise_int_var),
-        ]):
-            ttk.Label(load_lf, text=lbl).grid(row=row, column=0, sticky="w", padx=6, pady=3)
+        for row, (lbl, var) in enumerate(
+            [
+                ("Разделитель CSV:", self.sep_var),
+                ("m/z min:", self.mass_min_var),
+                ("m/z max:", self.mass_max_var),
+                ("Шум (force):", self.noise_force_var),
+                ("Шум (intensity):", self.noise_int_var),
+            ]
+        ):
+            ttk.Label(load_lf, text=lbl).grid(
+                row=row, column=0, sticky="w", padx=6, pady=3
+            )
             ttk.Entry(load_lf, textvariable=var, width=12).grid(
-                row=row, column=1, sticky="w", padx=4, pady=3)
+                row=row, column=1, sticky="w", padx=4, pady=3
+            )
 
         form_lf = ttk.LabelFrame(p, text="🔬  Назначение брутто-формул")
         form_lf.grid(row=1, column=1, sticky="ew", padx=8, pady=6)
-        ttk.Label(form_lf, text="Знак иона:").grid(row=0, column=0, sticky="w", padx=6, pady=3)
-        ttk.Combobox(form_lf, textvariable=self.sign_var,
-                     values=["-", "+", "0"], width=5,
-                     state="readonly").grid(row=0, column=1, sticky="w", padx=4, pady=3)
-        ttk.Label(form_lf, text="Погрешность (ppm):").grid(row=1, column=0, sticky="w", padx=6, pady=3)
+        ttk.Label(form_lf, text="Знак иона:").grid(
+            row=0, column=0, sticky="w", padx=6, pady=3
+        )
+        ttk.Combobox(
+            form_lf,
+            textvariable=self.sign_var,
+            values=["-", "+", "0"],
+            width=5,
+            state="readonly",
+        ).grid(row=0, column=1, sticky="w", padx=4, pady=3)
+        ttk.Label(form_lf, text="Погрешность (ppm):").grid(
+            row=1, column=0, sticky="w", padx=6, pady=3
+        )
         ttk.Entry(form_lf, textvariable=self.rel_error_var, width=8).grid(
-            row=1, column=1, sticky="w", padx=4, pady=3)
+            row=1, column=1, sticky="w", padx=4, pady=3
+        )
         ttk.Label(form_lf, text="Диапазоны элементов:").grid(
-            row=2, column=0, columnspan=2, sticky="w", padx=6, pady=(8, 2))
-        for i, (sym, mn, mx) in enumerate([
-            ("C", self.c_min, self.c_max), ("H", self.h_min, self.h_max),
-            ("O", self.o_min, self.o_max), ("N", self.n_min, self.n_max),
-        ]):
+            row=2, column=0, columnspan=2, sticky="w", padx=6, pady=(8, 2)
+        )
+        for i, (sym, mn, mx) in enumerate(
+            [
+                ("C", self.c_min, self.c_max),
+                ("H", self.h_min, self.h_max),
+                ("O", self.o_min, self.o_max),
+                ("N", self.n_min, self.n_max),
+            ]
+        ):
             r = 3 + i
-            ttk.Label(form_lf, text=f"{sym}:").grid(row=r, column=0, sticky="w", padx=20, pady=2)
+            ttk.Label(form_lf, text=f"{sym}:").grid(
+                row=r, column=0, sticky="w", padx=20, pady=2
+            )
             ef = ttk.Frame(form_lf)
             ef.grid(row=r, column=1, sticky="w", padx=4, pady=2)
             ttk.Entry(ef, textvariable=mn, width=5).pack(side="left")
@@ -415,28 +490,36 @@ class App(tk.Tk):
 
         ser_lf = ttk.LabelFrame(p, text="🔍  Поиск серий")
         ser_lf.grid(row=2, column=0, sticky="ew", padx=8, pady=6)
-        ttk.Label(ser_lf, text="Допуск поиска (ppm):").grid(row=0, column=0, sticky="w", padx=6, pady=3)
+        ttk.Label(ser_lf, text="Допуск поиска (ppm):").grid(
+            row=0, column=0, sticky="w", padx=6, pady=3
+        )
         ttk.Entry(ser_lf, textvariable=self.ppm_tol_var, width=8).grid(
-            row=0, column=1, sticky="w", padx=4, pady=3)
-        ttk.Label(ser_lf, text="Макс. групп:").grid(row=1, column=0, sticky="w", padx=6, pady=3)
+            row=0, column=1, sticky="w", padx=4, pady=3
+        )
+        ttk.Label(ser_lf, text="Макс. групп:").grid(
+            row=1, column=0, sticky="w", padx=6, pady=3
+        )
         ttk.Entry(ser_lf, textvariable=self.max_groups_var, width=8).grid(
-            row=1, column=1, sticky="w", padx=4, pady=3)
-        ttk.Checkbutton(ser_lf, text="Разрешить пропуски в сериях",
-                        variable=self.allow_gaps_var).grid(
-            row=2, column=0, columnspan=2, sticky="w", padx=6, pady=4)
+            row=1, column=1, sticky="w", padx=4, pady=3
+        )
+        ttk.Checkbutton(
+            ser_lf, text="Разрешить пропуски в сериях", variable=self.allow_gaps_var
+        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=6, pady=4)
 
         out_lf = ttk.LabelFrame(p, text="💾  Выходной файл")
         out_lf.grid(row=2, column=1, sticky="ew", padx=8, pady=6)
         out_lf.columnconfigure(0, weight=1)
         ttk.Entry(out_lf, textvariable=self.output_csv_var, width=35).grid(
-            row=0, column=0, sticky="ew", padx=6, pady=4)
-        ttk.Button(out_lf, text="…",
-                   command=lambda: self._save_browse(self.output_csv_var)).grid(
-            row=0, column=1, padx=4, pady=4)
+            row=0, column=0, sticky="ew", padx=6, pady=4
+        )
+        ttk.Button(
+            out_lf, text="…", command=lambda: self._save_browse(self.output_csv_var)
+        ).grid(row=0, column=1, padx=4, pady=4)
 
         try:
-            run_btn = ttk.Button(p, text="▶  Запустить анализ",
-                                 style="Accent.TButton", command=self._run)
+            run_btn = ttk.Button(
+                p, text="▶  Запустить анализ", style="Accent.TButton", command=self._run
+            )
         except Exception:
             run_btn = ttk.Button(p, text="▶  Запустить анализ", command=self._run)
         run_btn.grid(row=3, column=0, columnspan=2, pady=12, ipadx=20, ipady=4)
@@ -447,11 +530,14 @@ class App(tk.Tk):
         frame = self.tab_spectra
         ctrl = ttk.Frame(frame)
         ctrl.pack(fill="x", pady=4, padx=8)
-        ttk.Button(ctrl, text="📈 Построить спектры",
-                   command=self._plot_spectra).pack(side="left", padx=4)
-        ttk.Button(ctrl, text="🗑 Очистить",
-                   command=lambda: self._clear_frame(self.spectra_canvas_frame)).pack(
-            side="left", padx=4)
+        ttk.Button(ctrl, text="📈 Построить спектры", command=self._plot_spectra).pack(
+            side="left", padx=4
+        )
+        ttk.Button(
+            ctrl,
+            text="🗑 Очистить",
+            command=lambda: self._clear_frame(self.spectra_canvas_frame),
+        ).pack(side="left", padx=4)
         self.spectra_canvas_frame = ttk.Frame(frame)
         self.spectra_canvas_frame.pack(fill="both", expand=True)
 
@@ -461,13 +547,21 @@ class App(tk.Tk):
         frame = self.tab_series
         ctrl = ttk.Frame(frame)
         ctrl.pack(fill="x", pady=4, padx=8)
-        ttk.Button(ctrl, text="🔗 Показать серии CD₃",
-                   command=lambda: self._plot_series("dmet")).pack(side="left", padx=4)
-        ttk.Button(ctrl, text="🔗 Показать серии CD₃CO",
-                   command=lambda: self._plot_series("dacet")).pack(side="left", padx=4)
-        ttk.Button(ctrl, text="🗑 Очистить",
-                   command=lambda: self._clear_frame(self.series_canvas_frame)).pack(
-            side="left", padx=4)
+        ttk.Button(
+            ctrl,
+            text="🔗 Показать серии CD₃",
+            command=lambda: self._plot_series("dmet"),
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            ctrl,
+            text="🔗 Показать серии CD₃CO",
+            command=lambda: self._plot_series("dacet"),
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            ctrl,
+            text="🗑 Очистить",
+            command=lambda: self._clear_frame(self.series_canvas_frame),
+        ).pack(side="left", padx=4)
         self.series_canvas_frame = ttk.Frame(frame)
         self.series_canvas_frame.pack(fill="both", expand=True)
 
@@ -477,30 +571,49 @@ class App(tk.Tk):
         frame = self.tab_result
         ctrl = ttk.Frame(frame)
         ctrl.pack(fill="x", pady=4, padx=8)
-        ttk.Button(ctrl, text="📊 Гистограмма N_COOH",
-                   command=lambda: self._plot_hist("N_COOH")).pack(side="left", padx=4)
-        ttk.Button(ctrl, text="📊 Гистограмма N_OH",
-                   command=lambda: self._plot_hist("N_OH")).pack(side="left", padx=4)
-        ttk.Button(ctrl, text="💾 Экспорт CSV",
-                   command=self._export_csv).pack(side="left", padx=4)
+        ttk.Button(
+            ctrl,
+            text="📊 Гистограмма N_COOH",
+            command=lambda: self._plot_hist("N_COOH"),
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            ctrl, text="📊 Гистограмма N_OH", command=lambda: self._plot_hist("N_OH")
+        ).pack(side="left", padx=4)
+        ttk.Button(ctrl, text="💾 Экспорт CSV", command=self._export_csv).pack(
+            side="left", padx=4
+        )
 
         tbl_frame = ttk.Frame(frame)
         tbl_frame.pack(fill="both", expand=True, padx=8, pady=4)
 
-        cols       = ("mass", "brutto", "N_COOH", "N_OH", "missing_dmet", "missing_dacet")
-        col_labels = ["m/z", "Формула", "N_COOH", "N_OH", "Пропуски dmet", "Пропуски dacet"]
+        cols = ("mass", "brutto", "N_COOH", "N_OH", "missing_dmet", "missing_dacet")
+        col_labels = [
+            "m/z",
+            "Формула",
+            "N_COOH",
+            "N_OH",
+            "Пропуски dmet",
+            "Пропуски dacet",
+        ]
         col_widths = [110, 140, 80, 80, 150, 150]
 
-        self.result_tree = ttk.Treeview(tbl_frame, columns=cols, show="headings", height=18)
+        self.result_tree = ttk.Treeview(
+            tbl_frame, columns=cols, show="headings", height=18
+        )
         for c, lbl, w in zip(cols, col_labels, col_widths):
-            self.result_tree.heading(c, text=lbl,
-                                     command=lambda _c=c: self._sort_tree(_c))
+            self.result_tree.heading(
+                c, text=lbl, command=lambda _c=c: self._sort_tree(_c)
+            )
             self.result_tree.column(c, width=w, anchor="center")
 
-        vsb = ttk.Scrollbar(tbl_frame, orient="vertical",   command=self.result_tree.yview)
-        hsb = ttk.Scrollbar(tbl_frame, orient="horizontal", command=self.result_tree.xview)
+        vsb = ttk.Scrollbar(
+            tbl_frame, orient="vertical", command=self.result_tree.yview
+        )
+        hsb = ttk.Scrollbar(
+            tbl_frame, orient="horizontal", command=self.result_tree.xview
+        )
         self.result_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        vsb.pack(side="right",  fill="y")
+        vsb.pack(side="right", fill="y")
         hsb.pack(side="bottom", fill="x")
         self.result_tree.pack(fill="both", expand=True)
 
@@ -513,15 +626,24 @@ class App(tk.Tk):
         frame = self.tab_log
         ctrl = ttk.Frame(frame)
         ctrl.pack(fill="x", pady=4, padx=8)
-        ttk.Button(ctrl, text="🗑 Очистить лог",  command=self._clear_log).pack(side="left", padx=4)
-        ttk.Button(ctrl, text="💾 Сохранить лог", command=self._save_log).pack(side="left", padx=4)
+        ttk.Button(ctrl, text="🗑 Очистить лог", command=self._clear_log).pack(
+            side="left", padx=4
+        )
+        ttk.Button(ctrl, text="💾 Сохранить лог", command=self._save_log).pack(
+            side="left", padx=4
+        )
 
         self.log_text = scrolledtext.ScrolledText(
-            frame, bg=PANEL, fg=FG, font=MONO,
-            relief="flat", insertbackground=FG, state="disabled",
+            frame,
+            bg=PANEL,
+            fg=FG,
+            font=MONO,
+            relief="flat",
+            insertbackground=FG,
+            state="disabled",
         )
         self.log_text.pack(fill="both", expand=True, padx=8, pady=4)
-        self.log_text.tag_config("ok",   foreground=OK)
+        self.log_text.tag_config("ok", foreground=OK)
         self.log_text.tag_config("warn", foreground=WARN)
         self.log_text.tag_config("info", foreground=ACCENT)
 
@@ -531,7 +653,11 @@ class App(tk.Tk):
 
     def _browse(self, var: tk.StringVar):
         path = filedialog.askopenfilename(
-            filetypes=[("CSV files", "*.csv"), ("Text files", "*.txt"), ("All files", "*.*")]
+            filetypes=[
+                ("CSV files", "*.csv"),
+                ("Text files", "*.txt"),
+                ("All files", "*.*"),
+            ]
         )
         if path:
             var.set(path)
@@ -539,7 +665,7 @@ class App(tk.Tk):
     def _save_browse(self, var: tk.StringVar):
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
         )
         if path:
             var.set(path)
@@ -571,26 +697,34 @@ class App(tk.Tk):
         if sep in ("\\t", "tab", "TAB"):
             sep = "\t"
 
-        mass_min    = _float(self.mass_min_var,    "m/z min",            0.0)
-        mass_max    = _float(self.mass_max_var,    "m/z max",            1000.0)
-        noise_force = _float(self.noise_force_var, "Шум force",          10.0)
-        noise_int   = _float(self.noise_int_var,   "Шум intensity",      100.0)
-        rel_error   = _float(self.rel_error_var,   "Погрешность ppm",    0.5)
-        ppm_tol     = _float(self.ppm_tol_var,     "Допуск поиска ppm",  0.5)
-        max_groups  = _int(self.max_groups_var,    "Макс. групп",        20)
+        mass_min = _float(self.mass_min_var, "m/z min", 0.0)
+        mass_max = _float(self.mass_max_var, "m/z max", 1000.0)
+        noise_force = _float(self.noise_force_var, "Шум force", 10.0)
+        noise_int = _float(self.noise_int_var, "Шум intensity", 100.0)
+        rel_error = _float(self.rel_error_var, "Погрешность ppm", 0.5)
+        ppm_tol = _float(self.ppm_tol_var, "Допуск поиска ppm", 0.5)
+        max_groups = _int(self.max_groups_var, "Макс. групп", 20)
 
         try:
-            c_min = int(self.c_min.get()); c_max = int(self.c_max.get())
-            h_min = int(self.h_min.get()); h_max = int(self.h_max.get())
-            o_min = int(self.o_min.get()); o_max = int(self.o_max.get())
-            n_min = int(self.n_min.get()); n_max = int(self.n_max.get())
+            c_min = int(self.c_min.get())
+            c_max = int(self.c_max.get())
+            h_min = int(self.h_min.get())
+            h_max = int(self.h_max.get())
+            o_min = int(self.o_min.get())
+            o_max = int(self.o_max.get())
+            n_min = int(self.n_min.get())
+            n_max = int(self.n_max.get())
         except ValueError as e:
             errors.append(f"  • Диапазон элементов: {e}")
             _r = _FORMULA_RANGES
-            c_min=_r["C"][0]; c_max=_r["C"][1]
-            h_min=_r["H"][0]; h_max=_r["H"][1]
-            o_min=_r["O"][0]; o_max=_r["O"][1]
-            n_min=_r["N"][0]; n_max=_r["N"][1]
+            c_min = _r["C"][0]
+            c_max = _r["C"][1]
+            h_min = _r["H"][0]
+            h_max = _r["H"][1]
+            o_min = _r["O"][0]
+            o_max = _r["O"][1]
+            n_min = _r["N"][0]
+            n_max = _r["N"][1]
 
         if mass_min is not None and mass_max is not None and mass_min >= mass_max:
             errors.append(f"  • m/z min ({mass_min}) ≥ m/z max ({mass_max})")
@@ -602,8 +736,10 @@ class App(tk.Tk):
             return None
 
         brutto_dict = {
-            "C": (c_min, c_max), "H": (h_min, h_max),
-            "O": (o_min, o_max), "N": (n_min, n_max),
+            "C": (c_min, c_max),
+            "H": (h_min, h_max),
+            "O": (o_min, o_max),
+            "N": (n_min, n_max),
         }
 
         return dict(
@@ -621,26 +757,31 @@ class App(tk.Tk):
             allow_gaps=self.allow_gaps_var.get(),
             brutto_dict=brutto_dict,
             output_csv=self.output_csv_var.get() or None,
-            visualize=False,   # визуализацию делаем через GUI-вкладку
+            visualize=False,  # визуализацию делаем через GUI-вкладку
         )
 
     # ── Запуск ────────────────────────────────────────────────────────────────
 
     def _run(self):
         if not CORE_LOADED:
-            messagebox.showerror("Ошибка", f"src.core не загружен:\n{_CORE_ERROR[:800]}")
+            messagebox.showerror(
+                "Ошибка", f"src.core не загружен:\n{_CORE_ERROR[:800]}"
+            )
             return
 
-        for label, var in [("Исходный", self.src_var),
-                           ("Дейтерометилирование", self.dmet_var),
-                           ("Дейтероацилирование",  self.dacet_var)]:
+        for label, var in [
+            ("Исходный", self.src_var),
+            ("Дейтерометилирование", self.dmet_var),
+            ("Дейтероацилирование", self.dacet_var),
+        ]:
             path = var.get()
             if not path:
                 messagebox.showwarning("Файл не выбран", f"Укажите файл: «{label}»")
                 return
             if not os.path.exists(path):
-                messagebox.showwarning("Файл не найден",
-                                       f"Файл не существует: «{label}»\n{path}")
+                messagebox.showwarning(
+                    "Файл не найден", f"Файл не существует: «{label}»\n{path}"
+                )
                 return
 
         params = self._parse_params()
@@ -659,8 +800,12 @@ class App(tk.Tk):
 
         t = threading.Thread(
             target=self._run_worker,
-            args=(self.src_var.get(), self.dmet_var.get(),
-                  self.dacet_var.get(), params),
+            args=(
+                self.src_var.get(),
+                self.dmet_var.get(),
+                self.dacet_var.get(),
+                params,
+            ),
             daemon=True,
         )
         t.start()
@@ -686,8 +831,12 @@ class App(tk.Tk):
             # res — PipelineRunResult
             table = getattr(res, "table", None)
             n = len(table) if table is not None else "None"
-            self._log_queue.put(("log", f"[DEBUG] _run_worker: pipeline завершён, строк={n}\n"))
-            self._log_queue.put(("success", {"result": table, "stats": getattr(res, "stats", None)}))
+            self._log_queue.put(
+                ("log", f"[DEBUG] _run_worker: pipeline завершён, строк={n}\n")
+            )
+            self._log_queue.put(
+                ("success", {"result": table, "stats": getattr(res, "stats", None)})
+            )
         except Exception:
             tb = traceback.format_exc()
             self._log_queue.put(("log", f"[DEBUG] _run_worker: EXCEPTION\n{tb}\n"))
@@ -699,35 +848,48 @@ class App(tk.Tk):
     # ── Таблица результатов ───────────────────────────────────────────────────
 
     def _fill_result_table(self, df: pd.DataFrame):
-        self._log(f"[DEBUG] _fill_result_table: {len(df)} строк, "
-                  f"колонки={list(df.columns)}", color="info")
+        self._log(
+            f"[DEBUG] _fill_result_table: {len(df)} строк, "
+            f"колонки={list(df.columns)}",
+            color="info",
+        )
         for row in self.result_tree.get_children():
             self.result_tree.delete(row)
 
-        for col, fill in [("N_COOH", 0), ("N_OH", 0),
-                          ("missing_dmet", []), ("missing_dacet", []),
-                          ("brutto", "")]:
+        for col, fill in [
+            ("N_COOH", 0),
+            ("N_OH", 0),
+            ("missing_dmet", []),
+            ("missing_dacet", []),
+            ("brutto", ""),
+        ]:
             if col not in df.columns:
                 df[col] = fill
-                self._log(f"[WARN] Колонка '{col}' отсутствует → заполнено {fill!r}", color=WARN)
+                self._log(
+                    f"[WARN] Колонка '{col}' отсутствует → заполнено {fill!r}",
+                    color=WARN,
+                )
 
         warn_count = 0
         for _, r in df.iterrows():
             try:
                 n_cooh = int(r.get("N_COOH", 0))
-                n_oh   = int(r.get("N_OH",   0))
+                n_oh = int(r.get("N_OH", 0))
             except (ValueError, TypeError):
-                n_cooh = 0; n_oh = 0
+                n_cooh = 0
+                n_oh = 0
 
-            missing_d = r.get("missing_dmet",  [])
+            missing_d = r.get("missing_dmet", [])
             missing_a = r.get("missing_dacet", [])
             has_missing = bool(missing_d) or bool(missing_a)
 
             vals = (
                 f"{r['mass']:.5f}" if pd.notna(r.get("mass")) else "?",
                 r.get("brutto", ""),
-                n_cooh, n_oh,
-                str(missing_d), str(missing_a),
+                n_cooh,
+                n_oh,
+                str(missing_d),
+                str(missing_a),
             )
             tag = "warn" if has_missing else ""
             if has_missing:
@@ -735,7 +897,10 @@ class App(tk.Tk):
             self.result_tree.insert("", "end", values=vals, tags=(tag,))
 
         self.result_tree.tag_configure("warn", foreground=WARN)
-        self._log(f"[DEBUG] Таблица: {len(df)} строк, {warn_count} с пропусками.", color="info")
+        self._log(
+            f"[DEBUG] Таблица: {len(df)} строк, {warn_count} с пропусками.",
+            color="info",
+        )
 
     def _sort_tree(self, col: str):
         if self.result_df is None:
@@ -746,7 +911,8 @@ class App(tk.Tk):
         ascending = getattr(self, f"_sort_{col}_asc", True)
         try:
             self.result_df = self.result_df.sort_values(
-                col, ascending=ascending, na_position="last")
+                col, ascending=ascending, na_position="last"
+            )
         except Exception as e:
             self._log(f"[WARN] Сортировка по '{col}': {e}", color=WARN)
             return
@@ -758,8 +924,7 @@ class App(tk.Tk):
             messagebox.showinfo("Нет данных", "Сначала запустите анализ.")
             return
         path = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV", "*.csv"), ("All", "*.*")]
+            defaultextension=".csv", filetypes=[("CSV", "*.csv"), ("All", "*.*")]
         )
         if path:
             try:
@@ -789,7 +954,8 @@ class App(tk.Tk):
         try:
             dfs = {}
             for key, path in zip(
-                    ["Исходный", "Дейтерометилирование", "Дейтероацилирование"], paths):
+                ["Исходный", "Дейтерометилирование", "Дейтероацилирование"], paths
+            ):
                 df = pd.read_csv(path, sep=sep)
                 df.columns = [c.strip() for c in df.columns]
                 col_map = {}
@@ -804,7 +970,8 @@ class App(tk.Tk):
                 if "mass" not in df.columns or "intensity" not in df.columns:
                     raise ValueError(
                         f"{key}: колонки mass/intensity не найдены. "
-                        f"Доступны: {list(df.columns)}")
+                        f"Доступны: {list(df.columns)}"
+                    )
                 dfs[key] = df
                 self._log(f"[DEBUG]   {key}: {len(df)} строк", color="info")
         except Exception as e:
@@ -817,8 +984,14 @@ class App(tk.Tk):
             fig, axes = plt.subplots(3, 1, figsize=(9, 7), sharex=True)
             colors = [ACCENT, "#a6e3a1", "#fab387"]
             for ax, (title, df), color in zip(axes, dfs.items(), colors):
-                ax.vlines(df["mass"], 0, df["intensity"],
-                          colors=color, linewidth=0.8, alpha=0.8)
+                ax.vlines(
+                    df["mass"],
+                    0,
+                    df["intensity"],
+                    colors=color,
+                    linewidth=0.8,
+                    alpha=0.8,
+                )
                 ax.set_ylabel("Intensity", fontsize=8)
                 ax.set_title(title, fontsize=9, loc="left", color=FG)
                 ax.grid(True, alpha=0.3)
@@ -847,13 +1020,15 @@ class App(tk.Tk):
         self._log(f"[DEBUG] _plot_series({which}): col_n={col_n}", color="info")
 
         if col_n not in self.result_df.columns:
-            self._log(f"[WARN] '{col_n}' нет в result_df. "
-                      f"Есть: {list(self.result_df.columns)}", color=WARN)
-            messagebox.showwarning("Нет данных",
-                                   f"Колонка '{col_n}' отсутствует.")
+            self._log(
+                f"[WARN] '{col_n}' нет в result_df. "
+                f"Есть: {list(self.result_df.columns)}",
+                color=WARN,
+            )
+            messagebox.showwarning("Нет данных", f"Колонка '{col_n}' отсутствует.")
             return
 
-        df = self.result_df[self.result_df[col_n] > 0].copy()
+        df = _safe_df(self.result_df)[self.result_df[col_n] > 0].copy()
         self._log(f"[DEBUG] Соединений с {col_n}>0: {len(df)}", color="info")
         if df.empty:
             self._log(f"Серии {label}: нет соединений с n>0.", color=WARN)
@@ -877,7 +1052,7 @@ class App(tk.Tk):
             for last_i, (_, row) in enumerate(df.head(n_plots).iterrows()):
                 ax = axes_flat[last_i]
                 m0 = row["mass"]
-                n  = int(row[col_n])
+                n = int(row[col_n])
                 steps = list(range(1, n + 1))
 
                 missing = row.get(col_m, [])
@@ -890,21 +1065,24 @@ class App(tk.Tk):
                     missing = []
 
                 colors_bars = [WARN if s in missing else OK for s in steps]
-                ax.bar(steps, [1] * len(steps),
-                       color=colors_bars, alpha=0.8, width=0.6)
+                ax.bar(steps, [1] * len(steps), color=colors_bars, alpha=0.8, width=0.6)
                 ax.set_xticks(steps)
                 ax.set_xticklabels([str(s) for s in steps], fontsize=7)
                 ax.set_yticks([])
-                ax.set_title(f"m/z={m0:.3f}\n{row.get('brutto','')}, n={n}",
-                             fontsize=7, color=FG)
+                ax.set_title(
+                    f"m/z={m0:.3f}\n{row.get('brutto','')}, n={n}", fontsize=7, color=FG
+                )
                 if missing:
                     ax.set_xlabel(f"⚠ пропуски: {missing}", fontsize=6, color=WARN)
 
             for j in range(last_i + 1, len(axes_flat)):
                 axes_flat[j].set_visible(False)
 
-            fig.suptitle(f"Серии {label}  (зелёный=найден, красный=пропущен)",
-                         color=ACCENT, fontsize=10)
+            fig.suptitle(
+                f"Серии {label}  (зелёный=найден, красный=пропущен)",
+                color=ACCENT,
+                fontsize=10,
+            )
             fig.tight_layout()
             embed_figure(fig, self.series_canvas_frame)
             self._log(f"[DEBUG] _plot_series: {n_plots} графиков построено", color=OK)
@@ -921,20 +1099,28 @@ class App(tk.Tk):
         self._clear_frame(self.hist_frame)
         try:
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 2.5))
-            for ax, col, color in [(ax1, "N_COOH", "#f38ba8"),
-                                   (ax2, "N_OH", "#a6e3a1")]:
+            for ax, col, color in [
+                (ax1, "N_COOH", "#f38ba8"),
+                (ax2, "N_OH", "#a6e3a1"),
+            ]:
                 if col not in self.result_df.columns:
                     self._log(f"[WARN] _auto_plot_hist: нет '{col}'", color=WARN)
                     continue
-                vals = self.result_df[col].dropna().astype(int)
+                vals = _safe_df(self.result_df)[col].dropna().astype(int)
                 if not vals.empty:
-                    ax.hist(vals, bins=range(vals.max() + 2),
-                            color=color, alpha=0.85, edgecolor=BG, rwidth=0.7)
+                    ax.hist(
+                        vals,
+                        bins=range(vals.max() + 2),
+                        color=color,
+                        alpha=0.85,
+                        edgecolor=BG,
+                        rwidth=0.7,
+                    )
                 ax.set_xlabel(col, fontsize=8)
                 ax.set_ylabel("Кол-во", fontsize=8)
                 ax.grid(True, alpha=0.3)
             fig.tight_layout()
-            embed_figure( fig, self.hist_frame, toolbar=False)
+            embed_figure(fig, self.hist_frame, toolbar=False)
         except Exception:
             self._log(f"[ОШИБКА] _auto_plot_hist: {traceback.format_exc()}", color=WARN)
             plt.close("all")
@@ -944,28 +1130,45 @@ class App(tk.Tk):
             messagebox.showinfo("Нет данных", "Сначала запустите анализ.")
             return
         if col not in self.result_df.columns:
-            self._log(f"[WARN] _plot_hist: нет '{col}'. "
-                      f"Есть: {list(self.result_df.columns)}", color=WARN)
+            self._log(
+                f"[WARN] _plot_hist: нет '{col}'. "
+                f"Есть: {list(self.result_df.columns)}",
+                color=WARN,
+            )
             messagebox.showwarning("Нет данных", f"Колонка '{col}' отсутствует.")
             return
         self._clear_frame(self.series_canvas_frame)
         try:
             fig, ax = plt.subplots(figsize=(7, 4))
-            vals = self.result_df[col].dropna().astype(int)
+            vals = _safe_df(self.result_df)[col].dropna().astype(int)
             if vals.empty:
-                ax.text(0.5, 0.5, "Нет данных",
-                        transform=ax.transAxes, ha="center", color=FG)
+                ax.text(
+                    0.5,
+                    0.5,
+                    "Нет данных",
+                    transform=ax.transAxes,
+                    ha="center",
+                    color=FG,
+                )
             else:
-                ax.hist(vals, bins=range(vals.max() + 2),
-                        color=ACCENT, alpha=0.85, edgecolor=BG, rwidth=0.7)
+                ax.hist(
+                    vals,
+                    bins=range(vals.max() + 2),
+                    color=ACCENT,
+                    alpha=0.85,
+                    edgecolor=BG,
+                    rwidth=0.7,
+                )
             ax.set_xlabel(col)
             ax.set_ylabel("Количество соединений")
             ax.set_title(f"Распределение {col}")
             ax.grid(True, alpha=0.3)
             fig.tight_layout()
-            embed_figure( fig, self.series_canvas_frame)
+            embed_figure(fig, self.series_canvas_frame)
         except Exception:
-            self._log(f"[ОШИБКА] _plot_hist({col}): {traceback.format_exc()}", color=WARN)
+            self._log(
+                f"[ОШИБКА] _plot_hist({col}): {traceback.format_exc()}", color=WARN
+            )
             plt.close("all")
 
 

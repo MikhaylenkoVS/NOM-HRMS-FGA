@@ -1,4 +1,4 @@
-#/test_assign_fomulas.py
+# /test_assign_fomulas.py
 import pandas as pd
 import pytest
 from pathlib import Path
@@ -11,17 +11,15 @@ PROJECT_ROOT = THIS_DIR.parent
 
 # ── Единый источник истины: src/configs/pipeline.json ──
 _TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
-TEST_SETS = sorted(
-    p for p in _TEST_SETS_ROOT.glob("set_*") if p.is_dir()
-)
+TEST_SETS = sorted(p for p in _TEST_SETS_ROOT.glob("set_*") if p.is_dir())
 
 # bruto_dict из pipeline.json -> default_brutto_dict
 _RAW_BRUTTO = PIPELINE.default_brutto_dict
-DEFAULT_BRUTTO_DICT = {
-    el: tuple(rng) for el, rng in _RAW_BRUTTO.items()
-}
+DEFAULT_BRUTTO_DICT = {el: tuple(rng) for el, rng in _RAW_BRUTTO.items()}
 
 FORMULA_RE = re.compile(r"([A-Z][a-z]?)(\d*)")
+
+
 def _subtract_one_h(brutto: str) -> str:
     """
     Временный костыль: уменьшить число H на 1 в строке формулы.
@@ -48,12 +46,14 @@ def _subtract_one_h(brutto: str) -> str:
     old_h = f"H{h_count}"
     return brutto.replace(old_h, new_h, 1)
 
+
 def parse_formula(formula: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for elem, num in FORMULA_RE.findall(formula):
         n = int(num) if num else 1
         counts[elem] = counts.get(elem, 0) + n
     return counts
+
 
 def normalize_brutto(formula: str) -> str:
     """
@@ -85,6 +85,7 @@ def normalize_brutto(formula: str) -> str:
         cnt = counts[elem]
         parts.append(elem if cnt == 1 else f"{elem}{cnt}")
     return "".join(parts)
+
 
 def brutto_within_dict(formula: str, brutto_dict: dict[str, tuple[int, int]]) -> bool:
     counts = parse_formula(formula)
@@ -151,6 +152,7 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
     # synthetic-данные хранят нейтральные массы, а simple-assign сейчас
     # систематически даёт формулы с +1 H. Для теста снимаем 1 протон.
     from copy import deepcopy
+
     # NOTE / TODO (release-blocker):
     # Сейчас synthetic-test_sets хранят нейтральные массы, а assign_formulas_simple
     # интерпретирует mass как m/z [M-H]-. В результате simple-assign систематически
@@ -166,9 +168,8 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
     src_df = src.table.copy()
 
     mask_assigned = src_df["assign"] == True
-    src_df.loc[mask_assigned, "brutto"] = (
-        src_df.loc[mask_assigned, "brutto"]
-        .apply(_subtract_one_h)
+    src_df.loc[mask_assigned, "brutto"] = src_df.loc[mask_assigned, "brutto"].apply(
+        _subtract_one_h
     )
 
     # обновляем src, чтобы дальнейший код теста работал с "исправленными" brutto
@@ -184,7 +185,9 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
     n_signals = len(ann_orig)
 
     assert n_signals > 0, f"{set_dir.name}: нет сигнальных пиков для 'original'"
-    assert n_assigned > 0, f"{set_dir.name}: assign_formulas(simple) не назначил ни одной формулы"
+    assert (
+        n_assigned > 0
+    ), f"{set_dir.name}: assign_formulas(simple) не назначил ни одной формулы"
 
     mismatches = []
     matches = 0
@@ -205,7 +208,9 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
             nearest = assigned.loc[nearest_idx].copy()
             nearest["ppm_err"] = abs_ppm_all[nearest_idx]
 
-            print(f"[{set_dir.name}] NO_PEAK_IN_ASSIGNED для сигнала {mass_obs:.6f} ({formula_true}):")
+            print(
+                f"[{set_dir.name}] NO_PEAK_IN_ASSIGNED для сигнала {mass_obs:.6f} ({formula_true}):"
+            )
             print(nearest[["mass", "brutto", "ppm_err"]].to_string(index=False))
 
             mismatches.append(
@@ -229,8 +234,12 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
             candidates["ppm_err"] = diff_ppm[candidates.index].abs()
             candidates = candidates.sort_values("ppm_err")
 
-            print(f"[{set_dir.name}] WRONG_BRUTTO для сигнала {mass_obs:.6f} ({formula_true}):")
-            print(candidates[["mass", "brutto", "ppm_err"]].head(5).to_string(index=False))
+            print(
+                f"[{set_dir.name}] WRONG_BRUTTO для сигнала {mass_obs:.6f} ({formula_true}):"
+            )
+            print(
+                candidates[["mass", "brutto", "ppm_err"]].head(5).to_string(index=False)
+            )
 
             mismatches.append(
                 {
@@ -350,7 +359,9 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
     # 9. Логи (некритические метрики)
     print(f"\n[{set_dir.name}] Назначено формул: {n_assigned}")
     print(f"[{set_dir.name}] Сигнальных пиков (original): {n_signals}")
-    print(f"[{set_dir.name}] Совпадений с annotations: {matches}/{n_signals} (доля {match_ratio:.3f})")
+    print(
+        f"[{set_dir.name}] Совпадений с annotations: {matches}/{n_signals} (доля {match_ratio:.3f})"
+    )
     print(f"[{set_dir.name}] Мисматчей: {len(mismatches)}")
     print(
         f"[{set_dir.name}] Шумовых пиков с формулой: "
