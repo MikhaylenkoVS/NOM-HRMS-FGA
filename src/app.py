@@ -111,6 +111,21 @@ except Exception as _core_err:
     run_pipeline = load_spectrum = find_series = visualize_series = None
     create_van_krevelen_plot = None
 
+# ── Импорт raw-бриджа (опционально, только Windows + MSFileReader) ──────────
+try:
+    from src.core.raw_bridge import average_raw_to_csv, is_available as _raw_available
+
+    _RAW_LOADED = True
+    _RAW_ERROR = ""
+except Exception as _raw_err:
+    _RAW_LOADED = False
+    _RAW_ERROR = str(_raw_err)
+    average_raw_to_csv = None  # type: ignore[assignment]
+
+    def _raw_available():
+        return False
+
+
 # ── Импорт конфигурации: единый источник дефолтов GUI ─────────────────────
 from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
 
@@ -220,6 +235,19 @@ class App(tk.Tk):
         self.src_var = tk.StringVar()
         self.dmet_var = tk.StringVar()
         self.dacet_var = tk.StringVar()
+
+        # ── RAW-файлы (опционально, вместо CSV) ──
+        self.src_raw_var = tk.StringVar()
+        self.dmet_raw_var = tk.StringVar()
+        self.dacet_raw_var = tk.StringVar()
+
+        # ── RT-диапазоны для усреднения RAW ──
+        self.src_rt_min = tk.StringVar(value="")
+        self.src_rt_max = tk.StringVar(value="")
+        self.dmet_rt_min = tk.StringVar(value="")
+        self.dmet_rt_max = tk.StringVar(value="")
+        self.dacet_rt_min = tk.StringVar(value="")
+        self.dacet_rt_max = tk.StringVar(value="")
 
         # ── параметры (значения из pipeline.json -> run_pipeline_defaults) ──
         self.sep_var = tk.StringVar(value=str(_GUI_DEFAULTS["sep"]))
@@ -417,22 +445,54 @@ class App(tk.Tk):
         files_lf = ttk.LabelFrame(p, text="📂  Входные файлы")
         files_lf.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=6)
         files_lf.columnconfigure(1, weight=1)
-        for i, (label, var) in enumerate(
-            [
-                ("Исходный спектр:", self.src_var),
-                ("Дейтерометилирование:", self.dmet_var),
-                ("Дейтероацилирование:", self.dacet_var),
-            ]
-        ):
+
+        # CSV-поля
+        csv_vars = [
+            ("Исходный спектр (CSV):", self.src_var),
+            ("Дейтерометилирование (CSV):", self.dmet_var),
+            ("Дейтероацилирование (CSV):", self.dacet_var),
+        ]
+        for i, (label, var) in enumerate(csv_vars):
+            row = i * 2  # каждое поле занимает 2 строки в grid
             ttk.Label(files_lf, text=label).grid(
-                row=i, column=0, sticky="w", padx=6, pady=3
+                row=row, column=0, sticky="w", padx=6, pady=3
             )
             ttk.Entry(files_lf, textvariable=var, width=55).grid(
-                row=i, column=1, sticky="ew", padx=4, pady=3
+                row=row, column=1, sticky="ew", padx=4, pady=3
             )
             ttk.Button(files_lf, text="…", command=lambda v=var: self._browse(v)).grid(
-                row=i, column=2, padx=4, pady=3
+                row=row, column=2, padx=4, pady=3
             )
+
+        # RAW-поля + RT
+        raw_labels = ["Исходный (RAW):", "Дейтерометил. (RAW):", "Дейтероацил. (RAW):"]
+        raw_vars = [self.src_raw_var, self.dmet_raw_var, self.dacet_raw_var]
+        rt_vars = [
+            (self.src_rt_min, self.src_rt_max),
+            (self.dmet_rt_min, self.dmet_rt_max),
+            (self.dacet_rt_min, self.dacet_rt_max),
+        ]
+        for i, (label, raw_var, (rt_min, rt_max)) in enumerate(
+            zip(raw_labels, raw_vars, rt_vars)
+        ):
+            row = i * 2 + 1  # под CSV-строкой
+            ttk.Label(files_lf, text=label).grid(
+                row=row, column=0, sticky="w", padx=6, pady=2
+            )
+            ttk.Entry(files_lf, textvariable=raw_var, width=30).grid(
+                row=row, column=1, sticky="ew", padx=4, pady=2
+            )
+            ttk.Button(
+                files_lf, text="…", command=lambda v=raw_var: self._browse_raw(v)
+            ).grid(row=row, column=2, padx=4, pady=2)
+
+            # RT-диапазон
+            rt_frame = ttk.Frame(files_lf)
+            rt_frame.grid(row=row + 1, column=1, sticky="w", padx=4, pady=(0, 4))
+            ttk.Label(rt_frame, text="RT, мин:").pack(side="left")
+            ttk.Entry(rt_frame, textvariable=rt_min, width=6).pack(side="left", padx=2)
+            ttk.Label(rt_frame, text="–").pack(side="left")
+            ttk.Entry(rt_frame, textvariable=rt_max, width=6).pack(side="left", padx=2)
 
         load_lf = ttk.LabelFrame(p, text="📥  Загрузка и диапазон масс")
         load_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
@@ -791,6 +851,50 @@ class App(tk.Tk):
 
     # ── Запуск ────────────────────────────────────────────────────────────────
 
+    def _browse_raw(self, var: tk.StringVar):
+        """Browse for a ThermoRAW (.raw) file."""
+        path = filedialog.askopenfilename(
+            filetypes=[("RAW files", "*.raw"), ("All files", "*.*")]
+        )
+        if path:
+            var.set(path)
+
+    def _resolve_path(self, csv_var, raw_var, rt_min_var, rt_max_var, label):
+        """Return the actual CSV path to load, averaging RAW if needed."""
+        csv_path = csv_var.get().strip()
+        raw_path = raw_var.get().strip()
+
+        if csv_path:
+            if not os.path.isfile(csv_path):
+                raise FileNotFoundError(f"[{label}] CSV не найден: {csv_path}")
+            return csv_path
+
+        if not raw_path:
+            raise ValueError(f"[{label}] Укажите CSV или RAW-файл")
+
+        if not os.path.isfile(raw_path):
+            raise FileNotFoundError(f"[{label}] RAW не найден: {raw_path}")
+
+        try:
+            rt_min = float(rt_min_var.get()) if rt_min_var.get().strip() else 0.0
+            rt_max = float(rt_max_var.get()) if rt_max_var.get().strip() else 999.0
+        except ValueError:
+            raise ValueError(f"[{label}] Некорректный RT-диапазон")
+
+        if not _RAW_LOADED:
+            raise RuntimeError(
+                f"[{label}] Обработка RAW недоступна: {_RAW_ERROR}\n"
+                "Установите MSFileReader 3.1 SP4 и comtypes, либо используйте CSV."
+            )
+
+        self._log(
+            f"[RAW] Усреднение {raw_path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…",
+            color=FG,
+        )
+        csv_path = average_raw_to_csv(raw_path, rt_min, rt_max)
+        self._log(f"[RAW] → {csv_path}", color=OK)
+        return csv_path
+
     def _run(self):
         if not CORE_LOADED:
             messagebox.showerror(
@@ -798,19 +902,36 @@ class App(tk.Tk):
             )
             return
 
-        for label, var in [
-            ("Исходный", self.src_var),
-            ("Дейтерометилирование", self.dmet_var),
-            ("Дейтероацилирование", self.dacet_var),
+        spec_paths = []
+        for label, csv_var, raw_var, rt_min, rt_max in [
+            (
+                "Исходный",
+                self.src_var,
+                self.src_raw_var,
+                self.src_rt_min,
+                self.src_rt_max,
+            ),
+            (
+                "Дейтерометилирование",
+                self.dmet_var,
+                self.dmet_raw_var,
+                self.dmet_rt_min,
+                self.dmet_rt_max,
+            ),
+            (
+                "Дейтероацилирование",
+                self.dacet_var,
+                self.dacet_raw_var,
+                self.dacet_rt_min,
+                self.dacet_rt_max,
+            ),
         ]:
-            path = var.get()
-            if not path:
-                messagebox.showwarning("Файл не выбран", f"Укажите файл: «{label}»")
-                return
-            if not os.path.exists(path):
-                messagebox.showwarning(
-                    "Файл не найден", f"Файл не существует: «{label}»\n{path}"
-                )
+            try:
+                path = self._resolve_path(csv_var, raw_var, rt_min, rt_max, label)
+                csv_var.set(path)  # записываем результат в CSV-поле для лога
+                spec_paths.append(path)
+            except Exception as e:
+                messagebox.showerror("Ошибка", str(e))
                 return
 
         params = self._parse_params()
@@ -819,9 +940,9 @@ class App(tk.Tk):
 
         self._clear_log()
         self._log("[DEBUG] ═══ Запуск анализа ═══", color="info")
-        self._log(f"[DEBUG]   src   = {self.src_var.get()}", color="info")
-        self._log(f"[DEBUG]   dmet  = {self.dmet_var.get()}", color="info")
-        self._log(f"[DEBUG]   dacet = {self.dacet_var.get()}", color="info")
+        self._log(f"[DEBUG]   src   = {spec_paths[0]}", color="info")
+        self._log(f"[DEBUG]   dmet  = {spec_paths[1]}", color="info")
+        self._log(f"[DEBUG]   dacet = {spec_paths[2]}", color="info")
         self._log(f"[DEBUG]   params = {params}", color="info")
 
         self.progress.start(10)
@@ -829,12 +950,7 @@ class App(tk.Tk):
 
         t = threading.Thread(
             target=self._run_worker,
-            args=(
-                self.src_var.get(),
-                self.dmet_var.get(),
-                self.dacet_var.get(),
-                params,
-            ),
+            args=(spec_paths[0], spec_paths[1], spec_paths[2], params),
             daemon=True,
         )
         t.start()
