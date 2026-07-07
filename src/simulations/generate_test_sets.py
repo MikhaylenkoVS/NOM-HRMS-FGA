@@ -221,6 +221,7 @@ def generate_all_test_sets(overwrite: bool = False) -> None:
 
 
 def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
+    random.seed(42)
     """Generate one test set from its ``molecules.csv``.
 
     Loads (or creates) the config, computes masses if missing, generates
