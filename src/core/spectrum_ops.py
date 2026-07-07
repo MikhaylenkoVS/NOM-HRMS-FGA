@@ -336,7 +336,7 @@ def _generate_candidate_formulas(
     mass_min: float,
     mass_max: float,
     cfg: FormulaSearchConfig,
-    mode: str = "nom_like",
+    mode: str = "soft",
 ) -> list[tuple[str, float]]:
     """Enumerate candidate CHON formulas within a neutral-mass window.
 
@@ -347,25 +347,17 @@ def _generate_candidate_formulas(
         edges to tolerate rounding.
     cfg : FormulaSearchConfig
         Element ranges and chemical filters.
-    mode : {"nom_like", "soft"}, optional
-        ``"nom_like"`` applies all chemical filters (H/C, O/C, N/C, DBE,
-        minimum carbon), close to NOMspectra behaviour. ``"soft"`` applies
-        only element ranges and the mass window. Default ``"nom_like"``.
+    mode : {"soft", "nom_like"}, optional
+        Ignored — kept for backward compatibility. All candidates within
+        element ranges and mass window are returned without hard filters.
+        NOM-prioritization is applied later in ``assign_formulas_simple``.
+        Default ``"soft"``.
 
     Returns
     -------
     list of tuple of (str, float)
         Pairs of ``(formula_string, exact_neutral_mass)``.
-
-    Raises
-    ------
-    ValueError
-        If ``mode`` is not one of the supported values.
     """
-    mode = mode.lower()
-    if mode not in ("nom_like", "soft"):
-        raise ValueError(f"Unknown generate mode: {mode}")
-
     mass_min_abs = mass_min * 0.99
     mass_max_abs = mass_max * 1.01
 
@@ -376,13 +368,10 @@ def _generate_candidate_formulas(
 
     result: list[tuple[str, float]] = []
 
-    # в "soft" режиме можно не заставлять C >= cfg.min_c, если хочешь максимально мягко
-    c_start = max(c_min, cfg.min_c) if mode == "nom_like" else c_min
-
     # Максимальная масса, добавляемая гетероатомами (O, N)
     max_extra = o_max * ATOMIC_MASS.get("O", 0) + n_max * ATOMIC_MASS.get("N", 0)
 
-    for c in range(c_start, c_max + 1):
+    for c in range(c_min, c_max + 1):
         counts = {"C": c}
         base_mass_c = c * ATOMIC_MASS["C"]
         if base_mass_c > mass_max_abs:
@@ -410,27 +399,6 @@ def _generate_candidate_formulas(
                         continue
                     if mass > mass_max_abs:
                         break
-
-                    if mode == "nom_like":
-                        c_val = c
-                        if c_val <= 0:
-                            continue
-
-                        hc = h / c_val
-                        oc = o / c_val if c_val > 0 else 0.0
-                        nc = n / c_val if c_val > 0 else 0.0
-
-                        if hc > cfg.max_hc:
-                            continue
-                        if oc > cfg.max_oc:
-                            continue
-                        if nc > cfg.max_nc:
-                            continue
-
-                        dbe = dbe_from_counts(counts)
-                        if dbe < 0 or dbe > cfg.max_dbe:
-                            continue
-                    # в режиме "soft" никакие хим. фильтры не применяем
 
                     # Строим строку формулы
                     parts: list[str] = []
@@ -573,12 +541,25 @@ def assign_formulas_simple(
     else:
         mass_max_local = float(mass_max)
 
+    # Корректируем массовое окно для генерации нейтральных кандидатов
+    # На входе — m/z наблюдаемых пиков (ионные массы), а генератор
+    # работает в нейтральных массах. Сдвигаем окно на массу носителя заряда.
+    ion_mode_lower = ion_mode.lower() if ion_mode else ""
+    if ion_mode_lower in ("[m-h]-", "m-h", "mh-"):
+        gen_min = mass_min_local + CHEM.proton_mass
+        gen_max = mass_max_local + CHEM.proton_mass
+    elif ion_mode_lower in ("[m+h]+", "m+h", "mh+"):
+        gen_min = mass_min_local - CHEM.proton_mass
+        gen_max = mass_max_local - CHEM.proton_mass
+    else:
+        gen_min, gen_max = mass_min_local, mass_max_local
+
     # Генерируем кандидатов (нейтральные массы)
     candidates = _generate_candidate_formulas(
-        mass_min=mass_min_local,
-        mass_max=mass_max_local,
+        mass_min=gen_min,
+        mass_max=gen_max,
         cfg=search_config,
-        mode=brutto_generation_mode,  # "soft" / "nom_like"
+        mode=brutto_generation_mode,
     )
 
     if not candidates:
@@ -613,6 +594,7 @@ def assign_formulas_simple(
 
         if nom_prioritize:
             # NOM-приоритизация: score = |ppm| + nom_weight * nom_distance(H/C, O/C)
+            #                          + dbe_penalty + nc_penalty
             local_indices = np.where(mask)[0]
             best_local: int | None = None
             best_score = float("inf")
@@ -627,8 +609,18 @@ def assign_formulas_simple(
                     continue
                 hc = counts.get("H", 0) / c_val
                 oc = counts.get("O", 0) / c_val
+                nc = counts.get("N", 0) / c_val
                 ndist = _nom_distance(hc, oc)
-                score = abs_ppm[li] + nom_weight * ndist
+                dbe = dbe_from_counts(counts)
+                # Штраф за DBE: penalize DBE outside [0, 20] (typical NOM)
+                dbe_pen = 0.0
+                if dbe < 0:
+                    dbe_pen = abs(dbe) * 0.5
+                elif dbe > 20:
+                    dbe_pen = (dbe - 20) * 0.5
+                # Штраф за высокий N/C (N > 30% от C редко для NOM)
+                nc_pen = nc * 2.0 if nc > 0.3 else 0.0
+                score = abs_ppm[li] + nom_weight * ndist + dbe_pen + nc_pen
                 if score < best_score:
                     best_score = score
                     best_local = li
@@ -895,8 +887,8 @@ def assign_formulas(
     kwargs.pop("brutto_dict", None)
 
     if mode == "simple":
-        kwargs.pop("nom_prioritize", None)
-        kwargs.pop("nom_weight", None)
+        _np = kwargs.pop("nom_prioritize", False)
+        _nw = kwargs.pop("nom_weight", 1.0)
         return assign_formulas_simple(
             src,
             rel_error_ppm=rel_error_ppm,
@@ -905,8 +897,8 @@ def assign_formulas(
             search_config=search_config,
             brutto_generation_mode=brutto_generation_mode,
             ion_mode=ion_mode,
-            nom_prioritize=kwargs.pop("nom_prioritize", False),
-            nom_weight=kwargs.pop("nom_weight", 1.0),
+            nom_prioritize=_np,
+            nom_weight=_nw,
         )
 
     if mode == "simple_from_molecules":

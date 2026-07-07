@@ -254,7 +254,7 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
         mass_min=None,
         mass_max=None,
         nom_prioritize=True,
-        nom_weight=5.0,
+        nom_weight=20.0,
     )
 
     assigned_raw_df = assigned_raw.table.copy()

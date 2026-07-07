@@ -9,6 +9,7 @@
   },
   "atomic_mass_elements": ["H", "C", "N", "O"],
   "proton_mass": 1.007276466812,
+  "electron_mass": 0.0005485654179999688,
   "derivatization_shifts": {
     "delta_cd3": 17.03448,
     "delta_cd3co": 45.02939

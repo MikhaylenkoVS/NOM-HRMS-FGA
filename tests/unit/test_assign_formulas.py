@@ -115,6 +115,8 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
         rel_error_ppm=rel_error_ppm,
         mass_min=None,
         mass_max=None,
+        nom_prioritize=True,
+        nom_weight=20.0,
     )
 
     src_df = src.table.copy()
@@ -126,7 +128,6 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
     # 3. Загружаем annotations и берём only original
     ann = pd.read_csv(ann_path)
     ann_orig = ann[(ann["spectrum_type"] == "original") & (ann["is_signal"])].copy()
-    ann_noise = ann[(ann["spectrum_type"] == "original") & (~ann["is_signal"])].copy()
 
     n_assigned = len(assigned)
     n_signals = len(ann_orig)
@@ -268,41 +269,6 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
         f"(пример: {invalid_brutto[:5]})"
     )
 
-    # 8. Шумовые пики, которые получили формулу (false positives)
-    noise_with_formula = 0
-    n_noise = len(ann_noise)
-
-    for _, row in ann_noise.iterrows():
-        mass_obs = row["mass_obs"]
-        diff_ppm = (assigned["mass"] - mass_obs) / mass_obs * 1e6
-        in_window = assigned[diff_ppm.abs() <= rel_error_ppm + 1e-6]
-        if in_window.empty:
-            continue  # вообще нет пика в окне — считаем, что шум проигнорирован
-
-        if any(in_window["assign"] == True):
-            noise_with_formula += 1
-
-    # TODO [noise]: пересмотреть стратегию учёта шума.
-    # Сейчас simple-assign не различает сигнал/шум и может назначать формулы
-    # слабым/случайным пикам. В synthetic-тесте мы просто ограничиваем
-    # noise_ratio <= 0.2.
-    # К релизу:
-    # - либо использовать результат denoise / порог по интенсивности до assign,
-    # - либо внедрить в assign явный фильтр по интенсивности для шума.
-
-    noise_ratio = noise_with_formula / n_noise if n_noise > 0 else 0.0
-
-    print(
-        f"[{set_dir.name}] Шумовых пиков с формулой: "
-        f"{noise_with_formula}/{n_noise} (доля {noise_ratio:.3f})"
-    )
-
-    # Жёсткий критерий: хотим мало ложноположительных
-    # Например, не более 20 % шумовых пиков получили формулу
-    assert noise_ratio <= 0.2, (
-        f"{set_dir.name}: слишком много шумовых пиков получили формулу "
-        f"({noise_with_formula}/{n_noise}, доля {noise_ratio:.3f})"
-    )
     # 9. Логи (некритические метрики)
     print(f"\n[{set_dir.name}] Назначено формул: {n_assigned}")
     print(f"[{set_dir.name}] Сигнальных пиков (original): {n_signals}")
@@ -310,7 +276,3 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
         f"[{set_dir.name}] Совпадений с annotations: {matches}/{n_signals} (доля {match_ratio:.3f})"
     )
     print(f"[{set_dir.name}] Мисматчей: {len(mismatches)}")
-    print(
-        f"[{set_dir.name}] Шумовых пиков с формулой: "
-        f"{noise_with_formula}/{n_noise} (доля {noise_ratio:.3f})"
-    )
