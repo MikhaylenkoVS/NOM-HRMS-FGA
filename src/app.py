@@ -862,40 +862,39 @@ class App(tk.Tk):
             var.set(path)
 
     def _resolve_path(self, csv_var, raw_var, rt_min_var, rt_max_var, label):
-        """Return the actual CSV path to load, averaging RAW if needed."""
+        """Return the actual CSV path, auto-detecting RAW→CSV if needed."""
         csv_path = csv_var.get().strip()
-        raw_path = raw_var.get().strip()
+        raw_path = raw_var.get().strip() if raw_var else ""
 
-        if csv_path:
-            if not os.path.isfile(csv_path):
-                raise FileNotFoundError(f"[{label}] CSV не найден: {csv_path}")
-            return csv_path
+        # Унифицированный путь: один источник (CSV или RAW)
+        path = csv_path or raw_path
+        if not path:
+            raise ValueError(f"[{label}] Укажите файл (.csv или .raw)")
 
-        if not raw_path:
-            raise ValueError(f"[{label}] Укажите CSV или RAW-файл")
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"[{label}] Файл не найден: {path}")
 
-        if not os.path.isfile(raw_path):
-            raise FileNotFoundError(f"[{label}] RAW не найден: {raw_path}")
+        # Автоопределение: если .raw → усреднить
+        if path.lower().endswith(".raw") or raw_path.lower().endswith(".raw"):
+            try:
+                rt_min = float(rt_min_var.get()) if rt_min_var.get().strip() else 0.0
+                rt_max = float(rt_max_var.get()) if rt_max_var.get().strip() else 999.0
+            except ValueError:
+                raise ValueError(f"[{label}] Некорректный RT-диапазон")
 
-        try:
-            rt_min = float(rt_min_var.get()) if rt_min_var.get().strip() else 0.0
-            rt_max = float(rt_max_var.get()) if rt_max_var.get().strip() else 999.0
-        except ValueError:
-            raise ValueError(f"[{label}] Некорректный RT-диапазон")
-
-        if not _RAW_LOADED:
-            raise RuntimeError(
-                f"[{label}] Обработка RAW недоступна: {_RAW_ERROR}\n"
-                "Установите MSFileReader 3.1 SP4 и comtypes, либо используйте CSV."
+            if not _RAW_LOADED:
+                raise RuntimeError(
+                    f"[{label}] Обработка RAW недоступна: {_RAW_ERROR}\n"
+                    "Установите MSFileReader 3.1 SP4 и comtypes."
+                )
+            self._log(
+                f"[RAW] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…",
+                color=FG,
             )
+            path = average_raw_to_csv(path, rt_min, rt_max)
+            self._log(f"[RAW] → {path}", color=OK)
 
-        self._log(
-            f"[RAW] Усреднение {raw_path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…",
-            color=FG,
-        )
-        csv_path = average_raw_to_csv(raw_path, rt_min, rt_max)
-        self._log(f"[RAW] → {csv_path}", color=OK)
-        return csv_path
+        return path
 
     def _run(self):
         if not CORE_LOADED:
