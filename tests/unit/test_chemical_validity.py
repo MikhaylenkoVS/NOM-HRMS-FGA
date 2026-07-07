@@ -18,10 +18,10 @@ def _get_set_dir(set_id: str) -> Path:
 
 
 def test_carboxyl_and_hydroxyl_counts_in_range_if_present():
-    """Если в molecules.csv есть строки, carboxyl_count и hydroxyl_count должны быть в [1, 10].
+    """Если в molecules.csv есть строки, carboxyl_count и hydroxyl_count должны быть в [0, 10].
 
-    На данном этапе допускается, что файл может быть пустым (только заголовок),
-    в этом случае тест просто ничего не проверяет по строкам.
+    Ноль допускается: после исправления hydroxyl_count = hydroxyl_count - carboxyl_count
+    у многих молекул свободные OH-группы отсутствуют.
     """
 
     set_dir = _get_set_dir("set_01")
@@ -33,18 +33,17 @@ def test_carboxyl_and_hydroxyl_counts_in_range_if_present():
         rows = list(reader)
 
     for row in rows:
-        # допускаем, что пока поля могут быть пустыми — тогда пропускаем проверку
-        carboxyl = row.get("carboxyl_count")
-        hydroxyl = row.get("hydroxyl_count")
+        carboxyl_str = row.get("carboxyl_count")
+        hydroxyl_str = row.get("hydroxyl_count")
 
-        if carboxyl:
-            carboxyl_value = int(carboxyl)
+        if carboxyl_str and carboxyl_str.strip():
+            carboxyl_value = int(carboxyl_str)
             assert (
-                1 <= carboxyl_value <= 10
-            ), f"carboxyl_count вне диапазона [1, 10]: {carboxyl_value}"
+                0 <= carboxyl_value <= 10
+            ), f"carboxyl_count вне диапазона [0, 10]: {carboxyl_value}"
 
-        if hydroxyl:
-            hydroxyl_value = int(hydroxyl)
+        if hydroxyl_str and hydroxyl_str.strip():
+            hydroxyl_value = int(hydroxyl_str)
             assert (
-                1 <= hydroxyl_value <= 10
-            ), f"hydroxyl_count вне диапазона [1, 10]: {hydroxyl_value}"
+                0 <= hydroxyl_value <= 10
+            ), f"hydroxyl_count вне диапазона [0, 10]: {hydroxyl_value}"

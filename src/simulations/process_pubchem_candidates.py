@@ -56,8 +56,6 @@ def parse_formula(formula: str) -> Dict[str, int]:
 
     if pos != len(formula):
         raise RuntimeError(f"есть непарсенный хвост в {formula}")
-        # есть непарсенный хвост (можно логировать/игнорировать)
-        return {}
 
     return composition
 
@@ -84,7 +82,6 @@ def is_chno_only(formula: str) -> bool:
     comp = parse_formula(formula)
     if not comp:
         raise ValueError(f"{formula} can't be parsed")
-        return False
 
     allowed = {"C", "H", "N", "O"}
     return all(elem in allowed for elem in comp.keys())

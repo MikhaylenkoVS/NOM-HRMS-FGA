@@ -14,10 +14,9 @@ used by the analysis pipeline (``DELTA_CD3`` = 17.03448 Da,
 """
 
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 import json
 import csv
-from typing import Dict  # уже есть через Any, List — но пусть будет явно
 import pandas as pd
 import math
 import random
@@ -138,32 +137,27 @@ def init_test_sets_structure() -> None:
         set_dir.mkdir(parents=True, exist_ok=True)
 
 
-def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
-    """Load a test set's ``config.json``, creating a default if absent.
+def get_default_config(set_id: str) -> Dict[str, Any]:
+    """Return the default configuration for a test set.
+
+    Configuration is sourced solely from ``src/configs/`` (the single
+    source of truth) — no per-set ``config.json`` is written.
 
     Parameters
     ----------
-    set_dir : pathlib.Path
-        Directory of the test set.
+    set_id : str
+        Identifier of the test set (e.g. ``\"set_01\"``).
 
     Returns
     -------
     dict
-        Parsed configuration (mass range, ppm-error model, intensity,
+        Default configuration (mass range, ppm-error model, intensity,
         noise, derivatization shifts and adducts).
     """
-
-    config_path = set_dir / "config.json"
-
-    if config_path.exists():
-        with config_path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-
-    # Дефолтная конфигурация (значения из chemistry.json для точных сдвигов)
     _dm_shift = CHEM.derivatization_shifts["delta_cd3"]
     _da_shift = CHEM.derivatization_shifts["delta_cd3co"]
-    default_config: Dict[str, Any] = {
-        "set_id": set_dir.name,
+    return {
+        "set_id": set_id,
         "mass_range": {
             "min": 100.0,
             "max": 1000.0,
@@ -171,8 +165,8 @@ def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
         "ppm_error": {
             "type": "normal",
             "mean": 0.0,
-            "std": 2.0,
-            "max_abs": 5.0,
+            "std": 0.2,
+            "max_abs": 0.5,
         },
         "intensity": {
             "scale": "linear",
@@ -187,13 +181,13 @@ def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
                 "target_groups": ["COOH"],
                 "mass_shift_per_group": _dm_shift,
                 "label": "CD3",
-                "conversion_yield": 1.0,
+                "conversion_yield": 0.8,
             },
             "deuteroacyl": {
                 "target_groups": ["OH"],
                 "mass_shift_per_group": _da_shift,
                 "label": "CD3CO",
-                "conversion_yield": 1.0,
+                "conversion_yield": 0.8,
             },
         },
         "adducts": {
@@ -201,16 +195,10 @@ def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
             "neg": [CHEM.default_ion_mode],
         },
         "rounding": {
-            "mass_decimals": 5,
+            "mass_decimals": 8,
             "intensity_decimals": 1,
         },
     }
-
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    with config_path.open("w", encoding="utf-8") as f:
-        json.dump(default_config, f, ensure_ascii=False, indent=2)
-
-    return default_config
 
 
 def generate_all_test_sets(overwrite: bool = False) -> None:
@@ -230,172 +218,6 @@ def generate_all_test_sets(overwrite: bool = False) -> None:
     for i in range(1, PATHS.num_test_sets + 1):
         set_id = f"set_{i:02d}"
         generate_single_test_set(set_id=set_id, overwrite=overwrite)
-
-
-def generate_spectra_for_set(
-    set_id: str,
-    molecules: List[Dict[str, Any]],
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
-    """Build original/deutermethylated/deuteroacylated spectra for a set.
-
-    Parameters
-    ----------
-    set_id : str
-        Identifier of the test set (e.g. ``"set_01"``).
-    molecules : list of dict
-        Molecule records (from ``molecules.csv``).
-    config : dict
-        Set configuration; per-group mass shifts come from
-        ``config["derivatization"]``.
-
-    Returns
-    -------
-    dict
-        Mapping ``spectrum_type -> list of peak records``. The original
-        spectrum has one peak per molecule; the derivatized spectra add
-        one peak per derivatization degree (0..n) for -COOH and -OH
-        respectively.
-
-    Notes
-    -----
-    This is the initial implementation; it is superseded later in the
-    module by a version that also injects noise peaks.
-    """
-
-    spectra: Dict[str, list[Dict[str, Any]]] = {
-        "original": [],
-        "deutermethylated": [],
-        "deuteroacylated": [],
-    }
-
-    base_intensity = 1000
-
-    der_cfg = config.get("derivatization", {})
-    dm_cfg = der_cfg.get("deutermethyl", {})
-    da_cfg = der_cfg.get("deuteroacyl", {})
-
-    dm_shift_per_group = dm_cfg.get(
-        "mass_shift_per_group", CHEM.derivatization_shifts["delta_cd3"]
-    )
-    da_shift_per_group = da_cfg.get(
-        "mass_shift_per_group", CHEM.derivatization_shifts["delta_cd3co"]
-    )
-
-    def _to_int_or_zero(value):
-        if value in (None, ""):
-            return 0
-        if isinstance(value, int):
-            return value
-        try:
-            return int(value)
-        except ValueError:
-            return 0
-
-    for mol in molecules:
-        formula = mol.get("formula")
-        if not formula:
-            continue
-
-        # Берём mass из molecules.csv, а если её нет/NaN – считаем из формулы
-        mass_from_file = mol.get("mass")
-        exact_mass = None
-        if mass_from_file not in (None, ""):
-            try:
-                exact_mass = float(mass_from_file)
-            except ValueError:
-                exact_mass = None
-
-        if exact_mass is None:
-            try:
-                exact_mass = exact_mass_from_formula(formula)
-            except ValueError:
-                continue
-
-        compound_id = mol.get("compound_id")
-        compound_number = mol.get("compound_number")
-
-        carboxyl_count = _to_int_or_zero(mol.get("carboxyl_count"))
-        hydroxyl_count = _to_int_or_zero(mol.get("hydroxyl_count"))
-
-        # ORIGINAL: один пик
-        spectra["original"].append(
-            {
-                "set_id": set_id,
-                "spectrum_type": "original",
-                "compound_id": compound_id,
-                "compound_number": compound_number,
-                "formula": formula,
-                "mass": exact_mass,
-                "intensity": base_intensity,
-                "derivatization_state": "none",
-                "deriv_degree": 0,
-            }
-        )
-
-        # DEUTEROMETHYLATED: исходный + все степени (0..nCOOH)
-        spectra["deutermethylated"].append(
-            {
-                "set_id": set_id,
-                "spectrum_type": "deutermethylated",
-                "compound_id": compound_id,
-                "compound_number": compound_number,
-                "formula": formula,
-                "mass": exact_mass,
-                "intensity": base_intensity,
-                "derivatization_state": "deutermethyl",
-                "deriv_degree": 0,
-            }
-        )
-
-        for k in range(1, carboxyl_count + 1):
-            dm_mass = exact_mass + dm_shift_per_group * k
-            spectra["deutermethylated"].append(
-                {
-                    "set_id": set_id,
-                    "spectrum_type": "deutermethylated",
-                    "compound_id": compound_id,
-                    "compound_number": compound_number,
-                    "formula": formula,
-                    "mass": dm_mass,
-                    "intensity": base_intensity,
-                    "derivatization_state": "deutermethyl",
-                    "deriv_degree": k,
-                }
-            )
-
-        # DEUTEROACYLATED: исходный + все степени (0..nOH)
-        spectra["deuteroacylated"].append(
-            {
-                "set_id": set_id,
-                "spectrum_type": "deuteroacylated",
-                "compound_id": compound_id,
-                "compound_number": compound_number,
-                "formula": formula,
-                "mass": exact_mass,
-                "intensity": base_intensity,
-                "derivatization_state": "deuteroacyl",
-                "deriv_degree": 0,
-            }
-        )
-
-        for k in range(1, hydroxyl_count + 1):
-            da_mass = exact_mass + da_shift_per_group * k
-            spectra["deuteroacylated"].append(
-                {
-                    "set_id": set_id,
-                    "spectrum_type": "deuteroacylated",
-                    "compound_id": compound_id,
-                    "compound_number": compound_number,
-                    "formula": formula,
-                    "mass": da_mass,
-                    "intensity": base_intensity,
-                    "derivatization_state": "deuteroacyl",
-                    "deriv_degree": k,
-                }
-            )
-
-    return spectra
 
 
 def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
@@ -426,8 +248,8 @@ def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
     set_dir = TEST_SETS_ROOT / set_id
     set_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. конфиг
-    config = load_or_create_config(set_dir)
+    # 1. конфиг (только из src/configs/, без локального config.json)
+    config = get_default_config(set_id)
 
     # 2. загрузка molecules.csv (единственный источник истины)
     mol_path = set_dir / PATHS.spectrum_files["molecules"]
@@ -454,12 +276,7 @@ def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
     # 4. превращаем в список dict'ов для generate_spectra_for_set
     molecules = df_mol.to_dict(orient="records")
 
-    # 5. генерация теоретических спектров (без ошибки)
-    spectra_raw = generate_spectra_for_set(
-        set_id=set_id, molecules=molecules, config=config
-    )
-
-    # 6. применяем mass error и добавляем его в записи (mass -> mass_obs)
+    # 5. генерация теоретических спектров (с шумом), на нейтральных массах
     spectra_raw = generate_spectra_for_set(
         set_id=set_id, molecules=molecules, config=config
     )
@@ -761,6 +578,14 @@ def apply_observed_mass_to_spectra(
 ) -> dict[str, list[dict]]:
     """Apply the ppm mass error to every peak in a spectra dict.
 
+    For signal peaks (``is_signal=True``) the generator stores the neutral
+    monoisotopic mass as ``mass``.  This function converts it to the
+    ``[M-H]⁻`` ion mass by subtracting the mass of a hydrogen atom *before*
+    applying the ppm error, so that the resulting ``mass_obs`` and
+    ``mass_theor`` in the annotation table reflect the correct ion mass.
+
+    Noise peaks (``is_signal=False``) are passed through unchanged.
+
     Parameters
     ----------
     spectra : dict of {str: list of dict}
@@ -772,9 +597,12 @@ def apply_observed_mass_to_spectra(
     -------
     dict of {str: list of dict}
         New spectra where each record has ``mass`` set to the observed
-        mass, ``mass_theor`` to the original theoretical mass, and
-        ``mass_error_ppm`` to the applied error in ppm.
+        mass, ``mass_theor`` to the original theoretical mass (neutral for
+        signal, raw for noise), and ``mass_error_ppm`` to the applied error
+        in ppm.
     """
+
+    h_mass = CHEM.monoisotopic_masses["H"]
 
     new_spectra: dict[str, list[dict]] = {
         "original": [],
@@ -791,6 +619,11 @@ def apply_observed_mass_to_spectra(
             if mass_theor is None:
                 updated.append(rec)
                 continue
+
+            # Signal peaks store neutral masses → convert to [M-H]⁻
+            is_signal = rec.get("is_signal", True)
+            if is_signal:
+                mass_theor = mass_theor - h_mass
 
             mass_obs, err_ppm = apply_mass_error(mass_theor, config)
 
