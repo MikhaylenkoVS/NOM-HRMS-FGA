@@ -199,7 +199,7 @@ class MoleculeFragment:
             f"MoleculeFragment(name='{self.name}', "
             f"formula={self.heavy_formula}, ihd={self.ihd}, "
             f"atoms={len(self.atoms)}, bonds={len(self.bonds)}, "
-            f"free_points={len(self.attachment_points)})"
+            f"free_points={sum(self.attachment_counts.values())})"
         )
 
 
