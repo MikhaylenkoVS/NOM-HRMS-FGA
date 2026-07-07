@@ -85,7 +85,7 @@ except Exception as _core_err:
     run_pipeline = load_spectrum = find_series = visualize_series = None
 
 # ── Импорт конфигурации: единый источник дефолтов GUI ─────────────────────
-from src.configs import PIPELINE as _PIPE_CFG
+from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
 _GUI_DEFAULTS = _PIPE_CFG.run_pipeline_defaults
 _BRUTTO_DEFAULTS = _PIPE_CFG.default_brutto_dict
 _FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
@@ -201,7 +201,7 @@ class App(tk.Tk):
         self.ppm_tol_var     = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
         self.max_groups_var  = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
         self.allow_gaps_var  = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
-        self.output_csv_var  = tk.StringVar(value="result_table.csv")
+        self.output_csv_var  = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))
         # Диапазоны элементов из pipeline.json -> formula_search.ranges
         _r = _FORMULA_RANGES
         self.c_min = tk.StringVar(value=str(_r["C"][0])); self.c_max = tk.StringVar(value=str(_r["C"][1]))
@@ -614,8 +614,8 @@ class App(tk.Tk):
             noise_intensity=noise_int,
             rel_error=rel_error,
             sign=self.sign_var.get(),
-            assign_mass_min=0,
-            assign_mass_max=1000,
+            assign_mass_min=_GUI_DEFAULTS["assign_mass_min"],
+            assign_mass_max=_GUI_DEFAULTS["assign_mass_max"],
             ppm_tol=ppm_tol,
             max_groups=max_groups,
             allow_gaps=self.allow_gaps_var.get(),

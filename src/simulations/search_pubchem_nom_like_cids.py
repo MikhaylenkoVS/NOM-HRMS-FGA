@@ -19,8 +19,10 @@ import pubchempy as pcp
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
+from src.configs import PATHS
+
 SUBPROJECT_ROOT = Path(__file__).resolve().parent.parent
-REF_DIR = SUBPROJECT_ROOT / "ref_data"
+REF_DIR = SUBPROJECT_ROOT / PATHS.ref_data_dir
 REF_DIR.mkdir(parents=True, exist_ok=True)
 
 # Файл для set_01 (если нужно по-прежнему отдельный)

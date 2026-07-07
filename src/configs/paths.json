@@ -6,7 +6,9 @@
   "spectrum_files": {
     "original": "original.csv",
     "deutermethylated": "deutermethylated.csv",
-    "deuteroacylated": "deuteroacylated.csv"
+    "deuteroacylated": "deuteroacylated.csv",
+    "annotations": "annotations.csv",
+    "molecules": "molecules.csv"
   },
   "num_test_sets": 5
 }

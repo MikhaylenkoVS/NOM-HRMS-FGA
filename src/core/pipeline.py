@@ -24,7 +24,7 @@ from typing import Optional
 from src.core.molecule import parse_formula
 import pandas as pd
 
-from src.configs import CHEM, PIPELINE
+from src.configs import CHEM, PIPELINE, PATHS
 
 # ---------------------------------------------------------------------------
 # Импорт зависимостей из spectrum_ops
@@ -773,26 +773,21 @@ def run_pipeline(
 # ТЕСТ-РЕЖИМ
 # ---------------------------------------------------------------------------
 
-#: Параметры, которые используют интеграционные тесты
-#: (единый источник — pipeline.json -> test_mode).
-_TEST_DENOISE_KWARGS = dict(PIPELINE.test_mode["denoise"])
-_TEST_ASSIGN_KWARGS = dict(PIPELINE.test_mode["assign"])
-_TEST_SERIES_KWARGS = dict(PIPELINE.test_mode["series"])
-_TEST_MATCH_PPM = PIPELINE.test_mode["match_ppm"]
-# Derivatization deltas fall back to chemistry.json when spectrum_ops import
-# fails, so the exact shifts stay identical to the primary source.
+#: Конфигурация дериватизации для тест-режима:
+#: имена файлов из paths.json, сдвиги масс из chemistry.json.
 _DERIV_SPECS = [
     (
-        "deutermethylated.csv",
+        PATHS.spectrum_files["deutermethylated"],
         DELTA_CD3 if not _IMPORT_ERROR else CHEM.derivatization_shifts["delta_cd3"],
         "deutermethylated",
     ),
     (
-        "deuteroacylated.csv",
+        PATHS.spectrum_files["deuteroacylated"],
         DELTA_CD3CO if not _IMPORT_ERROR else CHEM.derivatization_shifts["delta_cd3co"],
         "deuteroacylated",
     ),
 ]
+_TEST_MATCH_PPM = PIPELINE.test_mode["match_ppm"]
 
 
 def _run_test_mode(
@@ -839,13 +834,13 @@ def _run_test_mode(
 
     # Resolve roots
     if test_sets_root is None:
-        # Автоопределение: ищем data/testsets относительно текущего файла
-        candidate = Path(__file__).resolve().parents[2] / "data" / "test_sets"
+        # Автоопределение: ищем через paths.json относительно текущего файла
+        candidate = Path(__file__).resolve().parents[2] / PATHS.test_sets_dir
         if candidate.exists():
             test_sets_root = candidate
         else:
             # fallback: текущая рабочая директория
-            test_sets_root = Path.cwd() / "data" / "test_sets"
+            test_sets_root = Path.cwd() / PATHS.test_sets_dir
     test_sets_root = Path(test_sets_root)
 
     print("=" * 70)
@@ -1015,19 +1010,20 @@ def _run_single_test_set(
     print(sep_line)
 
     # ── загрузка annotations ──────────────────────────────────────────────
-    ann_path = set_dir / "annotations.csv"
-    molecules_path = set_dir / "molecules.csv"
-    original_path = set_dir / "original.csv"
-    dmet_path = set_dir / "deutermethylated.csv"
-    dacet_path = set_dir / "deuteroacylated.csv"
+    _sf = PATHS.spectrum_files
+    ann_path = set_dir / _sf["annotations"]
+    molecules_path = set_dir / _sf["molecules"]
+    original_path = set_dir / _sf["original"]
+    dmet_path = set_dir / _sf["deutermethylated"]
+    dacet_path = set_dir / _sf["deuteroacylated"]
 
     # Проверяем наличие файлов
     for fpath, label in [
-        (ann_path, "annotations.csv"),
-        (molecules_path, "molecules.csv"),
-        (original_path, "original.csv"),
-        (dmet_path, "deutermethylated.csv"),
-        (dacet_path, "deuteroacylated.csv"),
+        (ann_path, _sf["annotations"]),
+        (molecules_path, _sf["molecules"]),
+        (original_path, _sf["original"]),
+        (dmet_path, _sf["deutermethylated"]),
+        (dacet_path, _sf["deuteroacylated"]),
     ]:
         if not fpath.exists():
             msg = f"файл не найден: {fpath}"
@@ -1285,9 +1281,11 @@ def _run_single_test_set(
             res.errors.append(msg)
 
     # ── Сверка серий с annotations ───────────────────────────────────────
+    _dm_file = _sf["deutermethylated"]
+    _da_file = _sf["deuteroacylated"]
     for deriv_file, delta, deriv_label, sp_result, res_found_attr, res_matched_attr, res_wrong_attr in [
-        ("deutermethylated.csv", DELTA_CD3, "dmet", df_dmet_res, "dmet_found", "dmet_matched", "dmet_wrong"),
-        ("deuteroacylated.csv", DELTA_CD3CO, "dacet", df_dacet_res, "dacet_found", "dacet_matched", "dacet_wrong"),
+        (_dm_file, DELTA_CD3, "dmet", df_dmet_res, "dmet_found", "dmet_matched", "dmet_wrong"),
+        (_da_file, DELTA_CD3CO, "dacet", df_dacet_res, "dacet_found", "dacet_matched", "dacet_wrong"),
     ]:
         if sp_result.empty:
             _debug(f"{set_dir.name} {deriv_label}: результат пустой, сверка невозможна")
@@ -1316,9 +1314,9 @@ def _run_single_test_set(
                 mol_match = molecules.loc[molecules["compound_number"] == compound_num]
                 if not mol_match.empty:
                     mol_row = mol_match.iloc[0]
-                    if deriv_file == "deutermethylated.csv" and "carboxyl_count" in mol_row:
+                    if deriv_file == _dm_file and "carboxyl_count" in mol_row:
                         expected_len = int(mol_row["carboxyl_count"])
-                    elif deriv_file == "deuteroacylated.csv" and "hydroxyl_count" in mol_row:
+                    elif deriv_file == _da_file and "hydroxyl_count" in mol_row:
                         expected_len = int(mol_row["hydroxyl_count"])
 
             # Ищем строку в результате

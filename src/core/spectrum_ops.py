@@ -478,7 +478,7 @@ def assign_formulas_simple(
     mass_max: float | None = None,
     search_config: FormulaSearchConfig | None = None,
     brutto_generation_mode: str = "nom_like",  # "nom_like" или "soft"
-    ion_mode: str = "[M-H]-",                 # тип иона; по умолчанию [M-H]-
+    ion_mode: str = CHEM.default_ion_mode,       # тип иона; по умолчанию из chemistry.json
 ):
     """Assign brutto formulas by brute-force CHON enumeration.
 
@@ -776,7 +776,7 @@ def assign_formulas(
     sign: str = "-",
     search_config: FormulaSearchConfig | None = None,
     brutto_generation_mode: str = "nom_like",
-    ion_mode: str = "[M-H]-",
+    ion_mode: str = CHEM.default_ion_mode,
     **kwargs,
 ):
     """Dispatch brutto-formula assignment to the selected backend.

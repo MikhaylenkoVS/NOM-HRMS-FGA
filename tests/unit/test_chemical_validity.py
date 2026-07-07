@@ -1,15 +1,16 @@
 import csv
 from pathlib import Path
+from src.configs import PATHS
 
 SUBPROJECT_ROOT = Path(__file__).resolve().parent.parent
-DATA_ROOT = SUBPROJECT_ROOT / "data"
-TEST_SETS_ROOT = DATA_ROOT / "test_sets"
+DATA_ROOT = SUBPROJECT_ROOT / PATHS.data_dir
+TEST_SETS_ROOT = DATA_ROOT / PATHS.test_sets_dir
 
 
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-TEST_SETS_ROOT = PROJECT_ROOT / "data" / "test_sets"
+TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
 def _get_set_dir(set_id: str) -> Path:
     return TEST_SETS_ROOT / set_id
@@ -23,7 +24,7 @@ def test_carboxyl_and_hydroxyl_counts_in_range_if_present():
     """
 
     set_dir = _get_set_dir("set_01")
-    path = set_dir / "molecules.csv"
+    path = set_dir / PATHS.spectrum_files["molecules"]
     assert path.exists(), "molecules.csv должен существовать"
 
     with path.open("r", encoding="utf-8", newline="") as f:

@@ -19,7 +19,7 @@ from src.testing.artifact_export import (
 )
 from src.testing.structure_export import export_structures_for_compound
 
-from src.configs import PIPELINE
+from src.configs import PIPELINE, CHEM, PATHS
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +83,11 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
     result = SetSmokeResult(set_name=set_name, artifacts_dir=output_dir)
     logger.info(f"--- Processing {set_name} ---")
 
-    # Пути к входным файлам
-    orig_csv = set_dir / "original.csv"
-    dmet_csv = set_dir / "deutermethylated.csv"
-    dacet_csv = set_dir / "deuteroacylated.csv"
+    # Пути к входным файлам — имена из paths.json
+    _sf = PATHS.spectrum_files
+    orig_csv = set_dir / _sf["original"]
+    dmet_csv = set_dir / _sf["deutermethylated"]
+    dacet_csv = set_dir / _sf["deuteroacylated"]
 
     # Проверка существования
     for path, label in [(orig_csv, "original"), (dmet_csv, "dmet"), (dacet_csv, "dacet")]:
@@ -105,7 +106,7 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
         result.pipeline_success = True
         # Сохраняем таблицу
         table = pipe_result.table
-        result_table_path = output_dir / "result_table.csv"
+        result_table_path = output_dir / PATHS.default_output_csv
         table.to_csv(result_table_path, index=False, sep=';')
         result.result_table_path = result_table_path
     except Exception as e:
@@ -140,7 +141,7 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
 
         # Назначаем формулы (используем тот же вызов, что и пайплайн)
         from src.core.spectrum_ops import assign_formulas_simple
-        src_sp = assign_formulas_simple(src_sp, rel_error_ppm=_p["rel_error"], ion_mode='[M-H]-')
+        src_sp = assign_formulas_simple(src_sp, rel_error_ppm=_p["rel_error"], ion_mode=CHEM.default_ion_mode)
 
         df_dmet = find_series(src_sp, dmet_sp, delta=DELTA_CD3, ppm_tol=_p["ppm_tol"], max_groups=_p["max_groups"], allow_gaps=_p["allow_gaps"])
         df_dacet = find_series(src_sp, dacet_sp, delta=DELTA_CD3CO, ppm_tol=_p["ppm_tol"], max_groups=_p["max_groups"], allow_gaps=_p["allow_gaps"])

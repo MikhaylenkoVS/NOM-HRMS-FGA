@@ -13,27 +13,29 @@ from src.core.spectrum_ops import (
     assign_formulas,
     find_series,
 )
+from src.configs import CHEM, PIPELINE, PATHS
 
 # -------------------
-# Константы и пути
+# Константы и пути — единый источник src/configs/
 # -------------------
 
 REL_ERROR_PPM = 1.2
 MATCH_PPM = 1.2
-ASSIGN_MATCH_PPM = 0.1  # как в test_find_series_on_existing_sets
+ASSIGN_MATCH_PPM = 0.1
 
-DELTA_DEUTEROMETHYLATED = 17.03448
-DELTA_DEUTEROACYLATED = 45.02939
+DELTA_DEUTEROMETHYLATED = CHEM.derivatization_shifts["delta_cd3"]
+DELTA_DEUTEROACYLATED   = CHEM.derivatization_shifts["delta_cd3co"]
 
 THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
 
-TEST_SETS_ROOT = PROJECT_ROOT / "data" / "test_sets"
+TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 TEST_SETS = sorted([p for p in TEST_SETS_ROOT.glob("set_*") if p.is_dir()])
 
+_SF = PATHS.spectrum_files
 DERIV_SPECS = [
-    ("deutermethylated.csv", DELTA_DEUTEROMETHYLATED, "deutermethylated"),
-    ("deuteroacylated.csv", DELTA_DEUTEROACYLATED, "deuteroacylated"),
+    (_SF["deutermethylated"], DELTA_DEUTEROMETHYLATED, "deutermethylated"),
+    (_SF["deuteroacylated"],  DELTA_DEUTEROACYLATED,   "deuteroacylated"),
 ]
 
 # Порог из твоих тестов find_series был 0.07, оставим те же границы
@@ -195,7 +197,7 @@ def _match_result_row_by_mass(
 
 
 def _load_molecules_map(set_dir: Path) -> pd.DataFrame:
-    molecules = pd.read_csv(set_dir / "molecules.csv")
+    molecules = pd.read_csv(set_dir / PATHS.spectrum_files["molecules"])
 
     required_cols = {"compound_number", "carboxyl_count", "hydroxyl_count"}
     missing = required_cols - set(molecules.columns)
@@ -210,9 +212,9 @@ def _expected_series_length(
     deriv_filename: str,
     molecule_row: pd.Series,
 ) -> int:
-    if deriv_filename == "deutermethylated.csv":
+    if deriv_filename == PATHS.spectrum_files["deutermethylated"]:
         return int(molecule_row["carboxyl_count"])
-    if deriv_filename == "deuteroacylated.csv":
+    if deriv_filename == PATHS.spectrum_files["deuteroacylated"]:
         return int(molecule_row["hydroxyl_count"])
 
     raise AssertionError(f"Неизвестный тип дериватизации: {deriv_filename}")
@@ -228,8 +230,8 @@ def _prepare_assigned_original_from_annotations(
     - по mass_obs из annotations расставляем brutto/assign,
     - отфильтровываем только совпавшие по mass.
     """
-    src = load_spectrum(set_dir / "original.csv", mass_min=100, mass_max=1000)
-    ann = pd.read_csv(set_dir / "annotations.csv")
+    src = load_spectrum(set_dir / PATHS.spectrum_files["original"], mass_min=100, mass_max=1000)
+    ann = pd.read_csv(set_dir / PATHS.spectrum_files["annotations"])
 
     ann_orig_signal = ann[
         (ann["spectrum_type"] == "original")
@@ -310,7 +312,7 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
     _debug(f"=== START SET {set_dir.name} ===")
 
-    ann = pd.read_csv(set_dir / "annotations.csv")
+    ann = pd.read_csv(set_dir / PATHS.spectrum_files["annotations"])
     molecules = _load_molecules_map(set_dir)
 
     required_ann_cols = {
@@ -340,7 +342,7 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
     # -------------------
     # Шаг 1: denoise (как в test_denoise)
     # -------------------
-    src = load_spectrum(set_dir / "original.csv", mass_min=100, mass_max=1000)
+    src = load_spectrum(set_dir / PATHS.spectrum_files["original"], mass_min=100, mass_max=1000)
     _preview_table(src.table, f"{set_dir.name} original")
 
     denoised = denoise(src, force=10.0, intensity=100, quantile=None)

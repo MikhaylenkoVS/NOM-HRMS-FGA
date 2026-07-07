@@ -1,18 +1,19 @@
 import csv
 import json
 from pathlib import Path
+from src.configs import PATHS
 
 # Тесты структурной валидности файлов тестовых наборов
 
 SUBPROJECT_ROOT = Path(__file__).resolve().parent.parent
-DATA_ROOT = SUBPROJECT_ROOT / "data"
-TEST_SETS_ROOT = DATA_ROOT / "test_sets"
+DATA_ROOT = SUBPROJECT_ROOT / PATHS.data_dir
+TEST_SETS_ROOT = DATA_ROOT / PATHS.test_sets_dir
 
 
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-TEST_SETS_ROOT = PROJECT_ROOT / "data" / "test_sets"
+TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
 def _get_set_dir(set_id: str) -> Path:
     return TEST_SETS_ROOT / set_id
@@ -26,11 +27,11 @@ def test_required_files_exist_in_set_01():
 
     expected_files = {
         "config.json",
-        "molecules.csv",
-        "original.csv",
-        "deutermethylated.csv",
-        "deuteroacylated.csv",
-        "annotations.csv",
+        PATHS.spectrum_files["molecules"],
+        PATHS.spectrum_files["original"],
+        PATHS.spectrum_files["deutermethylated"],
+        PATHS.spectrum_files["deuteroacylated"],
+        PATHS.spectrum_files["annotations"],
     }
 
     existing = {p.name for p in set_dir.iterdir() if p.is_file()}
@@ -74,9 +75,9 @@ def test_spectra_csv_headers_use_mass_and_intensity():
 
     set_dir = _get_set_dir("set_01")
     spectrum_files = [
-        "original.csv",
-        "deutermethylated.csv",
-        "deuteroacylated.csv",
+        PATHS.spectrum_files["original"],
+        PATHS.spectrum_files["deutermethylated"],
+        PATHS.spectrum_files["deuteroacylated"],
     ]
 
     for filename in spectrum_files:
@@ -95,7 +96,7 @@ def test_molecules_csv_header_structure():
     """Проверка заголовка molecules.csv."""
 
     set_dir = _get_set_dir("set_01")
-    path = set_dir / "molecules.csv"
+    path = set_dir / PATHS.spectrum_files["molecules"]
     assert path.exists(), "molecules.csv должен существовать"
 
     with path.open("r", encoding="utf-8", newline="") as f:
@@ -127,7 +128,7 @@ def test_annotations_csv_header_structure():
     """Проверка заголовка annotations.csv."""
 
     set_dir = _get_set_dir("set_01")
-    path = set_dir / "annotations.csv"
+    path = set_dir / PATHS.spectrum_files["annotations"]
     assert path.exists(), "annotations.csv должен существовать"
 
     with path.open("r", encoding="utf-8", newline="") as f:

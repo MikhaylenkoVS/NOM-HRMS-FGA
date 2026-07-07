@@ -1,5 +1,6 @@
 #/test_denoise.py
 from pathlib import Path
+from src.configs import PATHS
 import pandas as pd
 import pytest
 from src.core.spectrum_ops import load_spectrum, denoise
@@ -9,17 +10,17 @@ THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
 
 TEST_SETS = [
-    PROJECT_ROOT / "data" / "test_sets" / "set_01",
-    PROJECT_ROOT / "data" / "test_sets" / "set_02",
-    PROJECT_ROOT / "data" / "test_sets" / "set_03",
-    PROJECT_ROOT / "data" / "test_sets" / "set_04",
-    PROJECT_ROOT / "data" / "test_sets" / "set_05",
+    PROJECT_ROOT / PATHS.test_sets_dir / "set_01",
+    PROJECT_ROOT / PATHS.test_sets_dir / "set_02",
+    PROJECT_ROOT / PATHS.test_sets_dir / "set_03",
+    PROJECT_ROOT / PATHS.test_sets_dir / "set_04",
+    PROJECT_ROOT / PATHS.test_sets_dir / "set_05",
 ]
 
 @pytest.mark.parametrize("set_dir", TEST_SETS)
 def test_denoise_original_preserves_signals_and_reduces_noise(set_dir: Path):
-    src_path = set_dir / "original.csv"
-    ann_path = set_dir / "annotations.csv"
+    src_path = set_dir / PATHS.spectrum_files["original"]
+    ann_path = set_dir / PATHS.spectrum_files["annotations"]
 
     src = load_spectrum(src_path, mass_min=100, mass_max=1000)
     ann = pd.read_csv(ann_path)

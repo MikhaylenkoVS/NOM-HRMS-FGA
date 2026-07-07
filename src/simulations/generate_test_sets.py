@@ -116,7 +116,7 @@ def load_molecules_for_set(set_path: Path) -> pd.DataFrame:
     pandas.DataFrame
         Contents of ``molecules.csv``.
     """
-    df = pd.read_csv(set_path / "molecules.csv")
+    df = pd.read_csv(set_path / PATHS.spectrum_files["molecules"])
     return df
 
 def init_test_sets_structure() -> None:
@@ -129,7 +129,7 @@ def init_test_sets_structure() -> None:
         :data:`TEST_SETS_ROOT`.
     """
 
-    for i in range(1, 6):
+    for i in range(1, PATHS.num_test_sets + 1):
         set_dir = TEST_SETS_ROOT / f"set_{i:02d}"
         set_dir.mkdir(parents=True, exist_ok=True)
 
@@ -193,7 +193,7 @@ def load_or_create_config(set_dir: Path) -> Dict[str, Any]:
         },
         "adducts": {
             "pos": ["[M+H]+"],
-            "neg": ["[M-H]-"],
+            "neg": [CHEM.default_ion_mode],
         },
         "rounding": {
             "mass_decimals": 5,
@@ -221,7 +221,7 @@ def generate_all_test_sets(overwrite: bool = False) -> None:
     None
     """
 
-    for i in range(1, 6):
+    for i in range(1, PATHS.num_test_sets + 1):
         set_id = f"set_{i:02d}"
         generate_single_test_set(set_id=set_id, overwrite=overwrite)
 
@@ -418,7 +418,7 @@ def generate_single_test_set(set_id: str, overwrite: bool = False) -> None:
     config = load_or_create_config(set_dir)
 
     # 2. загрузка molecules.csv (единственный источник истины)
-    mol_path = set_dir / "molecules.csv"
+    mol_path = set_dir / PATHS.spectrum_files["molecules"]
     if not mol_path.exists():
         raise FileNotFoundError(f"Для {set_id} нет файла {mol_path}")
 
@@ -639,7 +639,7 @@ def write_molecules_csv(set_dir: Path, molecules: List[Dict[str, Any]], overwrit
     -------
     None
     """
-    file_path = set_dir / "molecules.csv"
+    file_path = set_dir / PATHS.spectrum_files["molecules"]
     if file_path.exists() and not overwrite:
         return
 
@@ -711,9 +711,9 @@ def write_spectra_csv(set_dir: Path, spectra: Dict[str, Any], overwrite: bool = 
                         }
                     )
 
-    _write_single_spectrum("original.csv", spectra.get("original"))
-    _write_single_spectrum("deutermethylated.csv", spectra.get("deutermethylated"))
-    _write_single_spectrum("deuteroacylated.csv", spectra.get("deuteroacylated"))
+    _write_single_spectrum(PATHS.spectrum_files["original"], spectra.get("original"))
+    _write_single_spectrum(PATHS.spectrum_files["deutermethylated"], spectra.get("deutermethylated"))
+    _write_single_spectrum(PATHS.spectrum_files["deuteroacylated"], spectra.get("deuteroacylated"))
 
 def apply_observed_mass_to_spectra(
     spectra: dict[str, list[dict]],
@@ -891,7 +891,7 @@ def write_annotations_csv(
         a generated ``peak_id``.
     """
 
-    file_path = set_dir / "annotations.csv"
+    file_path = set_dir / PATHS.spectrum_files["annotations"]
     if file_path.exists() and not overwrite:
         return
 
@@ -945,7 +945,7 @@ def write_annotations_csv(
                         "compound_number": rec.get("compound_number"),
                         "formula": rec.get("formula"),
                         "derivatization_state": rec.get("derivatization_state"),
-                        "adduct_type": "[M-H]-",
+                        "adduct_type": CHEM.default_ion_mode,
                         "charge": -1,
                         "assignment_confidence": "high",
                         "is_signal": bool(is_signal),
@@ -979,9 +979,9 @@ def normalize_molecules_header_for_all_sets() -> None:
         "comment",
     ]
 
-    for i in range(1, 6):
+    for i in range(1, PATHS.num_test_sets + 1):
         set_dir = TEST_SETS_ROOT / f"set_{i:02d}"
-        molecules_path = set_dir / "molecules.csv"
+        molecules_path = set_dir / PATHS.spectrum_files["molecules"]
         if not molecules_path.exists():
             print(f"[normalize_molecules_header] Файл не найден: {molecules_path}, пропускаю")
             continue

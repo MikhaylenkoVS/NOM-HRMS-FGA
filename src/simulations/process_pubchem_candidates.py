@@ -11,8 +11,10 @@ import pandas as pd
 import re
 import matplotlib.pyplot as plt
 
+from src.configs import PATHS
+
 SUBPROJECT_ROOT = Path(__file__).resolve().parent.parent
-REF_DIR = SUBPROJECT_ROOT / "ref_data"
+REF_DIR = SUBPROJECT_ROOT / PATHS.ref_data_dir
 INPUT_PATH = REF_DIR / "ref_molecules_all_pubchem.csv"
 OUTPUT_FILTERED_PATH = REF_DIR / "ref_molecules_all_pubchem_filtered.csv"
 OUTPUT_VK_PATH = REF_DIR / "ref_molecules_all_pubchem_filtered.csv"
@@ -281,7 +283,7 @@ def save_sets(set_dfs: list[pd.DataFrame]) -> None:
     """
     for i, sdf in enumerate(set_dfs, start=1):
         set_id = f"set_0{i}"
-        out_path = SUBPROJECT_ROOT / f"data/test_sets/{set_id}" / "molecules.csv"
+        out_path = SUBPROJECT_ROOT / PATHS.test_sets_dir / set_id / PATHS.spectrum_files["molecules"]
 
         # обновим set_id и compound_number 1..N внутри каждого набора
         sdf = sdf.copy()

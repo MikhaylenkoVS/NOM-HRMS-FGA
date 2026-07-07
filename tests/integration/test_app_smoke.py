@@ -4,6 +4,7 @@
 import pytest
 import logging
 from pathlib import Path
+from src.configs import PATHS
 import sys
 
 # Добавляем корень проекта в путь, если запускаем не из корня
@@ -20,7 +21,7 @@ def smoke_output_dir(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def data_dir():
-    return Path(__file__).resolve().parents[2] / "data" / "test_sets"
+    return Path(__file__).resolve().parents[2] / PATHS.test_sets_dir
 
 def test_smoke_all_sets(data_dir, smoke_output_dir):
     """Smoke test: прогоняет все тестовые наборы и проверяет, что все успешны."""

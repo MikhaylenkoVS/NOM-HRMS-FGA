@@ -2,16 +2,17 @@ import csv
 import json
 from math import isclose
 from pathlib import Path
+from src.configs import PATHS
 
 SUBPROJECT_ROOT = Path(__file__).resolve().parent.parent
-DATA_ROOT = SUBPROJECT_ROOT / "data"
-TEST_SETS_ROOT = DATA_ROOT / "test_sets"
+DATA_ROOT = SUBPROJECT_ROOT / PATHS.data_dir
+TEST_SETS_ROOT = DATA_ROOT / PATHS.test_sets_dir
 
 
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-TEST_SETS_ROOT = PROJECT_ROOT / "data" / "test_sets"
+TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
 def _get_set_dir(set_id: str) -> Path:
     return TEST_SETS_ROOT / set_id
@@ -45,7 +46,7 @@ def test_annotations_have_matching_peaks_in_spectra_and_ppm_limits():
     max_abs_ppm = float(ppm_cfg.get("max_abs", 5.0))
 
     # Загружаем annotations.csv
-    ann_path = set_dir / "annotations.csv"
+    ann_path = set_dir / PATHS.spectrum_files["annotations"]
     assert ann_path.exists(), "annotations.csv должен существовать"
 
     with ann_path.open("r", encoding="utf-8", newline="") as f:
@@ -54,9 +55,9 @@ def test_annotations_have_matching_peaks_in_spectra_and_ppm_limits():
 
     # Загружаем спектры
     spectra_files = {
-        "original": set_dir / "original.csv",
-        "deutermethylated": set_dir / "deutermethylated.csv",
-        "deuteroacylated": set_dir / "deuteroacylated.csv",
+        "original": set_dir / PATHS.spectrum_files["original"],
+        "deutermethylated": set_dir / PATHS.spectrum_files["deutermethylated"],
+        "deuteroacylated": set_dir / PATHS.spectrum_files["deuteroacylated"],
     }
 
     spectra_data: dict[str, list[dict]] = {}
