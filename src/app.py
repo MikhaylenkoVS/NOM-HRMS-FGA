@@ -205,7 +205,7 @@ class App(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("MS Functional Groups Analyzer")
+        self.title("NOM HRMS FGA")
         self.geometry("1200x760")
         self.configure(bg=BG)
         self.resizable(True, True)
@@ -380,7 +380,7 @@ class App(tk.Tk):
     def _build_ui(self):
         hdr = tk.Label(
             self,
-            text="⚗  MS Functional Groups Analyzer",
+            text="⚗  NOM HRMS FGA",
             bg=BG,
             fg=ACCENT,
             font=("Segoe UI", 16, "bold"),
@@ -1377,7 +1377,7 @@ class App(tk.Tk):
 
 
 def main():
-    """Entry point for ``nom-analyzer`` CLI / ``python -m src``."""
+    """Entry point for ``nom-hrms-fga`` CLI / ``python -m src``."""
     warnings.filterwarnings("always")
     app = App()
     app.mainloop()

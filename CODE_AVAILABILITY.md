@@ -20,7 +20,7 @@ DELTA_CD3 = 17.03448 Da per group) and deuteroacylation of hydroxyl groups
 count functional groups, assign molecular formulas in negative ion mode
 ([M–H]⁻), and enumerate candidate molecular structures.
 
-**Repository:** https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution
+**Repository:** https://github.com/MikhaylenkoVS/NOM-HRMS-FGA
 
 **Version / Tag:** v0.4.0
 
@@ -35,17 +35,17 @@ retains its own license.
 **Installation:**
 ```bash
 # One-command install from GitHub
-pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution.git
+pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 
 # Or from a local clone
-git clone https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution.git
-cd NOM-HRMS-deconvolution
+git clone https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
+cd NOM-HRMS-FGA
 pip install .
 ```
 
 **Launch:**
 ```bash
-nom-analyzer           # graphical interface
+nom-hrms-fga           # graphical interface
 python -m src          # alternative
 ```
 
@@ -59,7 +59,7 @@ some Linux distributions, e.g. `apt install python3-tk`).
 
 ```bash
 # 1. Install
-pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution.git
+pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 
 # 2. Run the automated test suite (129 tests)
 pytest
@@ -75,7 +75,7 @@ its results to be reproduced without external data.
 
 ## Русский
 
-**Название ПО:** NOM-HRMS-deconvolution
+**Название ПО:** NOM-HRMS-FGA
 
 **Описание:** программное обеспечение с открытым исходным кодом на языке Python
 для деконволюции масс-спектров высокого разрешения (ВЭЖХ-МСВР) природного
@@ -88,7 +88,7 @@ DELTA_CD3 = 17.03448 Да на группу) и дейтероацилирова
 режиме отрицательных ионов ([M–H]⁻) и перечислять возможные молекулярные
 структуры.
 
-**Репозиторий:** https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution
+**Репозиторий:** https://github.com/MikhaylenkoVS/NOM-HRMS-FGA
 
 **Версия / тег:** v0.4.0
 

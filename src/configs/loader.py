@@ -1,4 +1,4 @@
-"""Central configuration loader for the NOM-HRMS-deconvolution project.
+"""Central configuration loader for the NOM HRMS FGA project.
 
 All shared scientific constants and default settings live in the JSON files
 next to this module (``chemistry.json``, ``pipeline.json``, ``paths.json``).
