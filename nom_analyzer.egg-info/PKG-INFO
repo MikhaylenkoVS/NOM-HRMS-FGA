@@ -2,8 +2,8 @@ Metadata-Version: 2.4
 Name: nom-analyzer
 Version: 0.4.0
 Summary: NOM-HRMS functional-group analyzer — deconvolution, formula assignment, homologous series detection
-Author-email: "Mikhaylenko V.S." <mikhaylenko@example.com>
-License: MIT
+Author-email: "Mikhaylenko V.S." <mikhaylenkovs@gmail.com>
+License: GNU GPL-3.0
 Project-URL: Homepage, https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution
 Project-URL: Repository, https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution
 Classifier: Development Status :: 4 - Beta
@@ -51,7 +51,7 @@ pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution.git
 
 # Способ 2 — из локальной копии репозитория
 git clone https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution.git
-cd NOM-HRMS-deconvolution
+cd NOM-HRMS-FGA
 pip install .
 ```
 
@@ -177,10 +177,10 @@ pytest tests/ -q -m smoke   # только быстрые smoke-тесты
 
 ## 📄 Лицензия
 
-Основной код — **MIT**. Сторонний код в `external/` — **GPL-3.0** (см. `external/README.txt`).
+GNU GPL-3.0
 
 ## 🔗 Ссылки
 
-- [Репозиторий](https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution)
+- [Репозиторий](https://github.com/MikhaylenkoVS/NOM-HRMS-FGA)
 - [Исходная NOMspectra](https://github.com/kozelkov-ie/NOMspectra)
 - [MSFileReader (ThermoRAW)](https://github.com/frallain/pymsfilereader)

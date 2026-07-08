@@ -1,3 +1,36 @@
+Metadata-Version: 2.4
+Name: nom-hrms-fga
+Version: 0.4.0
+Summary: NOM HRMS FGA: functional-group analyzer for natural organic matter (NOM) mass spectra
+Author-email: "Mikhaylenko V.S." <mikhaylenko@example.com>
+License: GPL-3.0
+Project-URL: Homepage, https://github.com/MikhaylenkoVS/NOM-HRMS-FGA
+Project-URL: Repository, https://github.com/MikhaylenkoVS/NOM-HRMS-FGA
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GPL-3.0 License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=2.0
+Requires-Dist: matplotlib>=3.7
+Requires-Dist: nomspectra>=1.0.0
+Requires-Dist: rdkit>=2023.9
+Requires-Dist: Pillow>=9.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: black>=24.0; extra == "dev"
+Requires-Dist: flake8>=7.0; extra == "dev"
+Provides-Extra: raw
+Requires-Dist: comtypes>=1.1.14; extra == "raw"
+Dynamic: license-file
+
 # NOM-HRMS Functional-Group Analyzer
 
 Инструмент для расшифровки масс-спектров природного органического вещества (NOM)  

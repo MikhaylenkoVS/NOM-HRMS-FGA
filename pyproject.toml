@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nom-analyzer"
+name = "nom-hrms-fga"
 version = "0.4.0"
-description = "NOM-HRMS functional-group analyzer — deconvolution, formula assignment, homologous series detection"
+description = "NOM HRMS FGA: functional-group analyzer for natural organic matter (NOM) mass spectra"
 readme = "README.md"
 license = {text = "GPL-3.0"}
 requires-python = ">=3.10"
@@ -42,11 +42,11 @@ raw = [
 ]
 
 [project.scripts]
-nom-analyzer = "src.app:main"
+nom-hrms-fga = "src.app:main"
 
 [project.urls]
-Homepage = "https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution"
-Repository = "https://github.com/MikhaylenkoVS/NOM-HRMS-deconvolution"
+Homepage = "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA"
+Repository = "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA"
 
 [tool.setuptools.packages.find]
 where = ["."]

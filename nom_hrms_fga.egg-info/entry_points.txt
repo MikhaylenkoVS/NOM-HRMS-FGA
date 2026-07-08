@@ -1,0 +1,2 @@
+[console_scripts]
+nom-hrms-fga = src.app:main
