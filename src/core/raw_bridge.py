@@ -18,7 +18,7 @@ Requirements
 
 License note
 ------------
-This module is MIT-licensed.  At runtime it imports GPL-3.0 code from
+This module is GPL-3.0-licensed.  At runtime it imports GPL-3.0 code from
 ``external/usrednenie_spectrov_i_hromatogramm/src/``.  The combined work is
 subject to the GPL-3.0 when the optional dependency is active.
 """

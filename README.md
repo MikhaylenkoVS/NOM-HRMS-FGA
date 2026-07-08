@@ -144,7 +144,7 @@ pytest tests/ -q -m smoke   # только быстрые smoke-тесты
 
 ## 📄 Лицензия
 
-Основной код — **MIT**. Сторонний код в `external/` — **GPL-3.0** (см. `external/README.txt`).
+Основной код — **GPL-3.0**. Сторонний код в `external/` — **GPL-3.0** (см. `external/README.txt`).
 
 ## 🔗 Ссылки
 

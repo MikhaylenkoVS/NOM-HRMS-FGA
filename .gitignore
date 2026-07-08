@@ -48,3 +48,4 @@ logs/
 *.pyc
 *.pyo
 *$py.classnom_analyzer.egg-info/
+NOM-HRMS-deconvolution/

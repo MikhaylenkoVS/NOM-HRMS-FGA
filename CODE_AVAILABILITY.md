@@ -9,7 +9,7 @@
 
 ## English
 
-**Software name:** NOM-HRMS-deconvolution
+**Software name:** NOM-HRMS-derivatization
 
 **Description:** Open-source Python software for deconvolution of high-resolution
 mass spectra (HPLC-HRMS) of natural organic matter (NOM) / humic substances.
@@ -26,7 +26,7 @@ count functional groups, assign molecular formulas in negative ion mode
 
 **Archived version (DOI):** [DOI будет присвоен при архивировании релиза на Zenodo]
 
-**License:** MIT (see `LICENSE`). Third-party code under
+**License:** GPL-3.0 (see `LICENSE`). Third-party code under
 `external/usrednenie_spectrov_i_hromatogramm/` is distributed under GPL-3.0 and
 retains its own license.
 
@@ -94,7 +94,7 @@ DELTA_CD3 = 17.03448 Да на группу) и дейтероацилирова
 
 **Архивная версия (DOI):** [DOI будет присвоен при архивировании релиза на Zenodo]
 
-**Лицензия:** MIT (см. файл `LICENSE`). Сторонний код в каталоге
+**Лицензия:** GPL-3.0 (см. файл `LICENSE`). Сторонний код в каталоге
 `external/usrednenie_spectrov_i_hromatogramm/` распространяется под лицензией
 GPL-3.0 и сохраняет собственную лицензию.
 
