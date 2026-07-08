@@ -459,19 +459,20 @@ class App(tk.Tk):
             ),
         ]
         for i, (label, spec_var, rt_min_var, rt_max_var) in enumerate(spec_configs):
+            base_row = i * 2
             ttk.Label(files_lf, text=label).grid(
-                row=i, column=0, sticky="w", padx=6, pady=3
+                row=base_row, column=0, sticky="w", padx=6, pady=3
             )
             ttk.Entry(files_lf, textvariable=spec_var, width=45).grid(
-                row=i, column=1, sticky="ew", padx=4, pady=3
+                row=base_row, column=1, sticky="ew", padx=4, pady=3
             )
             ttk.Button(
                 files_lf, text="…", command=lambda v=spec_var: self._browse(v)
-            ).grid(row=i, column=2, padx=4, pady=3)
+            ).grid(row=base_row, column=2, padx=4, pady=3)
 
-            # RT-диапазон (компактно, под полем ввода)
+            # RT-диапазон (под полем ввода)
             rt_frame = ttk.Frame(files_lf)
-            rt_frame.grid(row=i + 1, column=1, sticky="w", padx=4, pady=(0, 6))
+            rt_frame.grid(row=base_row + 1, column=1, sticky="w", padx=4, pady=(0, 6))
             ttk.Label(rt_frame, text="RT, мин:").pack(side="left")
             ttk.Entry(rt_frame, textvariable=rt_min_var, width=5).pack(
                 side="left", padx=2
