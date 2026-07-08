@@ -8,38 +8,85 @@
 
 ---
 
-## 📦 Установка (для конечного пользователя)
+## 📦 Установка (с чистого компьютера)
 
+Ни Python, ни Git не требуются заранее — всё ставится по шагам.
+
+### Windows
+
+1.  **Установите Python** (≥ 3.10):
+    - Скачайте установщик с [python.org/downloads](https://python.org/downloads)
+    - **Важно:** при установке отметьте галочку **«Add Python to PATH»**
+    - Проверьте: откройте `Командную строку` → `python --version`
+
+2.  **Установите программу** одной командой:
+    ```cmd
+    pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
+    ```
+
+3.  **Запустите:**
+    ```cmd
+    nom-hrms-fga
+    ```
+
+### macOS
+
+1.  **Установите Python** (≥ 3.10):
+    - Скачайте установщик с [python.org/downloads](https://python.org/downloads)
+    - Или через Homebrew: `brew install python@3.12`
+    - Проверьте: `python3 --version`
+
+2.  **Установите программу:**
+    ```bash
+    pip3 install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
+    ```
+
+3.  **Запустите:**
+    ```bash
+    nom-hrms-fga
+    ```
+    Если команда не найдена: `python3 -m src`
+
+### Linux (Ubuntu / Debian)
+
+1.  **Установите Python и pip:**
+    ```bash
+    sudo apt update
+    sudo apt install python3 python3-pip python3-tk
+    ```
+
+2.  **Установите программу:**
+    ```bash
+    pip3 install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
+    ```
+
+3.  **Запустите:**
+    ```bash
+    nom-hrms-fga
+    ```
+    Если команда не найдена: `python3 -m src`
+
+### Только CSV-файл (альтернатива без установки)
+
+Если вам нужен только CLI, а не графический интерфейс — например, для
+пакетной обработки CSV-файлов — используйте скрипт напрямую из репозитория:
 ```bash
-# Требуется Python ≥ 3.10
-
-# Способ 1 — установка одной командой из GitHub
-pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
-
-# Способ 2 — из локальной копии репозитория
 git clone https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 cd NOM-HRMS-FGA
-pip install .
+pip install -r requirements.txt
+python -m src.core.pipeline --help
 ```
 
-### Опциональные компоненты
+### Опционально: поддержка ThermoRAW
 
+Только на Windows, требуется [MSFileReader 3.1 SP4](https://thermo.flexnetoperations.com/control/thmo/search?query=MSFileReader):
 ```bash
-# Поддержка ThermoRAW-файлов (только Windows, требуется MSFileReader 3.1 SP4)
 pip install ".[raw]"
-
-# Инструменты разработчика
-pip install ".[dev]"
 ```
 
-## 🚀 Запуск
+<br>
 
-```bash
-nom-hrms-fga          # графический интерфейс (рекомендуется)
-python -m src         # альтернативный запуск GUI
-```
-
-**Системные требования:** `pip install ".[dev]"` + `pre-commit install`.
+> 💡 **Проблемы с запуском?** Самая частая причина — Python не добавлен в PATH при установке. Переустановите Python с галочкой «Add Python to PATH» либо откройте `Python` → `Command Prompt` из меню Пуск.
 
 ---
 
