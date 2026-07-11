@@ -4,7 +4,7 @@ import pandas as pd
 from tests.conftest import TEST_SETS_ROOT
 from nomspectra.spectrum import Spectrum
 from src.core.spectrum_ops import (
-    assign_formulas_simple,
+    assign_formulas,
     FormulaSearchConfig,
     _nom_distance,
     _generate_candidate_formulas,
@@ -31,7 +31,7 @@ def test_nom_prioritize_on_set_01():
 
     # NOM-приоритизация включена по умолчанию
     src = Spectrum(table=df)
-    result = assign_formulas_simple(
+    result = assign_formulas(
         src,
         rel_error_ppm=0.5,
         mass_min=0,

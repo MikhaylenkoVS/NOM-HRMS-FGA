@@ -42,11 +42,9 @@ DEBUG_PREVIEW_ROWS = 5
 
 DENOISE_KWARGS = dict(_TEST_CFG["denoise"])
 ASSIGN_KWARGS = {
-    "mode": _TEST_CFG["assign"]["mode"],
     "rel_error_ppm": ASSIGN_MATCH_PPM,
     "mass_min": 0,  # явно — см. TODO ниже
     "mass_max": 1000,
-    "nom_prioritize": True,
     "nom_weight": 5.0,
 }
 # TODO: Разобрать зависимость assign_formulas от диапазона масс.
@@ -250,11 +248,9 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
     assigned_raw = assign_formulas(
         src_raw,
-        mode="simple",
         rel_error_ppm=0.5,
         mass_min=None,
         mass_max=None,
-        nom_prioritize=True,
         nom_weight=20.0,
     )
 
