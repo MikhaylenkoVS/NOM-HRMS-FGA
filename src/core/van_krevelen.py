@@ -58,10 +58,10 @@ SCATTER_EDGECOLOR: str = "#444444"
 SCATTER_LINEWIDTH: float = 0.5
 SCATTER_ALPHA: float = 0.85
 # Размер точки для минимальной и максимальной интенсивности
-SCATTER_SIZE_MIN: float = 20.0
-SCATTER_SIZE_MAX: float = 200.0
+SCATTER_SIZE_MIN: float = 50.0
+SCATTER_SIZE_MAX: float = 300.0
 # Размер по умолчанию, когда все интенсивности равны
-SCATTER_SIZE_FALLBACK: float = 100.0
+SCATTER_SIZE_FALLBACK: float = 120.0
 
 # --- Параметры colorbar ---
 COLORBAR_LABEL: str = "Number of –COOH groups"
@@ -241,15 +241,15 @@ def create_van_krevelen_plot(
     n_cooh_arr = np.asarray(data["n_cooh"], dtype=int)
     intensities_arr = np.asarray(data["intensity"], dtype=float)
 
-    # ── Нормализация размера точек ────────────────────────────────────
+    # ── Нормализация размера точек (sqrt-шкала) ──────────────────────
     intensity_min = intensities_arr.min()
     intensity_max = intensities_arr.max()
     if intensity_max == intensity_min:
         sizes = np.full_like(intensities_arr, SCATTER_SIZE_FALLBACK, dtype=float)
     else:
-        sizes = SCATTER_SIZE_MIN + (intensities_arr - intensity_min) / (
-            intensity_max - intensity_min
-        ) * (SCATTER_SIZE_MAX - SCATTER_SIZE_MIN)
+        # sqrt для сглаживания: мелкие пики не исчезают на фоне одного гиганта
+        norm = np.sqrt((intensities_arr - intensity_min) / (intensity_max - intensity_min))
+        sizes = SCATTER_SIZE_MIN + norm * (SCATTER_SIZE_MAX - SCATTER_SIZE_MIN)
 
     # ── Создание фигуры ───────────────────────────────────────────────
     fig, ax = plt.subplots(figsize=figsize)
