@@ -51,7 +51,7 @@ GRID_ALPHA: float = 0.4
 
 # --- Параметры точек (scatter plot) ---
 SCATTER_CMAP: str = "YlOrRd"
-SCATTER_EDGECOLOR: str = "k"
+SCATTER_EDGECOLOR: str = "#313244"   # тёмный, видимый на тёмном фоне
 SCATTER_LINEWIDTH: float = 0.3
 SCATTER_ALPHA: float = 0.85
 # Размер точки для минимальной и максимальной интенсивности
@@ -68,7 +68,7 @@ NOM_REGION_ALPHA: float = 0.12
 NOM_LABEL_FONTSIZE: float = 9
 NOM_LABEL_ALPHA: float = 0.7
 NOM_LABEL_WEIGHT: str = "bold"
-NOM_LABEL_COLOR: str = "black"
+NOM_LABEL_COLOR: str = "#cdd6f4"    # светлый текст на тёмном фоне (FG)
 
 # ======================================================================
 # ОБЛАСТИ NOM НА ДИАГРАММЕ
@@ -290,7 +290,9 @@ def create_van_krevelen_plot(
 
     # ── Colorbar ──────────────────────────────────────────────────────
     cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label(COLORBAR_LABEL)
+    cbar.set_label(COLORBAR_LABEL, color="#cdd6f4")
+    cbar.ax.yaxis.set_tick_params(color="#cdd6f4")
+    plt.setp(plt.getp(cbar.ax, "yticklabels"), color="#cdd6f4")
 
     # ── Оси ───────────────────────────────────────────────────────────
     ax.set_xlim(*X_LIM)
