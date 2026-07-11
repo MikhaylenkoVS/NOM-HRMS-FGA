@@ -251,6 +251,8 @@ class App(tk.Tk):
         self.mass_max_var = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_max"]))
         self.noise_force_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
         self.noise_int_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
+        self.noise_method_var = tk.StringVar(value="force")
+        self.noise_value_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
         self.rel_error_var = tk.StringVar(value=str(_GUI_DEFAULTS["rel_error"]))
         self.sign_var = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
         self.ppm_tol_var = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
@@ -492,8 +494,6 @@ class App(tk.Tk):
                 ("Разделитель CSV:", self.sep_var),
                 ("m/z min:", self.mass_min_var),
                 ("m/z max:", self.mass_max_var),
-                ("Шум (force):", self.noise_force_var),
-                ("Шум (intensity):", self.noise_int_var),
             ]
         ):
             ttk.Label(load_lf, text=lbl).grid(
@@ -502,6 +502,41 @@ class App(tk.Tk):
             ttk.Entry(load_lf, textvariable=var, width=12).grid(
                 row=row, column=1, sticky="w", padx=4, pady=3
             )
+
+        # Денойз: метод + одно значение (взаимоисключающие: intensity > quantile > force)
+        ttk.Label(load_lf, text="Шумоподавление:").grid(
+            row=4, column=0, sticky="w", padx=6, pady=3
+        )
+        noise_methods = [
+            "force",
+            "intensity",
+            "quantile",
+        ]
+        noise_method_names = {
+            "force": "Force (S/N, рекоменд. 1.5-3)",
+            "intensity": "Абс. интенсивность (рекоменд. 100)",
+            "quantile": "Квантиль (рекоменд. 0.01)",
+        }
+        self._noise_cb = ttk.Combobox(
+            load_lf,
+            textvariable=self.noise_method_var,
+            values=noise_methods,
+            width=28,
+            state="readonly",
+        )
+        self._noise_cb.grid(row=4, column=1, sticky="w", padx=4, pady=3)
+        # Set display names via a mapping (tk Combobox doesn't support dict natively)
+        self._noise_cb["values"] = [noise_method_names[m] for m in noise_methods]
+        self._noise_cb.bind("<<ComboboxSelected>>", self._on_noise_method_change)
+        # Select default: "force"
+        self._noise_cb.current(0)
+
+        ttk.Label(load_lf, text="Значение:").grid(
+            row=5, column=0, sticky="w", padx=6, pady=3
+        )
+        ttk.Entry(load_lf, textvariable=self.noise_value_var, width=12).grid(
+            row=5, column=1, sticky="w", padx=4, pady=3
+        )
 
         form_lf = ttk.LabelFrame(p, text="🔬  Назначение брутто-формул")
         form_lf.grid(row=1, column=1, sticky="ew", padx=8, pady=6)
@@ -752,6 +787,22 @@ class App(tk.Tk):
         if path:
             var.set(path)
 
+    # ── Денойз: обновление значения при смене метода ──────────────────────────
+
+    def _on_noise_method_change(self, event=None):
+        """Update the parameter field to a suggested default for the selected method."""
+        defaults = {"force": "1.5", "intensity": "100", "quantile": "0.01"}
+        method = self.noise_method_var.get()
+        # Extract the method key from the display string
+        for key, name in {
+            "force": "Force",
+            "intensity": "Абс. интенсивность",
+            "quantile": "Квантиль",
+        }.items():
+            if name in method:
+                self.noise_value_var.set(defaults[key])
+                return
+
     # ── Валидация и парсинг параметров ────────────────────────────────────────
 
     def _parse_params(self) -> Optional[dict]:
@@ -781,8 +832,15 @@ class App(tk.Tk):
 
         mass_min = _float(self.mass_min_var, "m/z min", 0.0)
         mass_max = _float(self.mass_max_var, "m/z max", 1000.0)
-        noise_force = _float(self.noise_force_var, "Шум force", 10.0)
-        noise_int = _float(self.noise_int_var, "Шум intensity", 100.0)
+        # Денойз: взаимоисключающие параметры (intensity > quantile > force)
+        noise_method = self.noise_method_var.get()
+        noise_value = _float(self.noise_value_var, "Шум значение", 1.5)
+        if "intensity" in noise_method or "Абс. интенсивность" in noise_method:
+            noise_force, noise_int, noise_quantile = None, noise_value, None
+        elif "quantile" in noise_method or "Квантиль" in noise_method:
+            noise_force, noise_int, noise_quantile = None, None, noise_value
+        else:
+            noise_force, noise_int, noise_quantile = noise_value, None, None
         rel_error = _float(self.rel_error_var, "Погрешность ppm", 0.5)
         ppm_tol = _float(self.ppm_tol_var, "Допуск поиска ppm", 0.5)
         max_groups = _int(self.max_groups_var, "Макс. групп", 20)
@@ -830,6 +888,7 @@ class App(tk.Tk):
             load_mass_max=mass_max,
             noise_force=noise_force,
             noise_intensity=noise_int,
+            noise_quantile=noise_quantile,
             rel_error=rel_error,
             sign=self.sign_var.get(),
             assign_mass_min=_GUI_DEFAULTS["assign_mass_min"],
