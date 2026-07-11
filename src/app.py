@@ -502,14 +502,17 @@ class App(tk.Tk):
         ttk.Entry(out_lf, textvariable=self.output_csv_var, width=50).grid(row=0, column=0, sticky="ew", padx=6, pady=4)
         ttk.Button(out_lf, text="...", command=lambda: self._save_browse(self.output_csv_var)).grid(row=0, column=1, padx=4, pady=4)
 
-        # Кнопка импорта целой папки
-        ttk.Button(frame, text="📁 Импорт папки со спектрами",
+        # Кнопка импорта целой папки (в LabelFrame для заметности)
+        import_lf = ttk.LabelFrame(frame, text="📁 Импорт папки")
+        import_lf.grid(row=2, column=0, sticky="ew", padx=8, pady=8)
+        import_lf.columnconfigure(0, weight=1)
+        ttk.Button(import_lf, text="Выбрать папку со спектрами",
                    command=self._import_folder).grid(
-            row=2, column=0, sticky="ew", padx=8, pady=(8, 2))
+            row=0, column=0, sticky="ew", padx=6, pady=4)
         self._folder_path_var = tk.StringVar()
-        tk.Label(frame, textvariable=self._folder_path_var,
+        tk.Label(import_lf, textvariable=self._folder_path_var,
                  bg=BG, fg=ACCENT, font=("Segoe UI", 8), anchor="w").grid(
-            row=3, column=0, sticky="ew", padx=12, pady=(0, 4))
+            row=1, column=0, sticky="ew", padx=8, pady=(0, 4))
 
     def _build_params_processing(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)

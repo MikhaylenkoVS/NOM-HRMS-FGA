@@ -114,7 +114,18 @@ def find_fragment_combinations(
 
     # усечённая библиотека
     lib = filter_fragments(base_target, base_target_ihd, FRAGMENT_LIBRARY)
-    names = sorted(lib.keys())
+
+    # При first_only: ароматические фрагменты первыми — превью получает
+    # химически осмысленные структуры с циклами
+    _AROMATIC = {
+        "benzene", "naphthalene", "anthracene",
+        "pyridine", "pyrimidine", "pyrazine",
+        "pyrrole", "imidazole", "furan",
+    }
+    if first_only:
+        names = sorted(lib.keys(), key=lambda n: (0 if n in _AROMATIC else 1, n))
+    else:
+        names = sorted(lib.keys())
 
     def backtrack(idx, current_counts, current_heavy, current_ihd, used_bases):
         if used_bases > max_bases:
