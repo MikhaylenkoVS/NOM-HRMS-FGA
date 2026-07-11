@@ -509,16 +509,14 @@ class App(tk.Tk):
         ttk.Entry(out_lf, textvariable=self.output_csv_var, width=50).grid(row=0, column=0, sticky="ew", padx=6, pady=4)
         ttk.Button(out_lf, text="...", command=lambda: self._save_browse(self.output_csv_var)).grid(row=0, column=1, padx=4, pady=4)
 
-        # Кнопка импорта целой папки (в LabelFrame для заметности)
-        import_lf = ttk.LabelFrame(frame, text="📁 Импорт папки")
-        import_lf.grid(row=2, column=0, sticky="w", padx=8, pady=8)
-        ttk.Button(import_lf, text="Выбрать папку со спектрами",
+        # Кнопка импорта целой папки
+        ttk.Button(frame, text="📁 Импорт папки со спектрами",
                    command=self._import_folder).grid(
-            row=0, column=0, sticky="ew", padx=6, pady=4)
+            row=2, column=0, sticky="w", padx=8, pady=(4, 2))
         self._folder_path_var = tk.StringVar()
-        tk.Label(import_lf, textvariable=self._folder_path_var,
+        tk.Label(frame, textvariable=self._folder_path_var,
                  bg=BG, fg=ACCENT, font=("Segoe UI", 8), anchor="w").grid(
-            row=1, column=0, sticky="ew", padx=8, pady=(0, 4))
+            row=3, column=0, sticky="ew", padx=12, pady=(0, 2))
 
     def _build_params_processing(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
@@ -1115,7 +1113,25 @@ class App(tk.Tk):
 
             if rdmol is not None:
                 from rdkit import Chem
-                from rdkit.Chem import Draw
+                from rdkit.Chem import Draw, AllChem
+                # 2D-координаты и скрытие C-H водородов
+                AllChem.Compute2DCoords(rdmol)
+                rdmol = Chem.AddHs(rdmol, explicitOnly=True)
+                final_mol = Chem.RWMol(rdmol)
+                atoms_to_remove = []
+                for atom in final_mol.GetAtoms():
+                    if atom.GetAtomicNum() == 1:
+                        for nbr in atom.GetNeighbors():
+                            if nbr.GetAtomicNum() == 6:
+                                atoms_to_remove.append(atom.GetIdx())
+                                break
+                for idx in reversed(sorted(atoms_to_remove)):
+                    final_mol.RemoveAtom(idx)
+                rdmol = final_mol.GetMol()
+                try:
+                    Chem.SanitizeMol(rdmol)
+                except Exception:
+                    pass
                 img = Draw.MolToImage(rdmol, size=(300, 200))
                 buf = BytesIO()
                 img.save(buf, format="PNG")
