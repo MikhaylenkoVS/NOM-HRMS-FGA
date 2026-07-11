@@ -661,7 +661,14 @@ def assign_formulas_simple(
                 dbe_pen = (dbe - 20) * 0.5 if dbe > 20 else 0.0
                 # Штраф за высокий N/C (N > 30% от C редко для NOM)
                 nc_pen = nc * 2.0 if nc > 0.3 else 0.0
-                score = abs_ppm[li] + nom_weight * ndist + dbe_pen + nc_pen
+                # Штраф за высокий N при низком O (N>3 и O/N<0.5 — химически нехарактерно для NOM)
+                n_abs = counts.get("N", 0)
+                o_abs = counts.get("O", 0)
+                if n_abs > 3 and o_abs / n_abs < 0.5:
+                    n_abs_pen = (n_abs - 3) * 2.0
+                else:
+                    n_abs_pen = 0.0
+                score = abs_ppm[li] + nom_weight * ndist + dbe_pen + nc_pen + n_abs_pen
                 if score < best_score:
                     best_score = score
                     best_local = li
@@ -1090,13 +1097,25 @@ def find_series(
         if not row.get("assign", False):
             continue
 
-        m0 = row["mass"]
+        m0_obs = row["mass"]
+        brutto = row.get("brutto", "")
+        # Compute theoretical m/z from assigned brutto formula (eliminates source mass error)
+        try:
+            counts = parse_formula(str(brutto))
+            exact_neutral = exact_mass_from_counts(counts)
+            m0_theor = _neutral_to_ion_mass(exact_neutral, CHEM.default_ion_mode)
+            # Sanity check: if theoretical diverges >1000 ppm from observed,
+            # formula is inconsistent with mass → fall back to observed
+            if abs(m0_theor - m0_obs) / m0_obs > 0.001:
+                m0_theor = m0_obs
+        except Exception:
+            m0_theor = m0_obs  # fallback to observed mass
         found_steps = []
         series_mz = []
         consecutive_misses = 0
 
         for step in range(1, max_groups + 1):
-            target = m0 + step * delta
+            target = m0_theor + step * delta
             idx = _find_peak(mz_deriv, target, ppm_tol)
 
             if idx is not None:
@@ -1124,7 +1143,7 @@ def find_series(
         if n_groups >= min_series_length:
             records.append(
                 {
-                    "mass_src": m0,
+                    "mass_src": m0_obs,
                     "brutto": row.get("brutto", ""),
                     "n_groups": n_groups,
                     "steps_found": found_steps,
