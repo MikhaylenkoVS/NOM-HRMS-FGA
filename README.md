@@ -8,9 +8,25 @@
 
 ---
 
-## 📦 Установка (с чистого компьютера)
+## 🚀 Быстрый старт (Windows)
 
-Ни Python, ни Git не требуются заранее — всё ставится по шагам.
+> 💡 **Ни Python, ни Git, ни командная строка не нужны.**
+
+1.  **Скачайте `NOM_HRMS_FGA.exe`** со страницы [Releases](https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases)
+
+2.  **Запустите** — двойным кликом по `NOM_HRMS_FGA.exe`
+
+3.  Приложение откроется — можно сразу загружать спектры и анализировать.
+
+`NOM_HRMS_FGA.exe` — это полностью автономный файл (~80 МБ), который содержит  
+в себе Python, все библиотеки и графический интерфейс. Ничего дополнительно  
+устанавливать не требуется.
+
+---
+
+## 💻 Установка для разработчиков (Windows / macOS / Linux)
+
+Если вам нужен доступ к исходному коду, API или вы работаете не на Windows.
 
 ### Windows
 
@@ -66,10 +82,8 @@
     ```
     Если команда не найдена: `python3 -m src`
 
-### Только CSV-файл (альтернатива без установки)
+### Только CLI (без GUI)
 
-Если вам нужен только CLI, а не графический интерфейс — например, для
-пакетной обработки CSV-файлов — используйте скрипт напрямую из репозитория:
 ```bash
 git clone https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 cd NOM-HRMS-FGA
@@ -86,7 +100,7 @@ pip install ".[raw]"
 
 <br>
 
-> 💡 **Проблемы с запуском?** Самая частая причина — Python не добавлен в PATH при установке. Переустановите Python с галочкой «Add Python to PATH» либо откройте `Python` → `Command Prompt` из меню Пуск.
+> 💡 **Проблемы с запуском?** Самая частая причина — Python не добавлен в PATH при установке. Переустановите Python с галочкой «Add Python to PATH».
 
 ---
 
@@ -94,7 +108,7 @@ pip install ".[raw]"
 
 ### Сценарий 1 — GUI-анализ de novo (рекомендуемый)
 
-1. Запустите `nom-hrms-fga`
+1. Запустите `NOM_HRMS_FGA.exe` (Windows) или `nom-hrms-fga` (macOS/Linux)
 2. На вкладке **Параметры** укажите три CSV-файла:
    - **Исходный спектр** — недериватизированный образец
    - **Дейтерометилирование** — образец после CD₃-метилирования
@@ -130,9 +144,9 @@ assigned = assign_formulas(clean, mode="simple", rel_error_ppm=1.0)
 
 # Или запустить полный конвейер
 run_pipeline(
-    original_csv="original.csv",
-    dmet_csv="dmet.csv",
-    dacet_csv="dacet.csv",
+    src_path="original.csv",
+    dmet_path="dmet.csv",
+    dacet_path="dacet.csv",
 )
 ```
 
@@ -161,8 +175,20 @@ pre-commit install
 
 # Запуск тестов
 pytest tests/ -q            # все тесты (~2 мин)
+pytest tests/ -q -m unit    # только unit-тесты
 pytest tests/ -q -m smoke   # только быстрые smoke-тесты
 ```
+
+### Сборка `.exe`
+
+```bash
+python build_exe.py          # сборка NOM_HRMS_FGA.exe (~80 MB)
+python build_exe.py --clean  # очистка + сборка
+python build_exe.py --test   # сборка + smoke-тест
+```
+
+Сборка использует [PyInstaller](https://pyinstaller.org) и конфигурацию из `NOM_HRMS_FGA.spec`.
+Автоматическая сборка при создании релиза — `.github/workflows/release_exe.yml`.
 
 ---
 
@@ -180,9 +206,14 @@ pytest tests/ -q -m smoke   # только быстрые smoke-тесты
 ├── data/
 │   ├── ref_data/           # Эталонные данные
 │   └── test_sets/          # Синтетические тест-наборы (set_01..set_05)
-├── tests/                  # PyTest-тесты
+├── tests/                  # PyTest-тесты (129 шт.)
 ├── docs/                   # Документация, архитектура, планы
 ├── external/               # Стороннее ПО (GPL-3.0)
+├── .github/workflows/      # CI/CD (автосборка .exe при релизе)
+├── assets/                 # Иконка приложения
+├── launcher.py             # Точка входа для PyInstaller (crash-safe)
+├── NOM_HRMS_FGA.spec       # Конфигурация PyInstaller
+├── build_exe.py            # Сценарий сборки .exe
 ├── pyproject.toml          # Метаданные пакета, зависимости
 └── requirements.txt        # Зависимости (для разработки)
 ```

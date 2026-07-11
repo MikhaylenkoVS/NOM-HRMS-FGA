@@ -32,21 +32,28 @@ retains its own license.
 
 **Programming language / Runtime:** Python ≥ 3.10.
 
-**Installation:**
+**Installation & launch:**
+
+*Windows (end users):*
+1. Download `NOM_HRMS_FGA.exe` from [GitHub Releases](https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases)
+2. Double-click to launch — no Python, Git, or command line required.
+
+*All platforms (developers):*
 ```bash
 # One-command install from GitHub
 pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 
-# Or from a local clone
-git clone https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
-cd NOM-HRMS-FGA
-pip install .
-```
-
-**Launch:**
-```bash
+# Launch
 nom-hrms-fga           # graphical interface
 python -m src          # alternative
+```
+
+*Build from source:*
+```bash
+git clone https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
+cd NOM-HRMS-FGA
+pip install -e ".[dev]"
+python build_exe.py    # produces dist/NOM_HRMS_FGA.exe (~80 MB)
 ```
 
 **Dependencies:** listed in `pyproject.toml` (`[project.dependencies]`) and
@@ -100,21 +107,43 @@ GPL-3.0 и сохраняет собственную лицензию.
 
 **Язык программирования / среда выполнения:** Python ≥ 3.10.
 
-**Зависимости:** перечислены в файле [`requirements.txt`](requirements.txt).
-Основные пакеты: NumPy, pandas, matplotlib, nomspectra, RDKit, Pillow, pytest.
+**Установка и запуск:**
+
+*Windows (конечные пользователи):*
+1. Скачайте `NOM_HRMS_FGA.exe` со страницы [GitHub Releases](https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases)
+2. Запустите двойным кликом — Python, Git и командная строка не требуются.
+
+*Все платформы (разработчики):*
+```bash
+# Установка одной командой из GitHub
+pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
+
+# Запуск
+nom-hrms-fga           # графический интерфейс
+python -m src          # альтернативный способ
+```
+
+*Сборка из исходного кода:*
+```bash
+git clone https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
+cd NOM-HRMS-FGA
+pip install -e ".[dev]"
+python build_exe.py    # создаёт dist/NOM_HRMS_FGA.exe (~80 МБ)
+```
+
+**Зависимости:** перечислены в файлах `pyproject.toml` (`[project.dependencies]`)
+и [`requirements.txt`](requirements.txt).
+Основные пакеты: NumPy, pandas, matplotlib, nomspectra, RDKit, Pillow.
 Для графического интерфейса дополнительно требуется `tkinter` (в некоторых
 дистрибутивах Linux ставится отдельно, например `apt install python3-tk`).
 
 **Воспроизведение (минимальный пример):**
 
 ```bash
-# 1. Создать окружение и установить зависимости
-pip install -r requirements.txt
+# 1. Установить
+pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 
-# 2. Запустить встроенный сквозной тест на прилагаемых синтетических наборах
-python -m src.core.pipeline --test
-
-# 3. Запустить автоматический набор тестов (28 тестов)
+# 2. Запустить автоматический набор тестов (129 тестов)
 pytest
 ```
 
