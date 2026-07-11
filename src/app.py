@@ -251,8 +251,8 @@ class App(tk.Tk):
         self.mass_max_var = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_max"]))
         self.noise_force_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
         self.noise_int_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
-        self.noise_method_var = tk.StringVar(value="force")
-        self.noise_value_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
+        self.noise_method_var = tk.StringVar(value="intensity")
+        self.noise_value_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
         self.rel_error_var = tk.StringVar(value=str(_GUI_DEFAULTS["rel_error"]))
         self.sign_var = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
         self.ppm_tol_var = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
@@ -502,6 +502,11 @@ class App(tk.Tk):
         ttk.Entry(out_lf, textvariable=self.output_csv_var, width=50).grid(row=0, column=0, sticky="ew", padx=6, pady=4)
         ttk.Button(out_lf, text="...", command=lambda: self._save_browse(self.output_csv_var)).grid(row=0, column=1, padx=4, pady=4)
 
+        # Кнопка импорта целой папки
+        ttk.Button(frame, text="📁 Импорт папки со спектрами",
+                   command=self._import_folder).grid(
+            row=2, column=0, sticky="ew", padx=8, pady=8)
+
     def _build_params_processing(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
         nb.add(frame, text="📏  Обработка")
@@ -519,7 +524,7 @@ class App(tk.Tk):
         self._noise_cb = ttk.Combobox(load_lf, textvariable=self.noise_method_var, values=[noise_names[m] for m in noise_methods], width=28, state="readonly")
         self._noise_cb.grid(row=3, column=1, sticky="w", padx=4, pady=3)
         self._noise_cb.bind("<<ComboboxSelected>>", self._on_noise_method_change)
-        self._noise_cb.current(0)
+        self._noise_cb.current(1)  # default = intensity
         ttk.Label(load_lf, text="Значение:").grid(row=4, column=0, sticky="w", padx=6, pady=3)
         ttk.Entry(load_lf, textvariable=self.noise_value_var, width=12).grid(row=4, column=1, sticky="w", padx=4, pady=3)
 
