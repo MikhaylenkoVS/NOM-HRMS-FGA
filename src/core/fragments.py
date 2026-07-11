@@ -311,12 +311,6 @@ FRAGMENT_LIBRARY = {
         "attachment_points": 5,
         "description": "Имидазол",
     },
-    "pyrazole": {
-        "heavy_formula": {"C": 3, "N": 2},
-        "ihd": 3,
-        "attachment_points": 5,
-        "description": "Пиразол",
-    },
     # === 5-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
     "tetrahydrofuran": {
         "heavy_formula": {"C": 4, "O": 1},
@@ -373,12 +367,6 @@ FRAGMENT_LIBRARY = {
         "attachment_points": 6,
         "description": "Пиразин",
     },
-    "pyridazine": {
-        "heavy_formula": {"C": 4, "N": 2},
-        "ihd": 4,
-        "attachment_points": 6,
-        "description": "Пиридазин",
-    },
     # === 6-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
     "tetrahydropyran": {
         "heavy_formula": {"C": 5, "O": 1},
@@ -392,24 +380,12 @@ FRAGMENT_LIBRARY = {
         "attachment_points": 5,
         "description": "Дигидропиран",
     },
-    "pyran": {
-        "heavy_formula": {"C": 5, "O": 1},
-        "ihd": 3,
-        "attachment_points": 5,
-        "description": "Пиран",
-    },
     # === АЦИКЛИЧЕСКИЕ АЗОТ-СОДЕРЖАЩИЕ ФРАГМЕНТЫ ===
     "aminomethyl": {
         "heavy_formula": {"C": 1, "N": 1},
         "ihd": 0,
         "attachment_points": 2,
         "description": "CH2-NH (первичный амин)",
-    },
-    "nitrile": {
-        "heavy_formula": {"C": 1, "N": 1},
-        "ihd": 2,
-        "attachment_points": 1,
-        "description": "C≡N (нитрил)",
     },
     "amide_link": {
         "heavy_formula": {"C": 1, "N": 1, "O": 1},
@@ -857,17 +833,6 @@ def create_imidazole():
     )
 
 
-def create_pyrazole():
-    return MoleculeFragment(
-        "pyrazole",
-        {"C": 3, "N": 2},
-        3,
-        ["C", "N", "N", "C", "C"],
-        [(0, 1, 1), (1, 2, 1), (2, 3, 2), (3, 4, 1), (4, 0, 2)],
-        list(range(5)),
-    )
-
-
 # === 5-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
 def create_tetrahydrofuran():
     return MoleculeFragment(
@@ -969,17 +934,6 @@ def create_pyrazine():
     )
 
 
-def create_pyridazine():
-    return MoleculeFragment(
-        "pyridazine",
-        {"C": 4, "N": 2},
-        4,
-        ["C"] * 4 + ["N", "N"],
-        [(0, 1, 2), (1, 2, 1), (2, 3, 2), (3, 4, 1), (4, 5, 1), (5, 0, 2)],
-        list(range(6)),
-    )
-
-
 # === 6-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
 def create_tetrahydropyran():
     return MoleculeFragment(
@@ -999,17 +953,6 @@ def create_dihydropyran():
         2,
         ["C"] * 5 + ["O"],
         [(0, 1, 2)] + [(i, (i + 1) % 6, 1) for i in range(1, 6)],
-        [0, 1, 2, 3, 4],
-    )
-
-
-def create_pyran():
-    return MoleculeFragment(
-        "pyran",
-        {"C": 5, "O": 1},
-        3,
-        ["C"] * 5 + ["O"],
-        [(0, 1, 2), (1, 2, 1), (2, 3, 2), (3, 4, 1), (4, 5, 1), (5, 0, 1)],
         [0, 1, 2, 3, 4],
     )
 
@@ -1129,16 +1072,6 @@ def create_aminomethyl():
     )
 
 
-def create_nitrile():
-    """C≡N  (нитрил, 1 точка присоединения при C)."""
-    return MoleculeFragment(
-        "nitrile", {"C": 1, "N": 1}, 2,
-        ["C", "N"],
-        [(0, 1, 3)],
-        [0],
-    )
-
-
 def create_amide_link():
     """-CO-NH-  (амидный мостик, 2 точки присоединения)."""
     return MoleculeFragment(
@@ -1192,7 +1125,6 @@ ALL_FRAGMENTS = {
     "pyrroline": create_pyrroline,
     "pyrrole": create_pyrrole,
     "imidazole": create_imidazole,
-    "pyrazole": create_pyrazole,
     "tetrahydrofuran": create_tetrahydrofuran,
     "dihydrofuran": create_dihydrofuran,
     "furan": create_furan,
@@ -1202,12 +1134,9 @@ ALL_FRAGMENTS = {
     "pyridine": create_pyridine,
     "pyrimidine": create_pyrimidine,
     "pyrazine": create_pyrazine,
-    "pyridazine": create_pyridazine,
     "tetrahydropyran": create_tetrahydropyran,
     "dihydropyran": create_dihydropyran,
-    "pyran": create_pyran,
     "aminomethyl": create_aminomethyl,
-    "nitrile": create_nitrile,
     "amide_link": create_amide_link,
     "ethylamine": create_ethylamine,
     "cooh": create_cooh,
