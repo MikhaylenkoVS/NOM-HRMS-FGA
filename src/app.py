@@ -205,6 +205,13 @@ class App(tk.Tk):
 
     def __init__(self):
         super().__init__()
+        try:
+            import os as _os
+            _icon = _os.path.join(_os.path.dirname(__file__), '..', 'assets', 'icon.ico')
+            if _os.path.exists(_icon):
+                self.iconbitmap(_icon)
+        except Exception:
+            pass
         self.title("NOM HRMS FGA")
         self.geometry("1200x760")
         self.configure(bg=BG)
@@ -504,8 +511,7 @@ class App(tk.Tk):
 
         # Кнопка импорта целой папки (в LabelFrame для заметности)
         import_lf = ttk.LabelFrame(frame, text="📁 Импорт папки")
-        import_lf.grid(row=2, column=0, sticky="ew", padx=8, pady=8)
-        import_lf.columnconfigure(0, weight=1)
+        import_lf.grid(row=2, column=0, sticky="w", padx=8, pady=8)
         ttk.Button(import_lf, text="Выбрать папку со спектрами",
                    command=self._import_folder).grid(
             row=0, column=0, sticky="ew", padx=6, pady=4)

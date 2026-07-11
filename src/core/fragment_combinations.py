@@ -500,9 +500,27 @@ def find_and_visualize_molecules(
                 except Exception:
                     pass
 
-            # Добавляем водороды и генерируем координаты
-            rdkit_mol = Chem.AddHs(rdkit_mol)
+            # Генерируем 2D-координаты (без явных водородов на углероде)
             AllChem.Compute2DCoords(rdkit_mol)
+            # Добавляем только полярные водороды (на гетероатомах)
+            rdkit_mol = Chem.AddHs(rdkit_mol, explicitOnly=True)
+            # Убираем H с углерода, оставляем на N, O, S
+            final_mol = Chem.RWMol(rdkit_mol)
+            atoms_to_remove = []
+            for atom in final_mol.GetAtoms():
+                if atom.GetAtomicNum() == 1:  # водород
+                    # Найти соседа
+                    for nbr in atom.GetNeighbors():
+                        if nbr.GetAtomicNum() == 6:  # углерод
+                            atoms_to_remove.append(atom.GetIdx())
+                            break
+            for idx in reversed(sorted(atoms_to_remove)):
+                final_mol.RemoveAtom(idx)
+            rdkit_mol = final_mol.GetMol()
+            try:
+                Chem.SanitizeMol(rdkit_mol)
+            except Exception:
+                pass
 
             # Генерируем изображение
             img = Draw.MolToImage(rdkit_mol, size=image_size)
