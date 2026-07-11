@@ -505,7 +505,11 @@ class App(tk.Tk):
         # Кнопка импорта целой папки
         ttk.Button(frame, text="📁 Импорт папки со спектрами",
                    command=self._import_folder).grid(
-            row=2, column=0, sticky="ew", padx=8, pady=8)
+            row=2, column=0, sticky="ew", padx=8, pady=(8, 2))
+        self._folder_path_var = tk.StringVar()
+        tk.Label(frame, textvariable=self._folder_path_var,
+                 bg=BG, fg=ACCENT, font=("Segoe UI", 8), anchor="w").grid(
+            row=3, column=0, sticky="ew", padx=12, pady=(0, 4))
 
     def _build_params_processing(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
@@ -1066,12 +1070,14 @@ class App(tk.Tk):
         t.start()
 
     def _load_structure_preview(self, brutto: str, n_cooh: int, n_oh: int):
-        """Фоновый поток: поиск структуры и отображение в превью."""
+        """Фоновый поток: поиск структуры (first_only, таймаут 5с)."""
+        import time as _time
         try:
             from src.core import find_and_visualize_molecules
+            # first_only: остановиться на первой найденной комбинации
             result = find_and_visualize_molecules(
                 brutto, num_cooh=n_cooh, num_oh=n_oh,
-                max_bases=8, show_images=False,
+                max_bases=8, show_images=False, first_only=True,
             )
             molecules = result.get("molecules", [])
             self.after(0, lambda: self._show_structure_preview(molecules, brutto))
@@ -1299,6 +1305,8 @@ class App(tk.Tk):
         self.src_var.set(found["src"] or "")
         self.dmet_var.set(found["dmet"] or "")
         self.dacet_var.set(found["dacet"] or "")
+        if hasattr(self, '_folder_path_var'):
+            self._folder_path_var.set(folder)
 
         found_count = sum(1 for v in found.values() if v)
         self._log(

@@ -50,7 +50,8 @@ def filter_fragments(target_heavy, target_ihd, fragment_library):
 
 
 def find_fragment_combinations(
-    target_heavy_formula, target_ihd, num_cooh=0, num_oh=0, max_bases=10
+    target_heavy_formula, target_ihd, num_cooh=0, num_oh=0, max_bases=10,
+    first_only=False,
 ):
     """Enumerate fragment multisets matching a target formula and IHD.
 
@@ -116,17 +117,14 @@ def find_fragment_combinations(
     names = sorted(lib.keys())
 
     def backtrack(idx, current_counts, current_heavy, current_ihd, used_bases):
-        # отсев по числу баз
         if used_bases > max_bases:
-            return
-        # отсев по формуле / IHD (верхняя граница)
+            return False
         for el, n in current_heavy.items():
             if n > base_target.get(el, 0):
-                return
+                return False
         if current_ihd > base_target_ihd + 1e-6:
-            return
+            return False
 
-        # если прошли все фрагменты — проверяем точное совпадение
         if idx == len(names):
             if (
                 current_heavy == base_target
@@ -135,23 +133,22 @@ def find_fragment_combinations(
                 bases_dict = {
                     names[i]: c for i, c in enumerate(current_counts) if c > 0
                 }
-                results.append(
-                    {
-                        "bases": bases_dict,
-                        "cooh": num_cooh,
-                        "oh": num_oh,
-                        "total_heavy_formula": target_heavy_formula.copy(),
-                        "total_ihd": target_ihd,
-                    }
-                )
-            return
+                results.append({
+                    "bases": bases_dict,
+                    "cooh": num_cooh,
+                    "oh": num_oh,
+                    "total_heavy_formula": target_heavy_formula.copy(),
+                    "total_ihd": target_ihd,
+                })
+                if first_only:
+                    return True
+            return False
 
         name = names[idx]
         frag = lib[name]
         hf = frag["heavy_formula"]
         ihd_f = frag["ihd"]
 
-        # оценка максимального допустимого количества этого фрагмента по каждому элементу и IHD
         max_by_elem = float("inf")
         for el, n in hf.items():
             if n > 0:
@@ -166,9 +163,7 @@ def find_fragment_combinations(
         if max_mult == float("inf"):
             max_mult = 0
 
-        # перебираем 0..max_mult копий текущего фрагмента
         for k in range(max_mult + 1):
-            # добавляем k копий
             new_heavy = current_heavy
             new_ihd = current_ihd
             if k > 0:
@@ -176,11 +171,11 @@ def find_fragment_combinations(
                 for el, n in hf.items():
                     new_heavy[el] = new_heavy.get(el, 0) + n * k
                 new_ihd = current_ihd + ihd_f * k
-
             current_counts[idx] = k
-            backtrack(idx + 1, current_counts, new_heavy, new_ihd, used_bases + k)
-
-        current_counts[idx] = 0  # на всякий случай
+            if backtrack(idx + 1, current_counts, new_heavy, new_ihd, used_bases + k):
+                return True
+        current_counts[idx] = 0
+        return False
 
     current_counts = [0] * len(names)
     backtrack(0, current_counts, {}, 0.0, 0)
@@ -340,6 +335,7 @@ def find_and_visualize_molecules(
     max_bases: int = 10,
     show_images: bool = True,
     image_size: tuple = (400, 300),
+    first_only: bool = False,
 ):
     """Go from a brutto formula to assembled (and optionally drawn) molecules.
 
@@ -411,6 +407,7 @@ def find_and_visualize_molecules(
         num_cooh=num_cooh,
         num_oh=num_oh,
         max_bases=max_bases,
+        first_only=first_only,
     )
     print(f"✅ Найдено {len(combinations)} комбинаций")
 
