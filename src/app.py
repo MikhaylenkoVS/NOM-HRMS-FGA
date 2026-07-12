@@ -1309,7 +1309,7 @@ class App(tk.Tk):
     }
 
     def _import_folder(self):
-        """Автоопределение трёх спектров в папке по шаблонам имён (CSV и RAW)."""
+        """Автоопределение трёх спектров в папке по шаблонам имён."""
         folder = filedialog.askdirectory(title="Выберите папку со спектрами")
         if not folder:
             return

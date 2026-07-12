@@ -213,18 +213,6 @@ FRAGMENT_LIBRARY = {
         "attachment_points": 2,
         "description": "CH2",
     },
-    "ethylene": {
-        "heavy_formula": {"C": 2},
-        "ihd": 0,
-        "attachment_points": 2,
-        "description": "CH2-CH2",
-    },
-    "propylene": {
-        "heavy_formula": {"C": 3},
-        "ihd": 0,
-        "attachment_points": 2,
-        "description": "CH2-CH2-CH2",
-    },
     # Двойные связи C=C
     "alkene": {
         "heavy_formula": {"C": 2},
@@ -239,18 +227,6 @@ FRAGMENT_LIBRARY = {
         "description": "CH=CH-CH2",
     },
     # Тройные связи C≡C
-    "alkyne": {
-        "heavy_formula": {"C": 2},
-        "ihd": 2,
-        "attachment_points": 2,
-        "description": "C≡C",
-    },
-    "propynyl": {
-        "heavy_formula": {"C": 3},
-        "ihd": 2,
-        "attachment_points": 2,
-        "description": "C≡C-CH2",
-    },
     # === 5-ЧЛЕННЫЕ УГЛЕРОДНЫЕ ЦИКЛЫ ===
     "cyclopentane": {
         "heavy_formula": {"C": 5},
@@ -296,73 +272,7 @@ FRAGMENT_LIBRARY = {
         "description": "Бензол",
     },
     # === 8-ЧЛЕННЫЕ УГЛЕРОДНЫЕ ЦИКЛЫ ===
-    "cyclooctane": {
-        "heavy_formula": {"C": 8},
-        "ihd": 1,
-        "attachment_points": 8,
-        "description": "Циклооктан",
-    },
-    "cyclooctene": {
-        "heavy_formula": {"C": 8},
-        "ihd": 2,
-        "attachment_points": 8,
-        "description": "Циклооктен",
-    },
-    "cyclooctadiene": {
-        "heavy_formula": {"C": 8},
-        "ihd": 3,
-        "attachment_points": 8,
-        "description": "Циклооктадиен",
-    },
-    "cyclooctatriene": {
-        "heavy_formula": {"C": 8},
-        "ihd": 4,
-        "attachment_points": 8,
-        "description": "Циклооктатриен",
-    },
-    "cyclooctatetraene": {
-        "heavy_formula": {"C": 8},
-        "ihd": 5,
-        "attachment_points": 8,
-        "description": "Циклооктатетраен",
-    },
     # === 10-ЧЛЕННЫЕ УГЛЕРОДНЫЕ ЦИКЛЫ ===
-    "cyclodecane": {
-        "heavy_formula": {"C": 10},
-        "ihd": 1,
-        "attachment_points": 10,
-        "description": "Циклодекан",
-    },
-    "cyclodecene": {
-        "heavy_formula": {"C": 10},
-        "ihd": 2,
-        "attachment_points": 10,
-        "description": "Циклодецен",
-    },
-    "cyclodecadiene": {
-        "heavy_formula": {"C": 10},
-        "ihd": 3,
-        "attachment_points": 10,
-        "description": "Циклодекадиен",
-    },
-    "cyclodecatriene": {
-        "heavy_formula": {"C": 10},
-        "ihd": 4,
-        "attachment_points": 10,
-        "description": "Циклодекатриен",
-    },
-    "cyclodecatetraene": {
-        "heavy_formula": {"C": 10},
-        "ihd": 5,
-        "attachment_points": 10,
-        "description": "Циклодекатетраен",
-    },
-    "cyclodecapentaene": {
-        "heavy_formula": {"C": 10},
-        "ihd": 6,
-        "attachment_points": 10,
-        "description": "Циклодекапентаен",
-    },
     # === КОНДЕНСИРОВАННЫЕ СИСТЕМЫ ===
     "naphthalene": {
         "heavy_formula": {"C": 10},
@@ -400,12 +310,6 @@ FRAGMENT_LIBRARY = {
         "ihd": 3,
         "attachment_points": 5,
         "description": "Имидазол",
-    },
-    "pyrazole": {
-        "heavy_formula": {"C": 3, "N": 2},
-        "ihd": 3,
-        "attachment_points": 5,
-        "description": "Пиразол",
     },
     # === 5-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
     "tetrahydrofuran": {
@@ -463,12 +367,6 @@ FRAGMENT_LIBRARY = {
         "attachment_points": 6,
         "description": "Пиразин",
     },
-    "pyridazine": {
-        "heavy_formula": {"C": 4, "N": 2},
-        "ihd": 4,
-        "attachment_points": 6,
-        "description": "Пиридазин",
-    },
     # === 6-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
     "tetrahydropyran": {
         "heavy_formula": {"C": 5, "O": 1},
@@ -482,11 +380,24 @@ FRAGMENT_LIBRARY = {
         "attachment_points": 5,
         "description": "Дигидропиран",
     },
-    "pyran": {
-        "heavy_formula": {"C": 5, "O": 1},
-        "ihd": 3,
-        "attachment_points": 5,
-        "description": "Пиран",
+    # === АЦИКЛИЧЕСКИЕ АЗОТ-СОДЕРЖАЩИЕ ФРАГМЕНТЫ ===
+    "aminomethyl": {
+        "heavy_formula": {"C": 1, "N": 1},
+        "ihd": 0,
+        "attachment_points": 2,
+        "description": "CH2-NH (первичный амин)",
+    },
+    "amide_link": {
+        "heavy_formula": {"C": 1, "N": 1, "O": 1},
+        "ihd": 1,
+        "attachment_points": 2,
+        "description": "CO-NH (амидный линкер)",
+    },
+    "ethylamine": {
+        "heavy_formula": {"C": 2, "N": 1},
+        "ihd": 0,
+        "attachment_points": 2,
+        "description": "CH2-CH2-NH (этиламиновый мостик)",
     },
 }
 # === ФУНКЦИОНАЛЬНЫЕ ГРУППЫ ===
@@ -922,17 +833,6 @@ def create_imidazole():
     )
 
 
-def create_pyrazole():
-    return MoleculeFragment(
-        "pyrazole",
-        {"C": 3, "N": 2},
-        3,
-        ["C", "N", "N", "C", "C"],
-        [(0, 1, 1), (1, 2, 1), (2, 3, 2), (3, 4, 1), (4, 0, 2)],
-        list(range(5)),
-    )
-
-
 # === 5-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
 def create_tetrahydrofuran():
     return MoleculeFragment(
@@ -1034,17 +934,6 @@ def create_pyrazine():
     )
 
 
-def create_pyridazine():
-    return MoleculeFragment(
-        "pyridazine",
-        {"C": 4, "N": 2},
-        4,
-        ["C"] * 4 + ["N", "N"],
-        [(0, 1, 2), (1, 2, 1), (2, 3, 2), (3, 4, 1), (4, 5, 1), (5, 0, 2)],
-        list(range(6)),
-    )
-
-
 # === 6-ЧЛЕННЫЕ ГЕТЕРОЦИКЛЫ С КИСЛОРОДОМ ===
 def create_tetrahydropyran():
     return MoleculeFragment(
@@ -1064,17 +953,6 @@ def create_dihydropyran():
         2,
         ["C"] * 5 + ["O"],
         [(0, 1, 2)] + [(i, (i + 1) % 6, 1) for i in range(1, 6)],
-        [0, 1, 2, 3, 4],
-    )
-
-
-def create_pyran():
-    return MoleculeFragment(
-        "pyran",
-        {"C": 5, "O": 1},
-        3,
-        ["C"] * 5 + ["O"],
-        [(0, 1, 2), (1, 2, 1), (2, 3, 2), (3, 4, 1), (4, 5, 1), (5, 0, 1)],
         [0, 1, 2, 3, 4],
     )
 
@@ -1182,6 +1060,38 @@ def create_i():
     return MoleculeFragment("i", {"I": 1}, 0, ["I"], [], [0])
 
 
+# ── Ациклические азот-содержащие фрагменты ─────────────────────────────────
+
+def create_aminomethyl():
+    """CH2-NH-  (первичный амин, 2 точки присоединения)."""
+    return MoleculeFragment(
+        "aminomethyl", {"C": 1, "N": 1}, 0,
+        ["C", "N"],
+        [(0, 1, 1)],
+        [0, 1],
+    )
+
+
+def create_amide_link():
+    """-CO-NH-  (амидный мостик, 2 точки присоединения)."""
+    return MoleculeFragment(
+        "amide_link", {"C": 1, "N": 1, "O": 1}, 1,
+        ["C", "O", "N"],
+        [(0, 1, 2), (0, 2, 1)],
+        [0, 2],
+    )
+
+
+def create_ethylamine():
+    """-CH2-CH2-NH-  (этиламиновый мостик, 2 точки)."""
+    return MoleculeFragment(
+        "ethylamine", {"C": 2, "N": 1}, 0,
+        ["C", "C", "N"],
+        [(0, 1, 1), (1, 2, 1)],
+        [0, 2],
+    )
+
+
 # Словарь всех фабричных функций
 ALL_FRAGMENTS = {
     "methylene": create_methylene,
@@ -1215,7 +1125,6 @@ ALL_FRAGMENTS = {
     "pyrroline": create_pyrroline,
     "pyrrole": create_pyrrole,
     "imidazole": create_imidazole,
-    "pyrazole": create_pyrazole,
     "tetrahydrofuran": create_tetrahydrofuran,
     "dihydrofuran": create_dihydrofuran,
     "furan": create_furan,
@@ -1225,10 +1134,11 @@ ALL_FRAGMENTS = {
     "pyridine": create_pyridine,
     "pyrimidine": create_pyrimidine,
     "pyrazine": create_pyrazine,
-    "pyridazine": create_pyridazine,
     "tetrahydropyran": create_tetrahydropyran,
     "dihydropyran": create_dihydropyran,
-    "pyran": create_pyran,
+    "aminomethyl": create_aminomethyl,
+    "amide_link": create_amide_link,
+    "ethylamine": create_ethylamine,
     "cooh": create_cooh,
     "oh": create_oh,
     "cho": create_cho,

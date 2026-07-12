@@ -105,11 +105,9 @@ def test_assign_formulas_original_in_all_sets(set_dir: Path):
 
     src = assign_formulas(
         src,
-        mode="simple",
         rel_error_ppm=rel_error_ppm,
         mass_min=None,
         mass_max=None,
-        nom_prioritize=True,
         nom_weight=20.0,
     )
 
