@@ -201,6 +201,13 @@ class App(tk.Tk):
     the GUI log without blocking the Tk event loop.
     """
 
+    # ── Шаблоны имён для автоопределения спектров в папке ──
+    _SPECTRUM_PATTERNS = {
+        "src":  ["original", "src", "source", "исходный", "orig"],
+        "dmet": ["deutermethyl", "dmet", "cd3", "дейтерометил"],
+        "dacet": ["deuteroacyl", "dacet", "cd3co", "дейтероацил"],
+    }
+
     # ── init ──────────────────────────────────────────────────────────────────
 
     def __init__(self):
@@ -234,6 +241,7 @@ class App(tk.Tk):
         self.src_var = tk.StringVar()
         self.dmet_var = tk.StringVar()
         self.dacet_var = tk.StringVar()
+        self._folder_path_var = tk.StringVar()
 
         # ── RAW-файлы (опционально, вместо CSV) ──
 
@@ -486,6 +494,14 @@ class App(tk.Tk):
             ttk.Label(rt_frame, text="(если .raw)", foreground="gray").pack(
                 side="left", padx=4
             )
+
+        # Кнопка импорта целой папки (CSV + RAW)
+        ttk.Button(files_lf, text="📁 Импорт папки со спектрами",
+                   command=self._import_folder).grid(
+            row=len(spec_configs) * 2 + 1, column=1, sticky="w", padx=4, pady=6)
+        tk.Label(files_lf, textvariable=self._folder_path_var,
+                 foreground="gray", font=("TkDefaultFont", 8)).grid(
+            row=len(spec_configs) * 2 + 2, column=1, sticky="w", padx=4)
 
         load_lf = ttk.LabelFrame(p, text="📥  Загрузка и диапазон масс")
         load_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
@@ -1089,6 +1105,54 @@ class App(tk.Tk):
             return
         setattr(self, f"_sort_{col}_asc", not ascending)
         self._fill_result_table(self.result_df)
+
+    def _import_folder(self):
+        """Автоопределение трёх спектров в папке по шаблонам имён (CSV и RAW)."""
+        folder = filedialog.askdirectory(title="Выберите папку со спектрами")
+        if not folder:
+            return
+
+        import os, glob
+
+        csv_files = glob.glob(os.path.join(folder, "*.csv"))
+        raw_files = glob.glob(os.path.join(folder, "*.raw"))
+        all_files = csv_files + raw_files
+
+        if not all_files:
+            messagebox.showwarning("Нет файлов", f"В папке нет .csv или .raw файлов: {folder}")
+            return
+
+        found = {"src": None, "dmet": None, "dacet": None}
+        for f in all_files:
+            name = os.path.basename(f).lower()
+            for key, patterns in self._SPECTRUM_PATTERNS.items():
+                if found[key] is None and any(p in name for p in patterns):
+                    found[key] = f
+                    break
+
+        # Если после шаблонов остались пропуски — пробуем по порядку
+        missing = [k for k, v in found.items() if v is None]
+        if missing:
+            csv_files.sort()
+            for key in missing:
+                for f in csv_files:
+                    if f not in found.values():
+                        found[key] = f
+                        break
+
+        self.src_var.set(found["src"] or "")
+        self.dmet_var.set(found["dmet"] or "")
+        self.dacet_var.set(found["dacet"] or "")
+
+        found_count = sum(1 for v in found.values() if v)
+        self._folder_path_var.set(folder)
+        self._log(
+            f"[INFO] Папка: {folder} → найдено {found_count}/3 спектров", color=OK)
+        if found_count < 3:
+            messagebox.showwarning(
+                "Не все спектры",
+                f"Автоматически найдено {found_count} из 3 спектров. Проверьте оставшиеся поля вручную."
+            )
 
     def _export_csv(self):
         if self.result_df is None:
