@@ -382,11 +382,9 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
 
     assigned_src = assign_formulas(
         denoised,
-        mode="simple",
         rel_error_ppm=rel_error_assign_ppm,
         mass_min=0,
         mass_max=1000,
-        nom_prioritize=True,
         nom_weight=20.0,
     )
 

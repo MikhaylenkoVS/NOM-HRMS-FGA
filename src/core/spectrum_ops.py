@@ -46,7 +46,6 @@ DELTA_CD3CO = CHEM.derivatization_shifts[
     "delta_cd3co"
 ]  # Da: сдвиг m/z при замене OH  -> OCOCD3
 
-
 # ===========================================================================
 # Загрузка спектров
 # ===========================================================================
@@ -64,7 +63,6 @@ _FS_ELEMENTS: tuple[str, ...] = tuple(_FORMULA_SEARCH["elements"])
 _FS_RANGES: dict[str, tuple[int, int]] = {
     el: tuple(rng) for el, rng in _FORMULA_SEARCH["ranges"].items()
 }
-
 
 @dataclass
 class FormulaSearchConfig:
@@ -114,7 +112,6 @@ class FormulaSearchConfig:
             if el not in self.ranges:
                 raise ValueError(f"Для элемента {el!r} не задан диапазон в ranges")
 
-
 def exact_mass_from_counts(counts: dict[str, int]) -> float:
     """Compute the exact (monoisotopic) neutral mass from element counts.
 
@@ -136,7 +133,6 @@ def exact_mass_from_counts(counts: dict[str, int]) -> float:
         mass += ATOMIC_MASS[elem] * n
     return mass
 
-
 def dbe_from_counts(counts: dict[str, int]) -> float:
     """Compute the double-bond equivalent (DBE) for a CHON formula.
 
@@ -155,7 +151,6 @@ def dbe_from_counts(counts: dict[str, int]) -> float:
     h = counts.get("H", 0)
     n = counts.get("N", 0)
     return max(0.0, 1 + c - h / 2.0 + n / 2.0)
-
 
 def _row_to_brutto(row, element_order=None):
     """Build a Hill-like brutto formula string from element columns of a row.
@@ -189,7 +184,6 @@ def _row_to_brutto(row, element_order=None):
                 parts.append(el if val == 1 else f"{el}{val}")
     return "".join(parts) if parts else None
 
-
 # -- CSV column name mapper (IMP-11) -------------------------------------------
 # Единый маппинг имён колонок CSV → mass / intensity, используется
 # load_spectrum() и app.py
@@ -203,7 +197,6 @@ CSV_COLUMN_MAPPER = {
     "int": "intensity",
     "Int": "intensity",
 }
-
 
 def load_spectrum(
     path,
@@ -288,11 +281,9 @@ def load_spectrum(
     sp = Spectrum(table=df, metadata=metadata)
     return sp
 
-
 # ===========================================================================
 # Шумоподавление
 # ===========================================================================
-
 
 def denoise(
     spec,
@@ -327,7 +318,6 @@ def denoise(
     """
     return spec.noise_filter(force=force, intensity=intensity, quantile=quantile)
 
-
 # ===========================================================================
 # ЭТАП 2b: Назначение брутто-формул
 # ===========================================================================
@@ -338,7 +328,6 @@ def denoise(
 DEFAULT_BRUTTO_DICT = {
     el: tuple(rng) for el, rng in PIPELINE.default_brutto_dict.items()
 }
-
 
 def _generate_candidate_formulas(
     mass_min: float,
@@ -438,6 +427,17 @@ def _generate_candidate_formulas(
                 )
                 for n in range(n_lo, n_hi + 1):
                     mass = base_CHO + n * M_N
+
+                    # ── Классические химические правила (жёсткие) ──────
+                    # LEWIS: сумма валентностей должна быть чётной
+                    #   4C + H + 3N + 2O ≡ H + N (mod 2)
+                    if (h + n) % 2 != 0:
+                        continue
+                    # SENIOR: необходимое условие существования связного графа
+                    #   H ≤ 2C + N + 2  (эквивалентно DBE ≥ 0)
+                    if h > 2 * c + n + 2:
+                        continue
+
                     # строим строку формулы
                     parts: list[str] = []
                     counts = {"C": c, "H": h}
@@ -453,7 +453,6 @@ def _generate_candidate_formulas(
                     result.append(("".join(parts), mass))
 
     return result
-
 
 def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     """Convert a neutral mass to observed m/z for a given ion type.
@@ -497,7 +496,6 @@ def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     # можно добавить другие аддукты позже
     raise ValueError(f"Unknown ion_mode: {ion_mode}")
 
-
 # ── NOM-приоритизация ────────────────────────────────────────────────────────
 
 # Центры NOM-областей (усреднённые вершины) для расчёта расстояния
@@ -509,7 +507,6 @@ _NOM_REGION_CENTERS: list[tuple[float, float]] = [
     for r in NOM_REGIONS
 ]
 
-
 def _nom_distance(hc: float, oc: float) -> float:
     """Минимальное евклидово расстояние от (O/C, H/C) до центра NOM-области."""
     if hc <= 0:
@@ -517,23 +514,30 @@ def _nom_distance(hc: float, oc: float) -> float:
     best = min(math.hypot(oc - cx, hc - cy) for cx, cy in _NOM_REGION_CENTERS)
     return best
 
-
-def assign_formulas_simple(
+def assign_formulas(
     src,
     rel_error_ppm: float = 1.0,
     mass_min: float | None = None,
     mass_max: float | None = None,
     search_config: FormulaSearchConfig | None = None,
-    brutto_generation_mode: str = "nom_like",  # "nom_like" или "soft"
-    ion_mode: str = CHEM.default_ion_mode,  # тип иона; по умолчанию из chemistry.json
-    nom_prioritize: bool = False,  # включить NOM-приоритизацию
-    nom_weight: float = 1.0,  # вес NOM-расстояния: score = |ppm| + nom_weight * nom_dist
+    brutto_generation_mode: str = "nom_like",
+    ion_mode: str = CHEM.default_ion_mode,
+    nom_weight: float = 1.0,
+    **kwargs,
 ):
+    # Игнорируем устаревшие параметры для обратной совместимости
+    kwargs.pop("mode", None)
+    kwargs.pop("nom_prioritize", None)
+    kwargs.pop("brutto_dict", None)
+    kwargs.pop("sign", None)
+    kwargs.pop("rel_error", None)
+    kwargs.pop("formulas", None)
+
     """Assign brutto formulas by brute-force CHON enumeration.
 
     Generates candidate CHON formulas over the mass window, converts them to
-    m/z according to ``ion_mode``, and picks for each peak the formula with
-    the smallest ppm deviation within ``rel_error_ppm``.
+    m/z according to ``ion_mode``, and picks the most NOM-plausible formula
+    among all candidates within ``rel_error_ppm``.
 
     Parameters
     ----------
@@ -549,23 +553,20 @@ def assign_formulas_simple(
         Passed to the candidate generator. Default ``"nom_like"``.
     ion_mode : str, optional
         Ionization mode for the neutral-to-ion conversion. Default ``"[M-H]-"``.
-    nom_prioritize : bool, optional
-        If True, break ties by proximity to NOM regions (H/C, O/C space).
-        Default False for backward compatibility.
     nom_weight : float, optional
         Weight for the NOM-distance term in the composite score:
-        ``score = |ppm| + nom_weight * nom_distance``. Default 1.0.
+        ``score = nom_weight * nom_distance + penalties``. Default 1.0.
 
     Returns
     -------
     nomspectra.spectrum.Spectrum
-        The same spectrum with ``table["brutto"]`` (formula str or None) and
-        ``table["assign"]`` (bool) columns filled in.
+        The same spectrum with ``table["brutto"]`` (formula str or None),
+        ``table["assign"]`` (bool), and ``table["all_candidates"]`` (list of str).
 
     Notes
     -----
-    When several candidates tie on ppm, the first generated formula wins;
-    no NOM-space tie-break is currently applied.
+    Ppm deviation is used ONLY to define the candidate set (admission window);
+    within the window, ranking is by NOM chemical plausibility, not by |ppm|.
     """
     if search_config is None:
         search_config = FormulaSearchConfig()
@@ -625,6 +626,8 @@ def assign_formulas_simple(
 
     table["brutto"] = None
     table["assign"] = False
+    # Новая колонка: все формулы-кандидаты в пределах ppm-окна (фича #2)
+    table["all_candidates"] = None
 
     for idx, row in table.iterrows():
         mass_obs = float(row["mass"])
@@ -637,148 +640,66 @@ def assign_formulas_simple(
         if not mask.any():
             continue
 
-        if nom_prioritize:
-            # NOM-приоритизация: score = |ppm| + nom_weight * nom_distance(H/C, O/C)
-            #                          + dbe_penalty + nc_penalty
-            local_indices = np.where(mask)[0]
-            best_local: int | None = None
-            best_score = float("inf")
-            for li in local_indices:
-                formula_str = cand_formulas[li]
-                try:
-                    counts = parse_formula(formula_str)
-                except Exception:
-                    continue
-                c_val = counts.get("C", 0)
-                if c_val <= 0:
-                    continue
-                hc = counts.get("H", 0) / c_val
-                oc = counts.get("O", 0) / c_val
-                nc = counts.get("N", 0) / c_val
-                ndist = _nom_distance(hc, oc)
-                dbe = dbe_from_counts(counts)
-                # Штраф за DBE > 20 (выше верхней границы типичного NOM)
-                dbe_pen = (dbe - 20) * 0.5 if dbe > 20 else 0.0
-                # Штраф за высокий N/C (N > 30% от C редко для NOM)
-                nc_pen = nc * 2.0 if nc > 0.3 else 0.0
-                # Штраф за высокий N при низком O (N>3 и O/N<0.5 — химически нехарактерно для NOM)
-                n_abs = counts.get("N", 0)
-                o_abs = counts.get("O", 0)
-                if n_abs > 3 and o_abs / n_abs < 0.5:
-                    n_abs_pen = (n_abs - 3) * 2.0
-                else:
-                    n_abs_pen = 0.0
-                score = abs_ppm[li] + nom_weight * ndist + dbe_pen + nc_pen + n_abs_pen
-                if score < best_score:
-                    best_score = score
-                    best_local = li
-            if best_local is None:
-                continue
-            chosen_global = int(best_local)
-        else:
-            # Original behaviour: pick candidate with smallest ppm
-            best_local = int(np.argmin(abs_ppm[mask]))
-            global_indices = np.where(mask)[0]
-            chosen_global = int(global_indices[best_local])
+        global_indices = np.where(mask)[0]
 
-        best_formula = cand_formulas[chosen_global]
+        # NOM-приоритизация: выбираем лучшую формулу по хим. правдоподобию
+        # (ppm внутри окна НЕ учитывается как критерий — только как допуск)
+        best_local: int | None = None
+        best_score = float("inf")
+        for li in global_indices:
+            formula_str = cand_formulas[li]
+            try:
+                counts = parse_formula(formula_str)
+            except Exception:
+                continue
+            c_val = counts.get("C", 0)
+            if c_val <= 0:
+                continue
+            hc = counts.get("H", 0) / c_val
+            oc = counts.get("O", 0) / c_val
+            nc = counts.get("N", 0) / c_val
+            ndist = _nom_distance(hc, oc)
+            dbe = dbe_from_counts(counts)
+            # Штраф за DBE > 20 (выше верхней границы типичного NOM)
+            dbe_pen = (dbe - 20) * 0.5 if dbe > 20 else 0.0
+            # Штраф за высокий N/C (N > 30% от C редко для NOM)
+            nc_pen = nc * 2.0 if nc > 0.3 else 0.0
+            # Штраф за высокий абсолютный N при низком O
+            # (N>3 и O/N<0.5 — химически нехарактерно для NOM)
+            n_abs = counts.get("N", 0)
+            o_abs = counts.get("O", 0)
+            if n_abs > 3 and (o_abs == 0 or o_abs / n_abs < 0.5):
+                n_abs_pen = (n_abs - 3) * 2.0
+            else:
+                n_abs_pen = 0.0
+            # score = nom_weight * nom_dist + dbe_pen + nc_pen + n_abs_pen
+            # (ppm НЕ входит — в пределах окна все кандидаты равноправны по массе)
+            score = nom_weight * ndist + dbe_pen + nc_pen + n_abs_pen
+            if score < best_score:
+                best_score = score
+                best_local = li
+        if best_local is None:
+            # fallback: если ни один кандидат не прошёл парсинг — берём первый по ppm
+            sorted_order = np.argsort(abs_ppm[mask])
+            chosen_global = int(global_indices[sorted_order[0]])
+        else:
+            chosen_global = int(best_local)
+
+        # Сортируем кандидатов по возрастанию |ppm| (для all_candidates)
+        sorted_order = np.argsort(abs_ppm[mask])
+        sorted_global = global_indices[sorted_order]
+
+        # Сохраняем все формулы-кандидаты (упорядочены по ppm)
+        all_candidates_list = [str(cand_formulas[i]) for i in sorted_global]
+        table.at[idx, "all_candidates"] = all_candidates_list
+
+        # Лучшая формула (по выбранному критерию: NOM-приоритет или минимальный ppm)
+        best_formula = str(cand_formulas[chosen_global])
         table.at[idx, "brutto"] = best_formula
         table.at[idx, "assign"] = True
 
     src.table = table
     return src
-
-
-AssignMode = Literal["simple", "nomspectra"]
-
-
-def _row_to_brutto_from_elements(row, element_order=None):
-    """Build a brutto formula string from per-element columns of a row.
-
-    Parameters
-    ----------
-    row : pandas.Series or mapping
-        Row with integer element counts under element-symbol keys.
-    element_order : list of str, optional
-        Elements to include, in output order. Defaults to
-        ``["C", "H", "O", "N", "S", "P"]``.
-
-    Returns
-    -------
-    str or None
-        Concatenated formula, or ``None`` if no positive counts are present.
-    """
-    if element_order is None:
-        element_order = ["C", "H", "O", "N", "S", "P"]
-
-    parts = []
-    for el in element_order:
-        if el not in row:
-            continue
-        val = row[el]
-        if pd.isna(val):
-            continue
-        try:
-            n = int(val)
-        except Exception:
-            continue
-        if n <= 0:
-            continue
-        parts.append(el if n == 1 else f"{el}{n}")
-
-    return "".join(parts) if parts else None
-
-
-def _ensure_brutto_from_element_columns(src):
-    """Guarantee ``assign`` and ``brutto`` columns after formula assignment.
-
-    If ``brutto`` is missing but per-element columns (C, H, O, N, ...) are
-    present, the formula string is reconstructed from them for assigned rows.
-    All other columns are preserved.
-
-    Parameters
-    ----------
-    src : nomspectra.spectrum.Spectrum
-        Spectrum whose ``table`` is checked and, if needed, augmented.
-
-    Returns
-    -------
-    nomspectra.spectrum.Spectrum
-        The same spectrum with a guaranteed ``brutto`` column.
-
-    Raises
-    ------
-    TypeError
-        If ``src`` has no ``table`` attribute.
-    RuntimeError
-        If the ``assign`` column is missing from the table.
-    """
-    if not hasattr(src, "table"):
-        raise TypeError("Ожидается объект Spectrum с атрибутом .table")
-
-    df = src.table.copy()
-
-    if "assign" not in df.columns:
-        raise RuntimeError(
-            "После назначения формул в src.table отсутствует колонка 'assign'"
-        )
-
-    if "brutto" not in df.columns:
-        df["brutto"] = None
-
-    element_order = ["C", "H", "O", "N", "S", "P"]
-    element_cols = [c for c in element_order if c in df.columns]
-
-    if element_cols:
-        assigned_mask = df["assign"] == True
-        df.loc[assigned_mask, "brutto"] = df.loc[assigned_mask].apply(
-            lambda row: _row_to_brutto_from_elements(row, element_order=element_order),
-            axis=1,
-        )
-
-    src.table = df
-    return src
-
 
 def assign_formulas_nomspectra(
     src,
@@ -873,114 +794,6 @@ def assign_formulas_nomspectra(
 
     return src
 
-
-def assign_formulas(
-    src,
-    mode: str = "nomspectra",
-    rel_error_ppm: float = 1.0,
-    mass_min: float | None = None,
-    mass_max: float | None = None,
-    formulas=None,
-    brutto_dict=None,
-    sign: str = "-",
-    search_config: FormulaSearchConfig | None = None,
-    brutto_generation_mode: str = "nom_like",
-    ion_mode: str = CHEM.default_ion_mode,
-    **kwargs,
-):
-    """Dispatch brutto-formula assignment to the selected backend.
-
-    Parameters
-    ----------
-    src : nomspectra.spectrum.Spectrum
-        Spectrum to annotate.
-    mode : {"nomspectra", "simple", "simple_from_molecules"}, optional
-        Assignment backend. Default ``"nomspectra"``.
-    rel_error_ppm : float, optional
-        Mass tolerance (ppm). Default 1.0.
-    mass_min, mass_max : float or None, optional
-        Optional mass window.
-    formulas : sequence, optional
-        Explicit formula list; required for ``"simple_from_molecules"``.
-    brutto_dict : dict, optional
-        Per-element ranges for the NOMspectra backend.
-    sign : {'-', '+'}, optional
-        Ionization sign for the NOMspectra backend. Default ``'-'``.
-    search_config : FormulaSearchConfig or None, optional
-        Configuration for the ``"simple"`` backend.
-    brutto_generation_mode : {"nom_like", "soft"}, optional
-        Candidate-generation mode for the ``"simple"`` backend.
-    ion_mode : str, optional
-        Ionization mode for the ``"simple"`` backend. Default ``"[M-H]-"``.
-    **kwargs
-        Extra arguments forwarded to the NOMspectra backend.
-
-    Returns
-    -------
-    nomspectra.spectrum.Spectrum
-        Annotated spectrum.
-
-    Raises
-    ------
-    ValueError
-        If ``mode`` is unknown, or ``formulas`` is missing for
-        ``"simple_from_molecules"``.
-    NotImplementedError
-        For ``mode="simple_from_molecules"`` (not yet implemented).
-    """
-    kwargs.pop("rel_error", None)
-    _sign = kwargs.pop("sign", "-")
-    kwargs.pop("mass_min", None)
-    kwargs.pop("mass_max", None)
-    kwargs.pop("brutto_dict", None)
-
-    # Выводим ion_mode из sign, если не передан явно
-    if ion_mode == CHEM.default_ion_mode and _sign is not None:
-        sign_map = {"-": "[M-H]-", "+": "[M]+", "0": "neutral"}
-        ion_mode = sign_map.get(str(_sign), CHEM.default_ion_mode)
-
-    if mode == "simple":
-        _np = kwargs.pop("nom_prioritize", False)
-        _nw = kwargs.pop("nom_weight", 1.0)
-        return assign_formulas_simple(
-            src,
-            rel_error_ppm=rel_error_ppm,
-            mass_min=mass_min,
-            mass_max=mass_max,
-            search_config=search_config,
-            brutto_generation_mode=brutto_generation_mode,
-            ion_mode=ion_mode,
-            nom_prioritize=_np,
-            nom_weight=_nw,
-        )
-
-    if mode == "simple_from_molecules":
-        if formulas is None:
-            raise ValueError(
-                "Для mode='simple_from_molecules' нужно передать список formulas"
-            )
-        raise NotImplementedError("mode='simple_from_molecules' пока не реализован")
-
-    if mode == "nomspectra":
-        src = src.assign(
-            brutto_dict=brutto_dict,
-            rel_error=rel_error_ppm,
-            sign=sign,
-            mass_min=mass_min,
-            mass_max=mass_max,
-            **kwargs,
-        )
-        src = _ensure_brutto_from_element_columns(src)
-        return src
-
-    raise ValueError(f"Неизвестный режим assign: {mode}")
-
-
-# ===========================================================================
-# Поиск серий
-# ===========================================================================
-
-
 def _find_peak(mz_array, target_mz, ppm_tol):
     """Find the peak in ``mz_array`` closest to ``target_mz`` within tolerance.
 
@@ -1005,7 +818,6 @@ def _find_peak(mz_array, target_mz, ppm_tol):
     if matched.empty:
         return None
     return int(matched.idxmin())
-
 
 def find_series(
     src,
@@ -1167,11 +979,9 @@ def find_series(
         ],
     )
 
-
 # ===========================================================================
 # Сборка итоговой таблицы
 # ===========================================================================
-
 
 def build_result_table(src, df_dmet, df_dacet):
     """Assemble the final -COOH / -OH count table per brutto formula.
@@ -1201,7 +1011,7 @@ def build_result_table(src, df_dmet, df_dacet):
     base = (
         src.table.loc[
             src.table.get("assign", pd.Series(False, index=src.table.index)) == True
-        ][["mass", "intensity", "brutto"]]
+        ][["mass", "intensity", "brutto", "all_candidates"]]
         .copy()
         .reset_index(drop=True)
     )
@@ -1236,6 +1046,7 @@ def build_result_table(src, df_dmet, df_dacet):
                 "mass",
                 "intensity",
                 "brutto",
+                "all_candidates",
                 "N_COOH",
                 "N_OH",
                 "missing_dmet",
@@ -1246,11 +1057,9 @@ def build_result_table(src, df_dmet, df_dacet):
         .reset_index(drop=True)
     )
 
-
 # ===========================================================================
 # Визуализация серий с пропущенными пиками
 # ===========================================================================
-
 
 def visualize_series(
     src,

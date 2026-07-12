@@ -18,10 +18,12 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.patches import Polygon
+from matplotlib import patheffects
 
 from src.core.molecule import parse_formula
 
@@ -47,28 +49,29 @@ TITLE: str = "Van Krevelen Diagram"
 # --- Параметры сетки ---
 GRID_ENABLED: bool = True
 GRID_STYLE: str = "--"
-GRID_ALPHA: float = 0.4
+GRID_ALPHA: float = 0.25
+GRID_COLOR: str = "#cccccc"
 
 # --- Параметры точек (scatter plot) ---
 SCATTER_CMAP: str = "YlOrRd"
-SCATTER_EDGECOLOR: str = "k"
-SCATTER_LINEWIDTH: float = 0.3
+SCATTER_EDGECOLOR: str = "#444444"
+SCATTER_LINEWIDTH: float = 0.5
 SCATTER_ALPHA: float = 0.85
 # Размер точки для минимальной и максимальной интенсивности
-SCATTER_SIZE_MIN: float = 20.0
-SCATTER_SIZE_MAX: float = 200.0
+SCATTER_SIZE_MIN: float = 50.0
+SCATTER_SIZE_MAX: float = 300.0
 # Размер по умолчанию, когда все интенсивности равны
-SCATTER_SIZE_FALLBACK: float = 100.0
+SCATTER_SIZE_FALLBACK: float = 120.0
 
 # --- Параметры colorbar ---
 COLORBAR_LABEL: str = "Number of –COOH groups"
 
 # --- Параметры областей NOM ---
-NOM_REGION_ALPHA: float = 0.12
-NOM_LABEL_FONTSIZE: float = 9
-NOM_LABEL_ALPHA: float = 0.7
+NOM_REGION_ALPHA: float = 0.22
+NOM_LABEL_FONTSIZE: float = 10
+NOM_LABEL_ALPHA: float = 0.85
 NOM_LABEL_WEIGHT: str = "bold"
-NOM_LABEL_COLOR: str = "black"
+NOM_LABEL_COLOR: str = "#1a1a1a"    # почти чёрный на белом фоне
 
 # ======================================================================
 # ОБЛАСТИ NOM НА ДИАГРАММЕ
@@ -80,32 +83,32 @@ NOM_LABEL_COLOR: str = "black"
 NOM_REGIONS: list[dict] = [
     {
         "name": "Lipids",
-        "color": "#F4A582",  # light red/orange
+        "color": "#E8A87C",  # насыщенный персиковый
         "vertices": [(0.0, 1.5), (0.3, 1.5), (0.3, 2.2), (0.0, 2.2)],
     },
     {
         "name": "Proteins",
-        "color": "#92C5DE",  # light blue
+        "color": "#76B5D4",  # насыщенный голубой
         "vertices": [(0.3, 1.5), (0.55, 1.5), (0.55, 2.2), (0.3, 2.2)],
     },
     {
         "name": "Carbohydrates",
-        "color": "#B2ABD2",  # light purple
+        "color": "#9B8EC4",  # насыщенный фиолетовый
         "vertices": [(0.6, 1.5), (1.2, 1.5), (1.2, 2.2), (0.6, 2.2)],
     },
     {
         "name": "Lignin",
-        "color": "#A6D96A",  # light green
+        "color": "#7BC86C",  # насыщенный зелёный
         "vertices": [(0.1, 0.7), (0.45, 0.7), (0.45, 1.5), (0.1, 1.5)],
     },
     {
         "name": "Tannins",
-        "color": "#FDAE61",  # light orange
+        "color": "#F0A45A",  # насыщенный оранжевый
         "vertices": [(0.5, 0.5), (0.9, 0.5), (0.9, 1.5), (0.5, 1.5)],
     },
     {
         "name": "Condensed aromatics\n(black carbon)",
-        "color": "#B3B3B3",  # light grey
+        "color": "#A0A0A0",  # насыщенный серый
         "vertices": [(0.0, 0.2), (0.2, 0.2), (0.2, 0.7), (0.0, 0.7)],
     },
 ]
@@ -238,18 +241,21 @@ def create_van_krevelen_plot(
     n_cooh_arr = np.asarray(data["n_cooh"], dtype=int)
     intensities_arr = np.asarray(data["intensity"], dtype=float)
 
-    # ── Нормализация размера точек ────────────────────────────────────
+    # ── Нормализация размера точек (sqrt-шкала) ──────────────────────
     intensity_min = intensities_arr.min()
     intensity_max = intensities_arr.max()
     if intensity_max == intensity_min:
         sizes = np.full_like(intensities_arr, SCATTER_SIZE_FALLBACK, dtype=float)
     else:
-        sizes = SCATTER_SIZE_MIN + (intensities_arr - intensity_min) / (
-            intensity_max - intensity_min
-        ) * (SCATTER_SIZE_MAX - SCATTER_SIZE_MIN)
+        # sqrt для сглаживания: мелкие пики не исчезают на фоне одного гиганта
+        norm = np.sqrt((intensities_arr - intensity_min) / (intensity_max - intensity_min))
+        sizes = SCATTER_SIZE_MIN + norm * (SCATTER_SIZE_MAX - SCATTER_SIZE_MIN)
 
     # ── Создание фигуры ───────────────────────────────────────────────
     fig, ax = plt.subplots(figsize=figsize)
+    # Белый фон диаграммы
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
 
     # ── Области NOM ───────────────────────────────────────────────────
     for region in NOM_REGIONS:
@@ -274,6 +280,9 @@ def create_van_krevelen_plot(
             color=NOM_LABEL_COLOR,
             alpha=NOM_LABEL_ALPHA,
             weight=NOM_LABEL_WEIGHT,
+            path_effects=[
+                patheffects.withStroke(linewidth=2.5, foreground="white")
+            ],
         )
 
     # ── Точки ─────────────────────────────────────────────────────────
@@ -290,18 +299,23 @@ def create_van_krevelen_plot(
 
     # ── Colorbar ──────────────────────────────────────────────────────
     cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label(COLORBAR_LABEL)
+    cbar.set_label(COLORBAR_LABEL, color="#333333")
+    cbar.ax.yaxis.set_tick_params(color="#333333")
+    plt.setp(plt.getp(cbar.ax, "yticklabels"), color="#333333")
 
     # ── Оси ───────────────────────────────────────────────────────────
     ax.set_xlim(*X_LIM)
     ax.set_ylim(*Y_LIM)
-    ax.set_xlabel(X_LABEL)
-    ax.set_ylabel(Y_LABEL)
-    ax.set_title(TITLE)
+    ax.set_xlabel(X_LABEL, color="#222222", fontsize=12)
+    ax.set_ylabel(Y_LABEL, color="#222222", fontsize=12)
+    ax.set_title(TITLE, color="#222222", fontsize=14, weight="bold")
+    ax.tick_params(colors="#222222", labelsize=10)
+    for spine in ax.spines.values():
+        spine.set_color("#444444")
 
     # ── Сетка ─────────────────────────────────────────────────────────
     if GRID_ENABLED:
-        ax.grid(True, linestyle=GRID_STYLE, alpha=GRID_ALPHA)
+        ax.grid(True, linestyle=GRID_STYLE, alpha=GRID_ALPHA, color=GRID_COLOR)
 
     fig.tight_layout()
 

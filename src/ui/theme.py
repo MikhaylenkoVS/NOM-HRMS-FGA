@@ -44,8 +44,26 @@ def _style(root: tk.Tk) -> ttk.Style:
     s.map("Accent.TButton", background=[("active", "#74c7ec")])
     s.configure("TEntry", fieldbackground=PANEL, foreground=FG, insertcolor=FG)
     s.configure(
-        "TCombobox", fieldbackground=PANEL, foreground=FG, selectbackground=ACCENT
+        "TCombobox",
+        fieldbackground=PANEL,
+        background=PANEL,
+        foreground=FG,
+        selectbackground=ACCENT,
+        selectforeground=BG,
+        arrowcolor=FG,
     )
+    s.map(
+        "TCombobox",
+        fieldbackground=[("readonly", PANEL), ("active", BTN)],
+        foreground=[("readonly", FG)],
+        selectbackground=[("readonly", ACCENT)],
+        selectforeground=[("readonly", BG)],
+    )
+    # Цвет выпадающего списка (popdown listbox) — tkinter, не ttk
+    root.option_add("*TCombobox*Listbox*Background", PANEL)
+    root.option_add("*TCombobox*Listbox*Foreground", FG)
+    root.option_add("*TCombobox*Listbox*selectBackground", ACCENT)
+    root.option_add("*TCombobox*Listbox*selectForeground", BG)
     s.configure("TNotebook", background=BG, tabmargins=0)
     s.configure("TNotebook.Tab", background=BTN, foreground=FG, padding=[12, 5])
     s.map(

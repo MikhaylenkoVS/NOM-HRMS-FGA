@@ -103,7 +103,7 @@ def _normalize_brutto(value) -> Optional[str]:
     s = str(value).strip()
     if not s:
         return None
-    # Канонический порядок: C H N O S P ...
+    # Канонический порядок: C H O N S P ... (совпадает с генератором формул)
     try:
         tokens = re.findall(r"([A-Z][a-z]?)(\d*)", s)
         counts: dict[str, int] = {}
@@ -115,10 +115,10 @@ def _normalize_brutto(value) -> Optional[str]:
         # Убираем нули
         counts = {k: v for k, v in counts.items() if v > 0}
 
-        # Сортировка: C, H, потом остальные по алфавиту
+        # Сортировка: C, H, O, N, S, P, затем остальные по алфавиту
         def sort_key(e: str) -> tuple:
-            order = {"C": 0, "H": 1}
-            return (order.get(e, 2), e)
+            order = {"C": 0, "H": 1, "O": 2, "N": 3, "S": 4, "P": 5}
+            return (order.get(e, 99), e)
 
         parts = []
         for elem in sorted(counts.keys(), key=sort_key):
@@ -586,7 +586,7 @@ def run_pipeline(
     print("ШАГ 2b: Назначение брутто-формул исходному спектру")
     print("=" * 60)
     _debug(
-        f"assign_formulas: mode=simple, rel_error={rel_error}, sign={sign}, "
+        f"assign_formulas: rel_error={rel_error}, sign={sign}, "
         f"mass_min={assign_mass_min}, mass_max={assign_mass_max}"
     )
     _debug(f"brutto_dict={'default' if brutto_dict is None else brutto_dict}")
@@ -594,10 +594,7 @@ def run_pipeline(
     try:
         src = assign_formulas(
             src,
-            mode="simple",
-            brutto_dict=brutto_dict,
             rel_error_ppm=rel_error,
-            sign=sign,
             mass_min=assign_mass_min,
             mass_max=assign_mass_max,
         )
@@ -1239,7 +1236,6 @@ def _run_single_test_set(
     try:
         src_a = assign_formulas(
             src_d,
-            mode="simple",
             rel_error_ppm=rel_error,
             mass_min=assign_mass_min,
             mass_max=assign_mass_max,

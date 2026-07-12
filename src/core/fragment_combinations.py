@@ -50,7 +50,8 @@ def filter_fragments(target_heavy, target_ihd, fragment_library):
 
 
 def find_fragment_combinations(
-    target_heavy_formula, target_ihd, num_cooh=0, num_oh=0, max_bases=10
+    target_heavy_formula, target_ihd, num_cooh=0, num_oh=0, max_bases=10,
+    first_only=False,
 ):
     """Enumerate fragment multisets matching a target formula and IHD.
 
@@ -97,7 +98,13 @@ def find_fragment_combinations(
     for el, n in func_heavy.items():
         base_target[el] = base_target.get(el, 0) - n
         if base_target[el] < 0:
-            return []  # функционалки уже «перебили» формулу
+            # Функциональные группы «перерасходуют» атомы — пробуем без них
+            if num_cooh > 0 or num_oh > 0:
+                return find_fragment_combinations(
+                    target_heavy_formula, target_ihd,
+                    num_cooh=0, num_oh=0, max_bases=max_bases,
+                )
+            return []
 
     base_target = {el: n for el, n in base_target.items() if n > 0}
 
@@ -107,20 +114,28 @@ def find_fragment_combinations(
 
     # усечённая библиотека
     lib = filter_fragments(base_target, base_target_ihd, FRAGMENT_LIBRARY)
-    names = sorted(lib.keys())
+
+    # При first_only: ароматические фрагменты первыми — превью получает
+    # химически осмысленные структуры с циклами
+    _AROMATIC = {
+        "benzene", "naphthalene", "anthracene",
+        "pyridine", "pyrimidine", "pyrazine",
+        "pyrrole", "imidazole", "furan",
+    }
+    if first_only:
+        names = sorted(lib.keys(), key=lambda n: (0 if n in _AROMATIC else 1, n))
+    else:
+        names = sorted(lib.keys())
 
     def backtrack(idx, current_counts, current_heavy, current_ihd, used_bases):
-        # отсев по числу баз
         if used_bases > max_bases:
-            return
-        # отсев по формуле / IHD (верхняя граница)
+            return False
         for el, n in current_heavy.items():
             if n > base_target.get(el, 0):
-                return
+                return False
         if current_ihd > base_target_ihd + 1e-6:
-            return
+            return False
 
-        # если прошли все фрагменты — проверяем точное совпадение
         if idx == len(names):
             if (
                 current_heavy == base_target
@@ -129,23 +144,22 @@ def find_fragment_combinations(
                 bases_dict = {
                     names[i]: c for i, c in enumerate(current_counts) if c > 0
                 }
-                results.append(
-                    {
-                        "bases": bases_dict,
-                        "cooh": num_cooh,
-                        "oh": num_oh,
-                        "total_heavy_formula": target_heavy_formula.copy(),
-                        "total_ihd": target_ihd,
-                    }
-                )
-            return
+                results.append({
+                    "bases": bases_dict,
+                    "cooh": num_cooh,
+                    "oh": num_oh,
+                    "total_heavy_formula": target_heavy_formula.copy(),
+                    "total_ihd": target_ihd,
+                })
+                if first_only:
+                    return True
+            return False
 
         name = names[idx]
         frag = lib[name]
         hf = frag["heavy_formula"]
         ihd_f = frag["ihd"]
 
-        # оценка максимального допустимого количества этого фрагмента по каждому элементу и IHD
         max_by_elem = float("inf")
         for el, n in hf.items():
             if n > 0:
@@ -160,9 +174,7 @@ def find_fragment_combinations(
         if max_mult == float("inf"):
             max_mult = 0
 
-        # перебираем 0..max_mult копий текущего фрагмента
         for k in range(max_mult + 1):
-            # добавляем k копий
             new_heavy = current_heavy
             new_ihd = current_ihd
             if k > 0:
@@ -170,11 +182,11 @@ def find_fragment_combinations(
                 for el, n in hf.items():
                     new_heavy[el] = new_heavy.get(el, 0) + n * k
                 new_ihd = current_ihd + ihd_f * k
-
             current_counts[idx] = k
-            backtrack(idx + 1, current_counts, new_heavy, new_ihd, used_bases + k)
-
-        current_counts[idx] = 0  # на всякий случай
+            if backtrack(idx + 1, current_counts, new_heavy, new_ihd, used_bases + k):
+                return True
+        current_counts[idx] = 0
+        return False
 
     current_counts = [0] * len(names)
     backtrack(0, current_counts, {}, 0.0, 0)
@@ -334,6 +346,7 @@ def find_and_visualize_molecules(
     max_bases: int = 10,
     show_images: bool = True,
     image_size: tuple = (400, 300),
+    first_only: bool = False,
 ):
     """Go from a brutto formula to assembled (and optionally drawn) molecules.
 
@@ -405,6 +418,7 @@ def find_and_visualize_molecules(
         num_cooh=num_cooh,
         num_oh=num_oh,
         max_bases=max_bases,
+        first_only=first_only,
     )
     print(f"✅ Найдено {len(combinations)} комбинаций")
 
@@ -486,9 +500,29 @@ def find_and_visualize_molecules(
                 except Exception:
                     pass
 
-            # Добавляем водороды и генерируем координаты
-            rdkit_mol = Chem.AddHs(rdkit_mol)
+            # Генерируем 2D-координаты (CoordGen для зигзагов sp3)
+            from rdkit.Chem import rdDepictor
+            rdDepictor.SetPreferCoordGen(True)
             AllChem.Compute2DCoords(rdkit_mol)
+            # Добавляем только полярные водороды (на гетероатомах)
+            rdkit_mol = Chem.AddHs(rdkit_mol, explicitOnly=True)
+            # Убираем H с углерода, оставляем на N, O, S
+            final_mol = Chem.RWMol(rdkit_mol)
+            atoms_to_remove = []
+            for atom in final_mol.GetAtoms():
+                if atom.GetAtomicNum() == 1:  # водород
+                    # Найти соседа
+                    for nbr in atom.GetNeighbors():
+                        if nbr.GetAtomicNum() == 6:  # углерод
+                            atoms_to_remove.append(atom.GetIdx())
+                            break
+            for idx in reversed(sorted(atoms_to_remove)):
+                final_mol.RemoveAtom(idx)
+            rdkit_mol = final_mol.GetMol()
+            try:
+                Chem.SanitizeMol(rdkit_mol)
+            except Exception:
+                pass
 
             # Генерируем изображение
             img = Draw.MolToImage(rdkit_mol, size=image_size)
