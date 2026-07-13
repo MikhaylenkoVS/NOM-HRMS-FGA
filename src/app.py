@@ -214,7 +214,13 @@ class App(tk.Tk):
         super().__init__()
         try:
             import os as _os
-            _icon = _os.path.join(_os.path.dirname(__file__), '..', 'assets', 'icon.ico')
+            import sys as _sys
+            # Inside PyInstaller one-file bundle, files are extracted to _MEIPASS
+            if getattr(_sys, 'frozen', False):
+                _base = _sys._MEIPASS
+            else:
+                _base = _os.path.dirname(__file__)
+            _icon = _os.path.join(_base, 'assets', 'icon.ico')
             if _os.path.exists(_icon):
                 self.iconbitmap(_icon)
         except Exception:
