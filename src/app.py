@@ -572,7 +572,7 @@ class App(tk.Tk):
         self._folder_path_var = tk.StringVar()
         tk.Label(frame, textvariable=self._folder_path_var,
                  bg=BG, fg=ACCENT, font=("Segoe UI", 8), anchor="w").grid(
-            row=3, column=0, sticky="ew", padx=12, pady=(0, 2))
+            row=4, column=0, sticky="ew", padx=12, pady=(0, 2))
 
     def _build_params_processing(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
