@@ -43,17 +43,14 @@ DEBUG_PREVIEW_ROWS = 5
 DENOISE_KWARGS = dict(_TEST_CFG["denoise"])
 ASSIGN_KWARGS = {
     "rel_error_ppm": ASSIGN_MATCH_PPM,
-    "mass_min": 0,  # явно — см. TODO ниже
+    "mass_min": 0,
     "mass_max": 1000,
     "nom_weight": 5.0,
 }
-# TODO: Разобрать зависимость assign_formulas от диапазона масс.
-#  Сейчас интеграционный тест зелёный только при явном указании:
-#      ASSIGN_KWARGS["mass_min"] = 0
-#      ASSIGN_KWARGS["mass_max"] = 1000
-#  Без этих границ assign_formulas на denoised-спектрах сильно
-#  недоназначал формулы (assign_recall ~ 30–50%), хотя на raw original
-#  даёт 0.77–0.90.
+# NOTE: assign_formulas на denoised-спектрах без явных границ масс
+# недоназначает формулы (assign_recall ~30–50% vs 77–90% с границами).
+# Явное указание mass_min=0 / mass_max=1000 — осознанный workaround.
+# См. issue #50 (IMP-10).
 
 # Имена файлов спектров из paths.json
 _SF = PATHS.spectrum_files
