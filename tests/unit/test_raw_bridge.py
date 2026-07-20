@@ -161,3 +161,168 @@ class TestAverageRawToDf:
             pytest.skip("MSFileReader unavailable — cannot run end-to-end")
         # This test only runs when MSFileReader is available.
         # In most CI environments it will be skipped.
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# average_raw_to_csv — happy path with mocked MSFileReader
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAverageRawToCsvMocked:
+    """Happy-path tests for average_raw_to_csv using mocked PyMSFileReader."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mock(self, monkeypatch, tmp_path):
+        """Mock MSFileReader as available and provide fake RAW data."""
+        import src.core.raw_bridge as rb
+
+        monkeypatch.setattr(rb, "_MSFR_AVAILABLE", True)
+        monkeypatch.setattr(rb, "_MSFR_ERROR", None)
+
+        fake_msfr = mock.MagicMock()
+        fake_reader = mock.MagicMock()
+        fake_reader.get_averaged_spectrum_list_from_RT.return_value = {
+            "seg1": np.array([[100.123456, 50000.0, 0, 0, 0, 0],
+                              [200.654321, 30000.0, 0, 0, 0, 0]]),
+        }
+        fake_msfr.PyMSFileReader.return_value = fake_reader
+        fake_msfr.c_double = float  # c_double(x) → x for tests
+        monkeypatch.setattr(rb, "_msfr", fake_msfr)
+
+        self.rb = rb
+        self.tmp = tmp_path
+        self.raw_file = tmp_path / "test.raw"
+        self.raw_file.write_text("dummy raw content")
+
+    def test_happy_path_writes_csv_with_mass_intensity_header(self):
+        """Mocked RAW → CSV has correct header and values."""
+        csv_path = self.rb.average_raw_to_csv(
+            str(self.raw_file), rt_min=0.0, rt_max=10.0
+        )
+        assert os.path.isfile(csv_path)
+        with open(csv_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        assert lines[0].strip() == "mass,intensity"
+        assert len(lines) == 3  # header + 2 data rows
+        # mass is rounded to 5 decimals by _merge_segments, then .6f → "100.123460"
+        assert "100.123460" in lines[1]
+        assert "50000.00" in lines[1]
+
+    def test_custom_output_csv_path(self):
+        """output_csv parameter controls where CSV is written."""
+        custom = str(self.tmp / "custom_output.csv")
+        result = self.rb.average_raw_to_csv(
+            str(self.raw_file), rt_min=0.0, rt_max=10.0, output_csv=custom
+        )
+        assert result == os.path.abspath(custom)
+        assert os.path.isfile(custom)
+
+    def test_default_output_naming(self):
+        """Without output_csv, file is named <basename>_avrg.csv in raw dir."""
+        result = self.rb.average_raw_to_csv(
+            str(self.raw_file), rt_min=0.0, rt_max=10.0
+        )
+        expected_name = "test_avrg.csv"
+        assert os.path.basename(result) == expected_name
+        assert os.path.dirname(result) == str(self.tmp)
+
+    def test_progress_callback_is_called(self):
+        """progress_callback receives status strings during processing."""
+        calls = []
+
+        def tracker(msg):
+            calls.append(msg)
+
+        self.rb.average_raw_to_csv(
+            str(self.raw_file), rt_min=0.0, rt_max=10.0, progress_callback=tracker
+        )
+        assert len(calls) >= 2
+        assert any("Усреднение" in c for c in calls)
+        assert any("Объединение" in c for c in calls)
+
+    def test_returns_absolute_path(self):
+        """Returned path is always absolute."""
+        result = self.rb.average_raw_to_csv(
+            str(self.raw_file), rt_min=0.0, rt_max=10.0
+        )
+        assert os.path.isabs(result)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# _merge_segments — дополнительные edge-кейсы
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestMergeSegmentsExtras:
+    """Additional _merge_segments edge cases beyond the basic suite."""
+
+    def test_ignores_extra_columns(self):
+        """Only mass (col 0) and intensity (col 1) matter; rest ignored."""
+        from src.core.raw_bridge import _merge_segments
+
+        # Extra columns: resolution, baseline, noise, charge — filled with junk
+        data = {
+            "s1": np.array([[150.0, 10.0, 999, 888, 777, 666]]),
+        }
+        result = _merge_segments(data)
+        assert result.shape == (1, 2)
+        assert result[0, 0] == 150.0
+        assert result[0, 1] == 10.0
+
+    def test_large_number_of_unique_masses(self):
+        """Scales to 1000 unique masses across segments."""
+        from src.core.raw_bridge import _merge_segments
+
+        n = 1000
+        data = {
+            f"seg_{i}": np.array([[float(100 + i), float(i + 1), 0, 0, 0, 0]])
+            for i in range(n)
+        }
+        result = _merge_segments(data)
+        assert result.shape == (n, 2)
+        # Verify sorting by mass
+        masses = result[:, 0]
+        assert np.all(np.diff(masses) >= 0)
+
+    def test_segment_with_single_row(self):
+        """Single-row segments don't crash vstack."""
+        from src.core.raw_bridge import _merge_segments
+
+        data = {
+            "s1": np.array([[42.0, 7.0, 0, 0, 0, 0]]),
+            "s2": np.array([[42.0, 3.0, 0, 0, 0, 0]]),
+        }
+        result = _merge_segments(data)
+        assert result.shape == (1, 2)
+        assert result[0, 1] == 10.0  # 7 + 3
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# average_raw_to_df — mocked
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAverageRawToDfMocked:
+    """Test average_raw_to_df with a mocked CSV round-trip."""
+
+    def test_returns_dataframe_with_correct_columns(self, tmp_path, monkeypatch):
+        """Mock the CSV writing part, verify DataFrame columns are mass,intensity."""
+        import src.core.raw_bridge as rb
+        import csv
+
+        # Pre-create the CSV that average_raw_to_csv would produce
+        csv_path = tmp_path / "fake_avrg.csv"
+        with open(csv_path, "w", newline="") as fh:
+            w = csv.writer(fh)
+            w.writerow(["mass", "intensity"])
+            w.writerow(["100.000000", "500.00"])
+            w.writerow(["200.000000", "300.00"])
+
+        # Mock average_raw_to_csv to return our pre-built CSV
+        monkeypatch.setattr(rb, "average_raw_to_csv", lambda *a, **kw: str(csv_path))
+
+        df = rb.average_raw_to_df("dummy.raw", 0.0, 10.0)
+        assert list(df.columns) == ["mass", "intensity"]
+        assert len(df) == 2
+        assert df.iloc[0]["mass"] == 100.0
+        assert df.iloc[1]["intensity"] == 300.0
