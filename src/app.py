@@ -215,16 +215,36 @@ class App(tk.Tk):
         try:
             import os as _os
             import sys as _sys
+            import logging as _logging
             # Inside PyInstaller one-file bundle, files are extracted to _MEIPASS
             if getattr(_sys, 'frozen', False):
                 _base = _sys._MEIPASS
             else:
-                _base = _os.path.dirname(__file__)
+                # __file__ lives in src/ — walk up to project root
+                _base = _os.path.join(_os.path.dirname(__file__), '..')
             _icon = _os.path.join(_base, 'assets', 'icon.ico')
+            _icon = _os.path.normpath(_icon)
             if _os.path.exists(_icon):
                 self.iconbitmap(_icon)
+                # Windows taskbar uses the large icon (ICON_BIG).
+                # tkinter's iconbitmap only sets ICON_SMALL, so we set ICON_BIG manually.
+                try:
+                    import ctypes as _ctypes
+                    _hwnd = self.winfo_id()
+                    if _hwnd:
+                        _hicon = _ctypes.windll.user32.LoadImageW(
+                            0, _icon, 1, 0, 0, 0x10  # IMAGE_ICON, LR_LOADFROMFILE
+                        )
+                        if _hicon:
+                            _ctypes.windll.user32.SendMessageW(
+                                _hwnd, 0x0080, 1, _hicon  # WM_SETICON + ICON_BIG
+                            )
+                except Exception:
+                    pass
+            else:
+                _logging.warning("Icon not found: %s", _icon)
         except Exception:
-            pass
+            _logging.exception("Failed to set application icon")
         self.title("NOM HRMS FGA")
         self.geometry("1200x760")
         self.configure(bg=BG)
