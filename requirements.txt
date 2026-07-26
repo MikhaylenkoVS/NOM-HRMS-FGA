@@ -50,3 +50,6 @@ pytest>=7.0
 # Усреднение ThermoRAW-файлов (только Windows, src/core/raw_bridge.py):
 #   comtypes>=1.1.14
 #   + MSFileReader 3.1 SP4 (системная DLL, не ставится через pip)
+#
+# Конвертация mzML → CSV (src/core/mzml_bridge.py):
+pymzml>=2.5

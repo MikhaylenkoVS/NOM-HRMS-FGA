@@ -131,6 +131,15 @@ except Exception as _raw_err:
     def _raw_available():
         return False
 
+# ── Импорт mzML-бриджа (опционально, требует pymzml) ─────────────────────────
+try:
+    from src.core.mzml_bridge import mzml_to_csv as _mzml_to_csv, is_available as _mzml_available
+except Exception:
+    _mzml_to_csv = None  # type: ignore[assignment]
+
+    def _mzml_available():
+        return False
+
 
 # ── Импорт конфигурации: единый источник дефолтов GUI ─────────────────────
 from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
@@ -975,7 +984,7 @@ class App(tk.Tk):
         """Return the actual CSV path, auto-detecting RAW→CSV if needed."""
         path = spec_var.get().strip()
         if not path:
-            raise ValueError(f"[{label}] Укажите файл (.csv или .raw)")
+            raise ValueError(f"[{label}] Укажите файл (.csv, .mzML или .raw)")
 
         if not os.path.isfile(path):
             raise FileNotFoundError(f"[{label}] Файл не найден: {path}")
@@ -1004,6 +1013,31 @@ class App(tk.Tk):
             self.progress.stop()
             self._set_status("Готово")
             self._log(f"[RAW] → {path}", color=OK)
+
+        # Автоопределение: если .mzML → конвертировать через mzml_bridge
+        elif path.lower().endswith(".mzml"):
+            try:
+                rt_min = float(rt_min_var.get()) if rt_min_var.get().strip() else 0.0
+                rt_max = float(rt_max_var.get()) if rt_max_var.get().strip() else 999.0
+            except ValueError:
+                raise ValueError(f"[{label}] Некорректный RT-диапазон")
+
+            if _mzml_to_csv is None:
+                raise RuntimeError(
+                    f"[{label}] Обработка mzML недоступна.\n"
+                    "Установите pymzml: pip install pymzml"
+                )
+            self._log(
+                f"[mzML] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…",
+                color=FG,
+            )
+            self._set_status("Усреднение mzML-спектра…")
+            self.progress.start(10)
+            self.update_idletasks()
+            path = _mzml_to_csv(path, rt_min=rt_min, rt_max=rt_max)
+            self.progress.stop()
+            self._set_status("Готово")
+            self._log(f"[mzML] → {path}", color=OK)
 
         return path
 
