@@ -56,6 +56,7 @@ try:
     _MSFR_AVAILABLE = True
 except ImportError as err:
     _MSFR_ERROR = str(err)
+    _msfr = None
 
 
 def is_available() -> bool:
