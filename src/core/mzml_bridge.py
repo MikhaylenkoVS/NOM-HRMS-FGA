@@ -79,28 +79,31 @@ def mzml_to_csv(
         progress_callback("Чтение mzML…")
 
     reader = Reader(mzml_path)
-    rt_min_sec = rt_min * 60.0
-    rt_max_sec = rt_max * 60.0
+    try:
+        rt_min_sec = rt_min * 60.0
+        rt_max_sec = rt_max * 60.0
 
-    # Collect (m/z, intensity) pairs from all MS1 scans in the RT window
-    all_mz: list[float] = []
-    all_int: list[float] = []
+        # Collect (m/z, intensity) pairs from all MS1 scans in the RT window
+        all_mz: list[float] = []
+        all_int: list[float] = []
 
-    scan_count = 0
-    for spec in reader:
-        ms_level = spec.get("ms level", 1)
-        if ms_level != 1:
-            continue
+        scan_count = 0
+        for spec in reader:
+            ms_level = spec.get("ms level", 1)
+            if ms_level != 1:
+                continue
 
-        rt = spec.scan_time_in_minutes() * 60.0
-        if rt < rt_min_sec or rt > rt_max_sec:
-            continue
+            rt = spec.scan_time_in_minutes() * 60.0
+            if rt < rt_min_sec or rt > rt_max_sec:
+                continue
 
-        peaks = spec.peaks("raw")  # (mz_array, intensity_array)
-        if peaks is not None and len(peaks[0]) > 0:
-            all_mz.extend(peaks[0].tolist())
-            all_int.extend(peaks[1].tolist())
-            scan_count += 1
+            peaks = spec.peaks("raw")  # (mz_array, intensity_array)
+            if peaks is not None and len(peaks[0]) > 0:
+                all_mz.extend(peaks[0].tolist())
+                all_int.extend(peaks[1].tolist())
+                scan_count += 1
+    finally:
+        reader.close()
 
     if scan_count == 0:
         raise ValueError(

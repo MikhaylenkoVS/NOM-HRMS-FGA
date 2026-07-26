@@ -1129,7 +1129,9 @@ def build_result_table(src, df_dmet, df_dacet):
     def _enrich(df, prefix):
         if df.empty:
             return pd.DataFrame(
-                columns=["mass_key", f"n_{prefix}", f"missing_{prefix}"]
+                {"mass_key": pd.Series(dtype="float64"),
+                 f"n_{prefix}": pd.Series(dtype="int64"),
+                 f"missing_{prefix}": pd.Series(dtype="object")}
             )
         tmp = df[["mass_src", "n_groups", "missing"]].copy()
         tmp["mass_key"] = tmp["mass_src"].round(4)
