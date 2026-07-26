@@ -1,8 +1,8 @@
-"""mzML → averaged CSV bridge (requires pymzml).
+"""mzML → averaged CSV bridge (requires pymzml for XML parsing only).
 
-Provides a drop-in replacement for the averaging step of
-``raw_bridge.average_raw_to_csv()`` when the user has already converted
-a ``.raw`` file to ``.mzML`` with an external tool (e.g. ProteoWizard msconvert).
+Handles both centroided and profile-mode mzML files by decoding the
+binary data arrays directly (bypassing pymzml's ``peaks()`` method,
+which silently loses data on large profile spectra).
 
 Usage
 -----
@@ -14,11 +14,63 @@ Usage
 
 from __future__ import annotations
 
+import base64
 import csv
 import os
+import zlib
 from typing import Callable, Optional
 
 import numpy as np
+
+# mzML XML namespace
+_NS = "{http://psi.hupo.org/ms/mzml}"
+
+
+def _decode_binary(binary_elem) -> np.ndarray:
+    """Decode a ``<binaryDataArray>`` element into a numpy float64 array."""
+    encoded = binary_elem.find(f"{_NS}binary")
+    if encoded is None or not encoded.text:
+        return np.array([], dtype=np.float64)
+
+    raw_bytes = base64.b64decode(encoded.text)
+
+    # Detect compression
+    params = {cp.get("accession") for cp in binary_elem.findall(f"{_NS}cvParam")}
+    if "MS:1000574" in params:  # zlib compression
+        raw_bytes = zlib.decompress(raw_bytes)
+
+    # Detect precision
+    if "MS:1000521" in params:  # 32-bit float
+        return np.frombuffer(raw_bytes, dtype=np.float32).astype(np.float64)
+    return np.frombuffer(raw_bytes, dtype=np.float64)
+
+
+def _centroid_profile(mz_array, int_array, min_intensity=0.0):
+    """Extract peaks from profile-mode data via local-maximum detection.
+
+    A data point is kept as a peak if:
+    * its intensity > *min_intensity*
+    * it is a local maximum (greater than both neighbours)
+    """
+    mask = int_array > min_intensity
+    if not np.any(mask):
+        return np.array([]), np.array([])
+
+    greater_left = np.zeros_like(mask, dtype=bool)
+    greater_right = np.zeros_like(mask, dtype=bool)
+    greater_left[1:] = int_array[1:] > int_array[:-1]
+    greater_right[:-1] = int_array[:-1] > int_array[1:]
+    is_peak = mask & greater_left & greater_right
+
+    return mz_array[is_peak], int_array[is_peak]
+
+
+def _spectrum_is_profile(spec_elem) -> bool:
+    """Check whether the spectrum element represents a profile spectrum."""
+    return any(
+        cp.get("accession") == "MS:1000128"
+        for cp in spec_elem.findall(f"{_NS}cvParam")
+    )
 
 
 def mzml_to_csv(
@@ -26,6 +78,7 @@ def mzml_to_csv(
     output_csv: Optional[str] = None,
     rt_min: float = 0.0,
     rt_max: float = 999.0,
+    min_intensity: float = 0.0,
     progress_callback: Optional[Callable[[str], None]] = None,
 ) -> str:
     """Average all MS1 spectra in *mzml_path* over [*rt_min*, *rt_max*]
@@ -35,29 +88,21 @@ def mzml_to_csv(
     ----------
     mzml_path : str
         Path to the ``.mzML`` file.
-    output_csv : str or None, optional
-        Where to write the CSV.  If ``None``, a file named
-        ``<basename>_avrg.csv`` is created next to the mzML file.
+    output_csv : str or None
+        Where to write the CSV.  Default: ``<basename>_avrg.csv`` next to mzML.
     rt_min : float
         Start of retention-time window (minutes).  Default 0.0.
     rt_max : float
         End of retention-time window (minutes).  Default 999.0.
-    progress_callback : callable or None, optional
-        If given, called with status strings at key stages.
+    min_intensity : float
+        Intensity threshold for profile-mode centroiding.
+    progress_callback : callable or None
+        Status callback.
 
     Returns
     -------
     str
-        Absolute path to the written CSV file.
-
-    Raises
-    ------
-    RuntimeError
-        If ``pymzml`` is not installed.
-    ValueError
-        If *rt_min* >= *rt_max*.
-    FileNotFoundError
-        If *mzml_path* does not exist.
+        Absolute path to the CSV file.
     """
     try:
         from pymzml.run import Reader  # type: ignore[import-untyped]
@@ -79,29 +124,64 @@ def mzml_to_csv(
         progress_callback("Чтение mzML…")
 
     reader = Reader(mzml_path)
+    rt_min_sec = rt_min * 60.0
+    rt_max_sec = rt_max * 60.0
+
+    all_mz: list[float] = []
+    all_int: list[float] = []
+
+    scan_count = 0
     try:
-        rt_min_sec = rt_min * 60.0
-        rt_max_sec = rt_max * 60.0
-
-        # Collect (m/z, intensity) pairs from all MS1 scans in the RT window
-        all_mz: list[float] = []
-        all_int: list[float] = []
-
-        scan_count = 0
         for spec in reader:
+            # MS level filter
             ms_level = spec.get("ms level", 1)
             if ms_level != 1:
                 continue
 
-            rt = spec.scan_time_in_minutes() * 60.0
-            if rt < rt_min_sec or rt > rt_max_sec:
+            # RT filter
+            rt_sec = spec.scan_time_in_minutes() * 60.0
+            if rt_sec < rt_min_sec or rt_sec > rt_max_sec:
                 continue
 
-            peaks = spec.peaks("raw")  # (mz_array, intensity_array)
-            if peaks is not None and len(peaks[0]) > 0:
-                all_mz.extend(peaks[0].tolist())
-                all_int.extend(peaks[1].tolist())
-                scan_count += 1
+            # ── manual binary decode (bypass pymzml's buggy peaks()) ────────
+            spec_elem = spec.element
+            is_profile = _spectrum_is_profile(spec_elem)
+            binary_arrays = spec_elem.findall(
+                f"{_NS}binaryDataArrayList/{_NS}binaryDataArray"
+            )
+
+            mz_arr = None
+            int_arr = None
+
+            for ba in binary_arrays:
+                array_type = None
+                for cp in ba.findall(f"{_NS}cvParam"):
+                    acc = cp.get("accession", "")
+                    if acc == "MS:1000514":
+                        array_type = "mz"
+                    elif acc == "MS:1000515":
+                        array_type = "intensity"
+
+                if array_type == "mz":
+                    mz_arr = _decode_binary(ba)
+                elif array_type == "intensity":
+                    int_arr = _decode_binary(ba)
+
+            if mz_arr is None or int_arr is None or len(mz_arr) == 0:
+                continue
+
+            if is_profile:
+                mz_cent, int_cent = _centroid_profile(
+                    mz_arr, int_arr, min_intensity
+                )
+                if len(mz_cent) > 0:
+                    all_mz.extend(mz_cent.tolist())
+                    all_int.extend(int_cent.tolist())
+            else:
+                all_mz.extend(mz_arr.tolist())
+                all_int.extend(int_arr.tolist())
+
+            scan_count += 1
     finally:
         reader.close()
 
@@ -134,8 +214,8 @@ def mzml_to_csv(
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["mass", "intensity"])
-        for mz, intens in zip(unique_mz, summed_int):
-            writer.writerow([f"{mz:.6f}", f"{intens:.2f}"])
+        for mz, ints in zip(unique_mz, summed_int):
+            writer.writerow([f"{mz:.6f}", f"{ints:.2f}"])
 
     return os.path.abspath(output_csv)
 
