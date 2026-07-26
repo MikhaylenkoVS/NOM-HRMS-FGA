@@ -42,7 +42,7 @@ _hidden: list[str] = [
 # ---------------------------------------------------------------------------
 # Collect-all for complex native-extension packages
 # ---------------------------------------------------------------------------
-_collect_packages = ["rdkit", "matplotlib", "PIL", "nomspectra", "scipy"]
+_collect_packages = ["rdkit", "matplotlib", "PIL", "nomspectra", "scipy", "comtypes"]
 _collected_datas: list[tuple[str, str]] = []
 _collected_binaries: list[tuple[str, str]] = []
 
@@ -76,6 +76,12 @@ _added_datas.extend(collect_data_files("matplotlib"))
 _icon_path = _ROOT / "assets" / "icon.ico"
 if _icon_path.is_file():
     _added_datas.append((str(_icon_path), "assets"))
+
+# Include external pymsfilereader for RAW processing
+_external_src = _ROOT / "external" / "usrednenie_spectrov_i_hromatogramm" / "src"
+if _external_src.is_dir():
+    for _pyf in _external_src.glob("*.py"):
+        _added_datas.append((str(_pyf), os.path.join("external", "usrednenie_spectrov_i_hromatogramm", "src")))
 
 # Merge all datas
 _all_datas: list[tuple[str, str]] = []

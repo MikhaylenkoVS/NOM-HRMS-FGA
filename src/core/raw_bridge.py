@@ -36,13 +36,12 @@ import numpy as np
 
 # ── lazy import of PyMSFileReader ────────────────────────────────────────────
 
+if getattr(sys, "frozen", False):
+    _BASE = sys._MEIPASS  # PyInstaller onefile extraction dir
+else:
+    _BASE = os.path.join(os.path.dirname(__file__), "..", "..")
 _EXTERNAL_ROOT = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "external",
-    "usrednenie_spectrov_i_hromatogramm",
-    "src",
+    _BASE, "external", "usrednenie_spectrov_i_hromatogramm", "src"
 )
 
 _MSFR_AVAILABLE = False
