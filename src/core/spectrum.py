@@ -27,7 +27,11 @@ class Spectrum:
     """
 
     table: pd.DataFrame
-    metadata: dict = field(default_factory=dict)
+    metadata: dict | None = field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.metadata is None:
+            self.metadata = {}
 
     # ------------------------------------------------------------------
     # Public API (drop-in compatible with nomspectra.spectrum.Spectrum)
