@@ -129,10 +129,17 @@ class TestMolecule:
         m.add_atom("N")
         assert m.get_formula() == "CHNO"
 
-    def test_to_smiles_raises_not_implemented(self):
+    def test_to_smiles_returns_canonical_smiles(self):
+        """to_smiles() returns a valid SMILES string for a simple molecule."""
         m = Molecule()
-        with pytest.raises(NotImplementedError):
-            m.to_smiles()
+        m.add_atom("C")
+        m.add_atom("C")
+        m.add_bond(0, 1, 1)
+        smiles = m.to_smiles()
+        assert isinstance(smiles, str)
+        assert len(smiles) > 0
+        # Ethane should yield 'CC' (canonical SMILES without hydrogens)
+        assert smiles == "CC"
 
     def test_repr(self):
         m = Molecule()

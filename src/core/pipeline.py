@@ -21,7 +21,6 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
-from src.core.molecule import parse_formula
 from src.core.van_krevelen import create_van_krevelen_plot
 import pandas as pd
 
@@ -189,7 +188,7 @@ def _match_row_by_mass(
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(slots=True)
 class SeriesStats:
     """Summary statistics for one derivatization-series search.
 
@@ -208,7 +207,7 @@ class SeriesStats:
     missing_total: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class PipelineStats:
     """Aggregate counters describing one full pipeline run.
 
@@ -250,7 +249,7 @@ class PipelineStats:
     result_n_oh_gt0: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class PipelineRunResult:
     """Result of a single (non-test) pipeline run.
 
@@ -274,7 +273,7 @@ class PipelineRunResult:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(slots=True)
 class TestSetResult:
     """Validation metrics for one synthetic test set in test mode.
 

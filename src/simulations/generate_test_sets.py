@@ -15,10 +15,8 @@ used by the analysis pipeline (``DELTA_CD3`` = 17.03448 Da,
 
 from pathlib import Path
 from typing import Any, Dict, List
-import json
 import csv
 import pandas as pd
-import math
 import random
 
 from src.configs import CHEM, PATHS
@@ -31,78 +29,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOT = PROJECT_ROOT / PATHS.data_dir
 TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
+from src.core.molecule import exact_mass_from_formula
+
 # Monoisotopic element masses (single source of truth: chemistry.json).
 element_masses: Dict[str, float] = dict(CHEM.monoisotopic_masses)
-
-
-def parse_formula(formula: str) -> Dict[str, int]:
-    """Parse a simple brutto formula such as ``C7H6O5``.
-
-    Parameters
-    ----------
-    formula : str
-        Molecular formula without brackets or charges.
-
-    Returns
-    -------
-    dict of {str: int}
-        Mapping of element symbol to atom count.
-
-    Raises
-    ------
-    ValueError
-        If the formula is empty or cannot be fully parsed.
-    """
-
-    import re
-
-    if not formula:
-        raise ValueError("Пустая формула")
-
-    pattern = re.compile(r"([A-Z][a-z]?)(\d*)")
-    pos = 0
-    composition: Dict[str, int] = {}
-
-    for match in pattern.finditer(formula):
-        element, count_str = match.groups()
-        count = int(count_str) if count_str else 1
-        composition[element] = composition.get(element, 0) + count
-        pos = match.end()
-
-    # Если мы не дошли до конца строки формулы — остались непарсенные символы
-    if pos != len(formula):
-        raise ValueError(f"Не удалось полностью распарсить формулу: {formula}")
-
-    return composition
-
-
-def exact_mass_from_formula(formula: str) -> float:
-    """Compute the monoisotopic mass of a brutto formula.
-
-    Parameters
-    ----------
-    formula : str
-        Molecular formula without brackets or charges.
-
-    Returns
-    -------
-    float
-        Monoisotopic mass in Da, using :data:`element_masses`.
-
-    Raises
-    ------
-    ValueError
-        If the formula contains an element absent from
-        :data:`element_masses`.
-    """
-
-    composition = parse_formula(formula)
-    mass = 0.0
-    for element, count in composition.items():
-        if element not in element_masses:
-            raise ValueError(f"Неизвестный элемент в формуле {formula}: {element}")
-        mass += element_masses[element] * count
-    return mass
 
 
 def load_molecules_for_set(set_path: Path) -> pd.DataFrame:

@@ -8,12 +8,14 @@ the rest of the pipeline can run without it installed.
 
 import logging
 
+from typing import Union
+
 from src.core.molecule import Molecule
 
 logger = logging.getLogger(__name__)
 
 
-def to_rdkit_mol(fragment: Molecule):
+def to_rdkit_mol(fragment: Union[Molecule, "MoleculeFragment"]):
     """Convert an internal molecule/fragment to a sanitized RDKit ``Mol``.
 
     Parameters

@@ -17,7 +17,6 @@ a family of factory functions:
 
 from collections import defaultdict
 from typing import Dict, List, Tuple
-import numpy as np
 
 
 class MoleculeFragment:

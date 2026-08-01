@@ -27,10 +27,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 from dataclasses import dataclass
-import itertools
 import math
-import re
-from src.simulations.generate_test_sets import exact_mass_from_formula
 from src.core.van_krevelen import NOM_REGIONS
 from src.core.molecule import parse_formula
 from src.configs import CHEM, PIPELINE
@@ -64,7 +61,7 @@ _FS_RANGES: dict[str, tuple[int, int]] = {
     el: tuple(rng) for el, rng in _FORMULA_SEARCH["ranges"].items()
 }
 
-@dataclass
+@dataclass(slots=True)
 class FormulaSearchConfig:
     """Configuration for brute-force CHON formula generation.
 
@@ -615,16 +612,9 @@ def assign_formulas(
     nom_weight: float = 1.0,
     isotope_filter: bool = False,
     original=None,
-    **kwargs,
+    rel_error: float | None = None,
+    sign: str | None = None,
 ):
-    # Игнорируем устаревшие параметры для обратной совместимости
-    kwargs.pop("mode", None)
-    kwargs.pop("nom_prioritize", None)
-    kwargs.pop("brutto_dict", None)
-    kwargs.pop("sign", None)
-    kwargs.pop("rel_error", None)
-    kwargs.pop("formulas", None)
-
     """Assign brutto formulas by brute-force CHON enumeration.
 
     Generates candidate CHON formulas over the mass window, converts them to
@@ -921,12 +911,14 @@ def _find_peak(mz_array, target_mz, ppm_tol):
         Index of the closest peak within ``ppm_tol``, or ``None`` if none
         falls within tolerance.
     """
-    mz = pd.Series(mz_array)
-    diffs_ppm = (mz - target_mz).abs() / target_mz * 1e6
-    matched = diffs_ppm[diffs_ppm <= ppm_tol]
-    if matched.empty:
+    mz = np.asarray(mz_array, dtype=float)
+    diffs_ppm = np.abs(mz - target_mz) / target_mz * 1e6
+    mask = diffs_ppm <= ppm_tol
+    if not mask.any():
         return None
-    return int(matched.idxmin())
+    # Find the closest peak among those within tolerance
+    valid = np.where(mask, diffs_ppm, np.inf)
+    return int(np.argmin(valid))
 
 def find_series(
     src,

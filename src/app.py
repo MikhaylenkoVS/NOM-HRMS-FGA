@@ -55,14 +55,16 @@ except Exception as _ui_err:
     _UI_ERROR = traceback.format_exc()
     # Fallback-константы, чтобы GUI хотя бы запустился без src.ui
     BG = "#1e1e2e"
-    ACCENT = "#cba6f7"
+    ACCENT = "#89b4fa"
     PANEL = "#313244"
     WARN = "#f38ba8"
     FG = "#cdd6f4"
     OK = "#a6e3a1"
+    BTN = "#45475a"
+    FONT = ("Segoe UI", 10)
     MONO = ("Consolas", 9)
-    IMG_H = 400
-    IMG_W = 800
+    IMG_H = 260
+    IMG_W = 340
 
     def _mpl_style():
         pass

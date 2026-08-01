@@ -175,23 +175,55 @@ class Molecule:
         return "".join(parts)
 
     def to_smiles(self) -> str:
-        """Generate a SMILES string for the molecule.
+        """Generate a canonical SMILES string via RDKit.
+
+        Converts the internal molecular graph to an RDKit ``Mol``, sanitises
+        it, and writes the canonical SMILES representation.  If RDKit is not
+        installed, falls back to :meth:`get_formula` (Hill notation).
 
         Returns
         -------
         str
-            The SMILES representation (not yet available).
-
-        Raises
-        ------
-        NotImplementedError
-            Always. A full canonicalization algorithm is required; use
-            :meth:`get_formula` for a string representation instead.
+            Canonical SMILES string, or the Hill formula when RDKit is
+            unavailable.
         """
-        raise NotImplementedError(
-            "Full SMILES generation is not yet implemented. "
-            "Use get_formula() for a string representation."
-        )
+        try:
+            from rdkit import Chem
+
+            mol = Chem.RWMol()
+            atom_indices: dict[int, int] = {}
+            for i, atom in enumerate(self.atoms):
+                rd_atom = Chem.Atom(atom.symbol)
+                if atom.formal_charge != 0:
+                    rd_atom.SetFormalCharge(atom.formal_charge)
+                atom_indices[i] = mol.AddAtom(rd_atom)
+
+            bond_types = {
+                1: Chem.BondType.SINGLE,
+                2: Chem.BondType.DOUBLE,
+                3: Chem.BondType.TRIPLE,
+            }
+            for a1, a2, order in self.edges:
+                mol.AddBond(
+                    atom_indices[a1],
+                    atom_indices[a2],
+                    bond_types.get(order, Chem.BondType.SINGLE),
+                )
+
+            final_mol = mol.GetMol()
+            try:
+                Chem.SanitizeMol(final_mol)
+            except Exception:
+                # Fall back to a minimal sanitisation if full fails
+                Chem.SanitizeMol(
+                    final_mol,
+                    sanitizeOps=Chem.SANITIZE_FINDRADICALS
+                    | Chem.SANITIZE_SETAROMATICITY
+                    | Chem.SANITIZE_SETCONJUGATION,
+                )
+            return Chem.MolToSmiles(final_mol)
+        except ImportError:
+            return self.get_formula()
 
     def __repr__(self) -> str:
         return (
@@ -268,3 +300,38 @@ def add_formula(base: Dict[str, int], delta: Dict[str, int], k: int = 1) -> None
     """
     for elem, count in delta.items():
         base[elem] = base.get(elem, 0) + count * k
+
+
+def exact_mass_from_formula(formula: str) -> float:
+    """Compute the monoisotopic mass of a brutto formula.
+
+    Uses the monoisotopic masses from ``src.configs.CHEM`` as the single
+    source of truth.
+
+    Parameters
+    ----------
+    formula : str
+        Molecular formula without brackets or charges, e.g. ``C7H6O5``.
+
+    Returns
+    -------
+    float
+        Monoisotopic mass in Da.
+
+    Raises
+    ------
+    ValueError
+        If the formula contains an element absent from the mass table.
+    """
+    from src.configs import CHEM
+
+    composition = parse_formula(formula)
+    mass_table = CHEM.monoisotopic_masses
+    mass = 0.0
+    for element, count in composition.items():
+        if element not in mass_table:
+            raise ValueError(
+                f"Неизвестный элемент в формуле {formula}: {element}"
+            )
+        mass += mass_table[element] * count
+    return mass
