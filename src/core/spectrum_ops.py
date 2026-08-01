@@ -21,7 +21,7 @@ reactive functional groups on the parent molecule.
 
 import pandas as pd
 import logging
-from nomspectra.spectrum import Spectrum
+from .spectrum import Spectrum
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -221,7 +221,7 @@ def load_spectrum(
 
     Returns
     -------
-    nomspectra.spectrum.Spectrum
+    Spectrum
         Spectrum whose table has ``mass`` and ``intensity`` columns,
         filtered to the requested window.
 
@@ -295,7 +295,7 @@ def denoise(
 
     Parameters
     ----------
-    spec : nomspectra.spectrum.Spectrum
+    spec : Spectrum
         Input spectrum.
     force : float, keyword-only, optional
         Multiplier applied to the auto-detected noise level. Default 1.5.
@@ -306,7 +306,7 @@ def denoise(
 
     Returns
     -------
-    nomspectra.spectrum.Spectrum
+    Spectrum
         Denoised spectrum.
 
     Notes
@@ -623,7 +623,7 @@ def assign_formulas(
 
     Parameters
     ----------
-    src : nomspectra.spectrum.Spectrum
+    src : Spectrum
         Spectrum whose ``table`` (with a ``mass`` column) is annotated.
     rel_error_ppm : float, optional
         Maximum allowed mass error (ppm) for a match. Default 1.0.
@@ -641,7 +641,7 @@ def assign_formulas(
 
     Returns
     -------
-    nomspectra.spectrum.Spectrum
+    Spectrum
         The same spectrum with ``table["brutto"]`` (formula str or None),
         ``table["assign"]`` (bool), and ``table["all_candidates"]`` (list of str).
 
@@ -800,99 +800,6 @@ def assign_formulas(
     src.table = table
     return src
 
-def assign_formulas_nomspectra(
-    src,
-    *,
-    brutto_dict=None,
-    rel_error=0.5,
-    sign="-",
-    mass_min=None,
-    mass_max=None,
-):
-    """Assign brutto formulas to the source spectrum via NOMspectra.
-
-    Parameters
-    ----------
-    src : nomspectra.spectrum.Spectrum
-        Source spectrum to annotate.
-    brutto_dict : dict of {str: tuple of (int, int)}, optional
-        Per-element count ranges. Defaults to ``DEFAULT_BRUTTO_DICT``.
-    rel_error : float, keyword-only, optional
-        Mass tolerance (ppm) for assignment. Negative values are made
-        positive with a warning. Default 0.5.
-    sign : {'-', '+'}, keyword-only, optional
-        Ionization sign; ``'-'`` corresponds to [M-H]-. Default ``'-'``.
-    mass_min, mass_max : float or None, keyword-only, optional
-        Optional m/z window; swapped with a warning if given in wrong order.
-
-    Returns
-    -------
-    nomspectra.spectrum.Spectrum
-        Spectrum with guaranteed boolean ``assign`` and string ``brutto``
-        columns.
-
-    Raises
-    ------
-    TypeError
-        If ``src`` is not a ``Spectrum`` or ``brutto_dict`` is not a dict.
-    ValueError
-        If any element range is not a ``(min, max)`` pair.
-
-    Warns
-    -----
-    UserWarning
-        If no formula could be assigned to any peak.
-    """
-    if rel_error < 0:
-        rel_error = abs(rel_error)
-        warnings.warn("Relative error is negative")
-
-    if mass_min is not None and mass_max is not None and mass_min > mass_max:
-        mass_min, mass_max = mass_max, mass_min
-        warnings.warn("Mass_max is less than mass_min")
-
-    if not isinstance(src, Spectrum):
-        raise TypeError(f"Некорректный формат файла {src}")
-
-    if brutto_dict is None:
-        brutto_dict = DEFAULT_BRUTTO_DICT
-    elif not isinstance(brutto_dict, dict):
-        raise TypeError("brutto_dict должен быть dict с диапазонами по элементам")
-
-    for el, bounds in brutto_dict.items():
-        if not (isinstance(bounds, (tuple, list)) and len(bounds) == 2):
-            raise ValueError(
-                f"Для элемента {el!r} ожидается (min, max), получено {bounds!r}"
-            )
-
-    src = src.assign(
-        brutto_dict=brutto_dict,
-        rel_error=rel_error,
-        sign=sign,
-        mass_min=mass_min,
-        mass_max=mass_max,
-    )
-
-    src = _ensure_brutto_from_element_columns(src)
-
-    assign_col = src.table["assign"]
-    if assign_col.dtype != bool:
-        try:
-            src.table["assign"] = src.table["assign"].astype(bool)
-            assign_col = src.table["assign"]
-        except Exception as e:
-            raise TypeError(
-                f"Ожидается булевый столбец 'assign', получен dtype={src.table['assign'].dtype}"
-            ) from e
-
-    n_assigned = int(assign_col.sum())
-    if n_assigned == 0:
-        warnings.warn(
-            "Ни одной брутто-формулы не назначено (assign == False для всех пиков)"
-        )
-
-    return src
-
 def _find_peak(mz_array, target_mz, ppm_tol):
     """Find the peak in ``mz_array`` closest to ``target_mz`` within tolerance.
 
@@ -939,10 +846,10 @@ def find_series(
 
     Parameters
     ----------
-    src : nomspectra.spectrum.Spectrum
+    src : Spectrum
         Source spectrum with assigned formulas (needs ``brutto``, ``mass``,
         ``assign`` columns).
-    deriv : nomspectra.spectrum.Spectrum
+    deriv : Spectrum
         Derivatized-sample spectrum (needs ``mass``, ``intensity`` columns).
     delta : float
         Expected m/z shift per functional group (Da), e.g. ``DELTA_CD3``.
@@ -1089,7 +996,7 @@ def build_result_table(src, df_dmet, df_dacet):
 
     Parameters
     ----------
-    src : nomspectra.spectrum.Spectrum
+    src : Spectrum
         Source spectrum with assigned formulas.
     df_dmet : pandas.DataFrame
         ``find_series`` output for deuteromethylation (CD3 series,
@@ -1183,9 +1090,9 @@ def visualize_series(
 
     Parameters
     ----------
-    src : nomspectra.spectrum.Spectrum
+    src : Spectrum
         Source spectrum.
-    deriv : nomspectra.spectrum.Spectrum
+    deriv : Spectrum
         Derivatized-sample spectrum.
     df_series : pandas.DataFrame
         ``find_series`` output to visualize.

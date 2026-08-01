@@ -150,7 +150,7 @@ def plot_series_grid(
     # Для упрощения вызываем с пустыми Spectrum, если надо.
     # Однако функция ожидает src и deriv - Spectrum объекты. Мы можем передать None?
     # Лучше воссоздать минимальный Spectrum с нужным table.
-    from nomspectra.spectrum import Spectrum
+    from src.core.spectrum import Spectrum
 
     src = Spectrum(
         table=pd.DataFrame(
