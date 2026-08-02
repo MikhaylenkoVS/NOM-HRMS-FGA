@@ -155,7 +155,14 @@ class Spectrum:
         if metadata is None:
             self.metadata = SpectrumMetadata()
         elif isinstance(metadata, dict):
-            self.metadata = SpectrumMetadata(**metadata)
+            from dataclasses import fields as _fields
+            known = {f.name for f in _fields(SpectrumMetadata)}
+            # map legacy key 'name' → 'sample_name' if the latter not set
+            meta = dict(metadata)
+            if "name" in meta and "sample_name" not in meta:
+                meta["sample_name"] = meta.pop("name")
+            filtered = {k: v for k, v in meta.items() if k in known}
+            self.metadata = SpectrumMetadata(**filtered)
         elif isinstance(metadata, SpectrumMetadata):
             self.metadata = metadata
         else:
