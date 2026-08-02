@@ -113,7 +113,7 @@ description: >
 - Programming language / Runtime
 - Installation command
 - Hardware requirements (none special)
-- Dependencies (numpy, pandas, matplotlib, nomspectra, rdkit)
+- Dependencies (numpy, pandas, matplotlib, rdkit)
 
 ## Двухслойный вывод
 

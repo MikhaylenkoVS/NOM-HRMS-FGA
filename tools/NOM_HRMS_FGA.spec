@@ -42,7 +42,7 @@ _hidden: list[str] = [
 # ---------------------------------------------------------------------------
 # Collect-all for complex native-extension packages
 # ---------------------------------------------------------------------------
-_collect_packages = ["rdkit", "matplotlib", "PIL", "nomspectra", "scipy", "comtypes"]
+_collect_packages = ["rdkit", "matplotlib", "PIL", "scipy", "comtypes"]
 _collected_datas: list[tuple[str, str]] = []
 _collected_binaries: list[tuple[str, str]] = []
 
@@ -51,9 +51,6 @@ for _pkg in _collect_packages:
     _collected_datas.extend(_d)
     _collected_binaries.extend(_b)
     _hidden.extend(_h)
-
-# Collect submodules for nomspectra (may be missed by collect_all)
-_hidden.extend(collect_submodules("nomspectra"))
 
 # ---------------------------------------------------------------------------
 # Data files: config JSONs

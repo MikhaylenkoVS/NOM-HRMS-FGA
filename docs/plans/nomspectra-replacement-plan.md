@@ -1,6 +1,6 @@
 # Замена nomspectra (GPLv3) на собственный код
 
-> **Создан:** 2026-07-30 | **Статус:** 🔴 план | **Зависит от:** external-replacement-plan.md
+> **Создан:** 2026-07-30 | **Статус:** ✅ завершён (01.08.2026) | **Зависит от:** external-replacement-plan.md
 > **Принцип:** clean-room — свой класс Spectrum (обёртка над DataFrame) +
 > отказ от nomspectra.assign_formula в пользу собственной реализации.
 
@@ -77,32 +77,32 @@ class Spectrum:
 
 ### 1.2. Реализовать в `src/core/spectrum.py`
 
-- [ ] Создать `src/core/spectrum.py` с классом `Spectrum`
-- [ ] Конструктор: `Spectrum(table, metadata=None)` — валидация колонок `mass`, `intensity`
-- [ ] Метод `get(key, default=None)` — прокси к `metadata`
-- [ ] `__len__`, `__repr__`
-- [ ] Написать unit-тесты: конструктор, get, len, repr
+- [x] Создать `src/core/spectrum.py` с классом `Spectrum`
+- [x] Конструктор: `Spectrum(table, metadata=None)` — валидация колонок `mass`, `intensity`
+- [x] Метод `get(key, default=None)` — прокси к `metadata`
+- [x] `__len__`, `__repr__`
+- [x] Написать unit-тесты: конструктор, get, len, repr
 
 ### 1.3. Заменить импорты
 
-- [ ] `src/core/spectrum_ops.py:24` — `from .spectrum import Spectrum`
-- [ ] `src/testing/artifact_export.py:153` — `from src.core.spectrum import Spectrum`
-- [ ] `tests/unit/test_nom_prioritize.py:5` — `from src.core.spectrum import Spectrum`
-- [ ] `tests/unit/test_spectrum_ops.py` — `from src.core.spectrum import Spectrum`
+- [x] `src/core/spectrum_ops.py:24` — `from .spectrum import Spectrum`
+- [x] `src/testing/artifact_export.py:153` — `from src.core.spectrum import Spectrum`
+- [x] `tests/unit/test_nom_prioritize.py:5` — `from src.core.spectrum import Spectrum`
+- [x] `tests/unit/test_spectrum_ops.py` — `from src.core.spectrum import Spectrum`
 
 ### 1.4. Адаптировать код под новый Spectrum
 
-- [ ] Проверить, что `spec.table` работает без изменений (доступ к DataFrame)
-- [ ] Проверить, что `spec.table = df` работает без изменений
-- [ ] Проверить, что `Spectrum(table=df, metadata=meta)` работает без изменений
-- [ ] Проверить `hasattr(src, "table")` → работает
-- [ ] Проверить `len(src.table)` → работает
+- [x] Проверить, что `spec.table` работает без изменений (доступ к DataFrame)
+- [x] Проверить, что `spec.table = df` работает без изменений
+- [x] Проверить, что `Spectrum(table=df, metadata=meta)` работает без изменений
+- [x] Проверить `hasattr(src, "table")` → работает
+- [x] Проверить `len(src.table)` → работает
 
 ### 1.5. Тестирование
 
-- [ ] Прогнать все существующие тесты — должны пройти
-- [ ] Прогнать smoke-тест пайплайна на тестовых данных
-- [ ] Проверить GUI: загрузка CSV, анализ, визуализация
+- [x] Прогнать все существующие тесты — должны пройти
+- [x] Прогнать smoke-тест пайплайна на тестовых данных
+- [x] Проверить GUI: загрузка CSV, анализ, визуализация
 
 ---
 
@@ -117,9 +117,9 @@ class Spectrum:
 
 ### 2.2. Действия
 
-- [ ] Удалить `assign_formulas_nomspectra()` из spectrum_ops.py (мёртвый код)
-- [ ] Убедиться, что `assign_formulas()` (своя) покрывает все нужные сценарии
-- [ ] Удалить импорт/зависимость nomspectra из `assign_formulas` сигнатур
+- [x] Удалить `assign_formulas_nomspectra()` из spectrum_ops.py (мёртвый код)
+- [x] Убедиться, что `assign_formulas()` (своя) покрывает все нужные сценарии
+- [x] Удалить импорт/зависимость nomspectra из `assign_formulas` сигнатур
 
 ---
 
@@ -140,38 +140,38 @@ class Spectrum:
 
 ### 3.2. Реализовать
 
-- [ ] Добавить метод `noise_filter(self, force=1.5, intensity=None, quantile=None)` в свой класс `Spectrum`
-- [ ] Три ветки: intensity / quantile / auto (алгоритм выше)
-- [ ] Возвращать новый Spectrum (не мутировать исходный — семантика `@_copy`)
-- [ ] Обновить обёртку `denoise()` в `spectrum_ops.py:319` — должен вызывать `spec.noise_filter(...)`
+- [x] Добавить метод `noise_filter(self, force=1.5, intensity=None, quantile=None)` в свой класс `Spectrum`
+- [x] Три ветки: intensity / quantile / auto (алгоритм выше)
+- [x] Возвращать новый Spectrum (не мутировать исходный — семантика `@_copy`)
+- [x] Обновить обёртку `denoise()` в `spectrum_ops.py:319` — должен вызывать `spec.noise_filter(...)`
 
 ### 3.3. Тестирование
 
-- [ ] Unit: `intensity=100` → все пики с `intens > 100` сохранены
-- [ ] Unit: `quantile=0.1` → обрезаны 10% самых слабых пиков
-- [ ] Unit: auto-режим на синтетическом спектре (шум + сигнал)
-- [ ] Интеграционный: pipeline denoise → результат совпадает с nomspectra-версией в пределах погрешности
+- [x] Unit: `intensity=100` → все пики с `intens > 100` сохранены
+- [x] Unit: `quantile=0.1` → обрезаны 10% самых слабых пиков
+- [x] Unit: auto-режим на синтетическом спектре (шум + сигнал)
+- [x] Интеграционный: pipeline denoise → результат совпадает с nomspectra-версией в пределах погрешности
 
 ---
 
 ## Фаза 4: Очистка зависимостей
 
-- [ ] Удалить `nomspectra>=1.0.0` из `pyproject.toml` dependencies
-- [ ] Удалить `nomspectra` из `requirements.txt`
-- [ ] Удалить `nomspectra` из `_collect_packages` в `.spec`
-- [ ] Удалить `collect_submodules("nomspectra")` из `.spec`
-- [ ] Удалить `nomspectra` из `release_exe.yml`
-- [ ] Проверить grep-ом: `grep -rn "nomspectra" src/ tests/` → 0 совпадений
+- [x] Удалить `nomspectra>=1.0.0` из `pyproject.toml` dependencies
+- [x] Удалить `nomspectra` из `requirements.txt`
+- [x] Удалить `nomspectra` из `_collect_packages` в `.spec`
+- [x] Удалить `collect_submodules("nomspectra")` из `.spec`
+- [x] Удалить `nomspectra` из `release_exe.yml`
+- [x] Проверить grep-ом: `grep -rn "nomspectra" src/ tests/` → 0 совпадений
 
 ---
 
 ## Фаза 5: Тестирование и верификация
 
-- [ ] Unit-тесты Spectrum
-- [ ] Интеграционный тест: load_spectrum → denoise → assign → build_result_table
-- [ ] Smoke-тест пайплайна на тестовых наборах
-- [ ] GUI: полный цикл (загрузка CSV → анализ → визуализация)
-- [ ] Сборка .exe без nomspectra в бандле
+- [x] Unit-тесты Spectrum
+- [x] Интеграционный тест: load_spectrum → denoise → assign → build_result_table
+- [x] Smoke-тест пайплайна на тестовых наборах
+- [x] GUI: полный цикл (загрузка CSV → анализ → визуализация)
+- [x] Сборка .exe без nomspectra в бандле
 
 ---
 

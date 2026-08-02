@@ -34,7 +34,7 @@ def test_denoise_original_preserves_signals_and_reduces_noise(set_dir: Path):
 
     denoised = denoise(
         src, force=10.0, intensity=100, quantile=None
-    )  # текущий denoise из nomspectra / твоей обёртки
+    )  # denoise wrapper
     den_df = denoised.table.copy()
 
     # 1. recall по сигналам

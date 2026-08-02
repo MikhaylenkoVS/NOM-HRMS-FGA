@@ -96,7 +96,7 @@ def assign_formulas(
   удалено в v1.
 - `brutto_generation_mode` — игнорируется (оставлен для совместимости), также
   подлежит удалению в v1.
-- `assign_formulas_nomspectra()` (строка 813) — **не используется**, тупиковая ветвь.
+assign_formulas_nomspectra удалена в v0.6 (замена nomspectra).
 
 ### Параметры run_pipeline(), влияющие на assign
 
@@ -175,7 +175,7 @@ isotope_filter: bool = False
       `FormulaSearchConfig` (значения по умолчанию в dataclass)?
 - [ ] Не используется ли `default_brutto_dict` вместо `formula_search.ranges`
       в новом коде?
-- [ ] Не сломан ли `assign_formulas_nomspectra()` (если он ещё не удалён)?
+- [x] assign_formulas_nomspectra удалена (v0.6).
 - [ ] Нет ли хардкода ppm/диапазонов/масс в обход `src/configs/`?
 - [ ] Запущены `pytest tests/unit/test_assign_formulas.py` и
       `pytest tests/unit/test_core_utils.py` — все зелёные?

@@ -1,8 +1,6 @@
 """GMM-based noise threshold detection for mass spectra.
 
-Clean-room implementation (MPL-2.0).  Replaces the GPL-tainted auto-mode
-heuristic previously copied from nomspectra with an independently designed
-algorithm:
+Clean-room implementation (MPL-2.0).  Independently designed algorithm:
 
 1. Fit a 1-D Gaussian mixture model (EM) on log10(intensities).
 2. Select the number of components K* that minimises BIC.

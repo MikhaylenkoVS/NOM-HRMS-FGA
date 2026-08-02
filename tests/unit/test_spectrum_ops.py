@@ -41,7 +41,7 @@ def _make_csv_with_columns(columns: list[str], rows: list[list]) -> str:
 
 
 def _make_spectrum(masses_and_intensities: list[tuple[float, float]]):
-    """Create a nomspectra Spectrum from mass/intensity pairs."""
+    """Create a Spectrum from mass/intensity pairs."""
     from src.core.spectrum_ops import Spectrum
     df = pd.DataFrame(masses_and_intensities, columns=["mass", "intensity"])
     return Spectrum(table=df)

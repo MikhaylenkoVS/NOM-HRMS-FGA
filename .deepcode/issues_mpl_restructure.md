@@ -102,7 +102,7 @@
 - Обновить `README.md`: badges, раздел License
 
 **Проверить:**
-- Все permissive-зависимости (numpy BSD, pandas BSD, matplotlib PSF, rdkit BSD, Pillow MIT, nomspectra MIT) совместимы с MPL-2.0
+- Все permissive-зависимости (numpy BSD, pandas BSD, matplotlib PSF, rdkit BSD, Pillow MIT) совместимы с MPL-2.0
 - В проекте не осталось файлов под GPL (кроме legacy-референсов, исключённых из сборки)
 
 **Критерий приёмки:**

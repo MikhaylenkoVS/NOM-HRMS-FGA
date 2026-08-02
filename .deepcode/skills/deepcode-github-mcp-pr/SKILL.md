@@ -94,7 +94,7 @@ Closes #N, Related #M
 - ОС: Windows 10 / macOS 14 / Ubuntu 24.04
 - Python: 3.12
 - Версия: v0.4.2
-- Зависимости: `pip list | grep nomspectra`
+- Зависимости: `pip list`
 
 ## Логи / трейсбек
 ```

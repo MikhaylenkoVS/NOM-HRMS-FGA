@@ -180,7 +180,7 @@ class Spectrum:
             self._table_cache = None
 
     # ------------------------------------------------------------------
-    # Properties (backward-compatible with nomspectra.Spectrum API)
+    # Properties (backward-compatible with the legacy Spectrum API)
     # ------------------------------------------------------------------
 
     @property

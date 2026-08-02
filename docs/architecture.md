@@ -119,7 +119,7 @@ tools/build_exe.py              # Сценарий: установка deps → 
     │
     ├─ tools/NOM_HRMS_FGA.spec  # PyInstaller: onefile, windowed, ~120 MB
     │     ├─ tools/launcher.py  # Точка входа с crash-safe обработкой
-    │     ├─ collect_all: rdkit, matplotlib, PIL, nomspectra, scipy
+    │     ├─ collect_all: rdkit, matplotlib, PIL, scipy
     │     ├─ datas: src/configs/*.json
     │     └─ excludes: PyQt5, PyQt6, jupyter, pytest, IPython, ...
     │
@@ -155,7 +155,7 @@ tests/
 CSV-файлы (.csv) или RAW-файлы (.raw)
         │
         ▼
-load_spectrum() → Spectrum (nomspectra)
+load_spectrum() → Spectrum (src.core.spectrum)
    ┌────┼────┐
    ▼    ▼    ▼
   src  dmet  dacet   (исходный, дейтерометилированный, дейтероацилированный)
