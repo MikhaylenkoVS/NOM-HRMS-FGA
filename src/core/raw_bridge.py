@@ -52,7 +52,16 @@ try:
         sys.path.insert(0, _EXTERNAL_ROOT)
     import pymsfilereader as _msfr  # type: ignore[import-untyped]
 
-    _MSFR_AVAILABLE = True
+    # Verify COM object is actually registered (import alone is not enough)
+    try:
+        _test = _msfr.PyMSFileReader.__init__  # just check the class is usable
+        import comtypes.client
+        _probe = comtypes.client.CreateObject("MSFileReader.XRawFile.1")
+        _probe.Close()
+        _MSFR_AVAILABLE = True
+    except Exception as _com_err:
+        _MSFR_ERROR = f"MSFileReader COM-сервер не зарегистрирован: {_com_err}"
+        _msfr = None
 except ImportError as err:
     _MSFR_ERROR = str(err)
     _msfr = None
