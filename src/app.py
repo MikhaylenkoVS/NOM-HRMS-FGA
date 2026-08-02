@@ -300,7 +300,7 @@ class App(tk.Tk):
         self.noise_force_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
         self.noise_int_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
         self.noise_method_var = tk.StringVar(value="auto")
-        self.noise_value_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
+        self.noise_value_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
         self.rel_error_var = tk.StringVar(value=str(_GUI_DEFAULTS["rel_error"]))
         self.sign_var = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
         self.ppm_tol_var = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
