@@ -27,8 +27,8 @@
     "sep": ",",
     "load_mass_min": 0.0,
     "load_mass_max": 1000.0,
-    "noise_force": 10,
-    "noise_intensity": 100,
+    "noise_force": 1.5,
+    "noise_intensity": null,
     "rel_error": 1.0,
     "sign": "-",
     "assign_mass_min": 0,
@@ -45,8 +45,8 @@
       "derivatized_mass_max": 2000.0
     },
     "denoise": {
-      "force": 10.0,
-      "intensity": 100,
+      "force": 1.5,
+      "intensity": null,
       "quantile": null
     },
     "assign": {
