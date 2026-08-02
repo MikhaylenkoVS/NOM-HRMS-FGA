@@ -277,7 +277,7 @@ def _filter_to_signal_original_peaks(
     ]
 
     filtered_table = table.loc[keep_mask].reset_index(drop=True)
-    return Spectrum(filtered_table)
+    return Spectrum(table=filtered_table)
 
 
 def _preview_table(df: pd.DataFrame, name: str) -> None:
