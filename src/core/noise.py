@@ -136,14 +136,6 @@ def bic(log_likelihood: float, n_params: int, n_samples: int) -> float:
     return -2.0 * log_likelihood + n_params * np.log(n_samples)
 
 
-def select_k_by_bic(bic_values: list[float]) -> int:
-    """Select the number of components that minimises BIC.
-
-    Returns the 1-based index of the minimum (K*).
-    """
-    return int(np.argmin(bic_values)) + 1
-
-
 # ===========================================================================
 # Gaussian intersection
 # ===========================================================================
@@ -305,12 +297,3 @@ def compute_noise_threshold(
     )
 
 
-def denoise_spectrum(spectrum: Spectrum, threshold: float) -> Spectrum:
-    """Return a new Spectrum containing only peaks above *threshold*."""
-    from src.core.spectrum import Spectrum as _Spectrum
-
-    if threshold <= 0:
-        return spectrum.copy()
-
-    keep = [p for p in spectrum.peaks if p.intensity > threshold]
-    return _Spectrum(peaks=keep, metadata=spectrum.metadata)

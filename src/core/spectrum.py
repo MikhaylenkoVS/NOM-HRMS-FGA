@@ -220,11 +220,6 @@ class Spectrum:
         return self.table["intensity"].values
 
     @property
-    def is_empty(self) -> bool:
-        """``True`` when the spectrum contains no peaks."""
-        return len(self._peaks) == 0
-
-    @property
     def n_peaks(self) -> int:
         """Number of peaks in the spectrum."""
         return len(self._peaks)
@@ -253,17 +248,6 @@ class Spectrum:
         )
         new._table_cache = self._table_cache.copy() if self._table_cache is not None else None
         return new
-
-    def to_dataframe(self) -> pd.DataFrame:
-        """Explicit conversion to DataFrame (fresh copy)."""
-        return self.table.copy()
-
-    @classmethod
-    def from_dataframe(
-        cls, df: pd.DataFrame, metadata: dict | SpectrumMetadata | None = None
-    ) -> Spectrum:
-        """Construct a Spectrum from a DataFrame."""
-        return cls(table=df, metadata=metadata)
 
     def __len__(self) -> int:
         return self.n_peaks

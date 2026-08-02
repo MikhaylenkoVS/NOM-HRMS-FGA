@@ -31,7 +31,7 @@ import math
 from src.core.van_krevelen import NOM_REGIONS
 from src.core.molecule import parse_formula
 from src.configs import CHEM, PIPELINE
-from typing import Literal, Sequence
+
 
 # ---------------------------------------------------------------------------
 # Константы (единый источник — src/configs/chemistry.json)

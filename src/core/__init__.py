@@ -28,11 +28,9 @@ from .spectrum_ops import (
     visualize_series,
     DELTA_CD3,
     DELTA_CD3CO,
-    DEFAULT_BRUTTO_DICT,
 )
 from .rdkit_bridge import (
     to_rdkit_mol,
-    visualize_with_rdkit,
     visualize_fragment,
     visualize_fragments_grid,
     visualize_connection_sequence,
