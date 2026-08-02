@@ -62,7 +62,7 @@ python tools/build_exe.py    # produces dist/NOM_HRMS_FGA.exe (~120 MB)
 
 **Dependencies:** listed in `pyproject.toml` (`[project.dependencies]`) and
 [`requirements.txt`](requirements.txt).
-Core packages: NumPy, pandas, matplotlib, nomspectra, RDKit, Pillow.
+Core packages: NumPy, pandas, matplotlib, RDKit, Pillow.
 The graphical interface additionally requires `tkinter` (a system package on
 some Linux distributions, e.g. `apt install python3-tk`).
 
@@ -137,7 +137,7 @@ python tools/build_exe.py    # создаёт dist/NOM_HRMS_FGA.exe (~120 МБ)
 
 **Зависимости:** перечислены в файлах `pyproject.toml` (`[project.dependencies]`)
 и [`requirements.txt`](requirements.txt).
-Основные пакеты: NumPy, pandas, matplotlib, nomspectra, RDKit, Pillow.
+Основные пакеты: NumPy, pandas, matplotlib, RDKit, Pillow.
 Для графического интерфейса дополнительно требуется `tkinter` (в некоторых
 дистрибутивах Linux ставится отдельно, например `apt install python3-tk`).
 

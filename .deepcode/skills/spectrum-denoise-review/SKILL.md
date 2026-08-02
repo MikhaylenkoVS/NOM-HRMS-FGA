@@ -34,7 +34,7 @@ description: >
 def denoise(spec, *, force=1.5, intensity=None, quantile=None):
 ```
 
-- `spec` — объект `nomspectra.spectrum.Spectrum` (содержит `.table` с колонками mass, intensity).
+- `spec` — объект `src.core.spectrum.Spectrum` (содержит `.table` с колонками mass, intensity).
 - `force` — множитель к автоопределённому уровню шума. По умолчанию 1.5.
   В production (run_pipeline) — 10. **Разница в 6.7× требует объяснения.**
 - `intensity` — жёсткий порог интенсивности. Имеет высший приоритет.
