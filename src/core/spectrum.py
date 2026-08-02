@@ -274,46 +274,42 @@ class Spectrum:
     def __hash__(self) -> int:
         return hash((self._peaks, self.metadata))
 
-    # FIXME (v0.6): noise_filter logic is a verbatim copy of the nomspectra
-    # auto-mode heuristic.  It has several known weaknesses:
-    #
-    #   1. The cut-off depends on the arbitrary grid resolution (100 bins).
-    #   2. ``np.gradient`` amplifies noise in flat regions of the curve.
-    #   3. ``dx == np.min(dx)`` picks the *first* minimum when multiple
-    #      indices share the same gradient value — the choice is arbitrary.
-    #   4. Multiplying by ``force`` after the knee-point was chosen means
-    #      the effect of ``force`` is not linear with respect to the
-    #      signal/noise separation and interacts with bin resolution.
-    #
-    # The heuristics were battle-tested on real DOM spectra, so do NOT
-    # change anything until there is a systematic benchmark (recall /
-    # precision on set_01–set_05) proving a replacement is strictly better.
+    # ------------------------------------------------------------------
+    # noise_filter (clean-room GMM-based auto-mode, MPL-2.0)
+    # ------------------------------------------------------------------
+
     def noise_filter(
         self,
         *,
         force: float = 1.5,
         intensity: float | None = None,
         quantile: float | None = None,
+        max_components: int = 15,
     ) -> Spectrum:
         """Remove noise peaks from the spectrum.
 
-        Parameter priority: ``intensity`` > ``quantile`` > ``force`` (auto).
+        Parameter priority: ``intensity`` > ``quantile`` > auto (GMM + BIC).
+
+        The **auto** mode fits a 1-D Gaussian mixture model to
+        ``log10(intensities)``, selects the number of components via BIC,
+        and sets the threshold at the intersection of the two lowest-mean
+        Gaussians — the noise / signal boundary.  The result is multiplied
+        by *force* (default 1.5; use 1.0 for the exact boundary).
 
         Returns a **new** Spectrum; does not mutate ``self``.
         """
         if intensity is not None:
-            filtered = self.table.loc[self.table["intensity"] > intensity]
+            threshold = intensity
         elif quantile is not None:
-            threshold = self.table["intensity"].quantile(quantile)
-            filtered = self.table.loc[self.table["intensity"] > threshold]
+            threshold = float(self.table["intensity"].quantile(quantile))
         else:
-            # ── verbatim copy of the nomspectra auto-mode heuristic ──────
-            intens = self.table["intensity"].values
-            cut_diapasone = np.linspace(0, np.mean(intens), 100)
-            d = [len(intens[intens > i]) for i in cut_diapasone]
-            dx = np.gradient(d, 1)
-            tresh = np.where(dx == np.min(dx))
-            cut = cut_diapasone[tresh[0][0]] * force
-            filtered = self.table.loc[self.table["intensity"] > cut]
+            from src.core.noise import compute_noise_threshold
 
-        return Spectrum(table=filtered, metadata=self.metadata)
+            intens = self.intensity[self.intensity > 0]
+            if len(intens) < 3:
+                return self.copy()
+            result = compute_noise_threshold(intens, max_components=max_components)
+            threshold = result.threshold * force
+
+        keep = [p for p in self._peaks if p.intensity > threshold]
+        return Spectrum(peaks=keep, metadata=self.metadata)
