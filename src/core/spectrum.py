@@ -272,7 +272,7 @@ class Spectrum:
     def noise_filter(
         self,
         *,
-        force: float = 1.5,
+        force: float = 2.0,
         intensity: float | None = None,
         quantile: float | None = None,
         max_components: int = 15,
@@ -285,7 +285,7 @@ class Spectrum:
         ``log10(intensities)``, selects the number of components via BIC,
         and sets the threshold at the intersection of the two lowest-mean
         Gaussians — the noise / signal boundary.  The result is multiplied
-        by *force* (default 1.5; use 1.0 for the exact boundary).
+        by *force* (default 2.0; use 1.0 for the exact boundary).
 
         Returns a **new** Spectrum; does not mutate ``self``.
         """

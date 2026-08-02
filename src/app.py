@@ -865,7 +865,7 @@ class App(tk.Tk):
 
     def _on_noise_method_change(self, event=None):
         """Update the parameter field to a suggested default for the selected method."""
-        defaults = {"auto": "1.5", "intensity": "100", "quantile": "0.01"}
+        defaults = {"auto": "2.0", "intensity": "100", "quantile": "0.01"}
         method = self.noise_method_var.get()
         for key, name in {
             "auto": "GMM",

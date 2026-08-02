@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 # ===========================================================================
 
 _EPS = 1e-15
+_MAX_GMM_POINTS = 5000  # subsample if more peaks (performance safeguard)
 
 
 def _log_gaussian_pdf(x: np.ndarray, mean: float, var: float) -> np.ndarray:
@@ -252,7 +253,15 @@ def compute_noise_threshold(
     if len(intensities) == 0:
         return NoiseThresholdResult(threshold=0.0, threshold_log=-np.inf, n_components=1, bic_values=[])
 
-    x = np.log10(intensities)
+    # Subsample for performance: GMM on 5 000 points is instant,
+    # 500 000 would allocate an n×K matrix (7.5M elements) per EM iteration.
+    n_total = len(intensities)
+    if n_total > _MAX_GMM_POINTS:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(n_total, _MAX_GMM_POINTS, replace=False)
+        x = np.log10(intensities[idx])
+    else:
+        x = np.log10(intensities)
     n = len(x)
 
     bics: list[float] = []

@@ -285,7 +285,7 @@ def load_spectrum(
 def denoise(
     spec,
     *,
-    force=1.5,
+    force=2.0,
     intensity=None,
     quantile=None,
 ):
