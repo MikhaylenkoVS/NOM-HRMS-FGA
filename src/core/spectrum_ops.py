@@ -493,6 +493,24 @@ def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     # можно добавить другие аддукты позже
     raise ValueError(f"Unknown ion_mode: {ion_mode}")
 
+
+def _ion_shift(ion_mode: str) -> float:
+    """Return the constant mass shift (Da) for vectorised ion conversion.
+
+    ``neutral_mass + _ion_shift(mode) == observed m/z``.
+    """
+    ion_mode = ion_mode.lower() if ion_mode else ""
+    if ion_mode in ("neutral", None, ""):
+        return 0.0
+    if ion_mode in ("[m-h]-", "m-h", "mh-"):
+        return -CHEM.proton_mass
+    if ion_mode in ("[m]+", "m+", "[m+]"):
+        return -CHEM.electron_mass
+    if ion_mode in ("[m+h]+", "m+h", "mh+"):
+        return +CHEM.proton_mass
+    raise ValueError(f"Unknown ion_mode: {ion_mode}")
+
+
 # ── NOM-приоритизация ────────────────────────────────────────────────────────
 
 # Центры NOM-областей (усреднённые вершины) для расчёта расстояния
@@ -696,15 +714,18 @@ def assign_formulas(
         src.table = table
         return src
 
-    # Разделим формулы и НЕЙТРАЛЬНЫЕ массы
-    cand_formulas = np.array([f for f, m in candidates], dtype=object)
-    cand_masses_neutral = np.array([m for f, m in candidates], dtype=float)
+    # Разделим формулы и НЕЙТРАЛЬНЫЕ массы (один проход)
+    formulas_list = []
+    masses_list = []
+    for f, m in candidates:
+        formulas_list.append(f)
+        masses_list.append(m)
+    cand_formulas = np.array(formulas_list, dtype=object)
+    cand_masses_neutral = np.array(masses_list, dtype=float)
 
-    # Переводим нейтральные массы в m/z с учётом режима ионизации
-    cand_masses_ion = np.array(
-        [_neutral_to_ion_mass(m, ion_mode) for m in cand_masses_neutral],
-        dtype=float,
-    )
+    # Переводим нейтральные массы в m/z — векторизовано
+    _shift = _ion_shift(ion_mode)
+    cand_masses_ion = cand_masses_neutral + _shift
 
     table["brutto"] = None
     table["assign"] = False
