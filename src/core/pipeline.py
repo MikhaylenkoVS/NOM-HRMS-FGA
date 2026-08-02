@@ -25,6 +25,8 @@ from src.core.van_krevelen import create_van_krevelen_plot
 import pandas as pd
 
 from src.configs import CHEM, PIPELINE, PATHS
+from src.core.timer import PipelineTimings
+import time
 
 logger = logging.getLogger(__name__)
 
