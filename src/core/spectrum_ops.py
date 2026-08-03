@@ -331,27 +331,10 @@ def _generate_candidate_formulas(
     mass_max: float,
     cfg: FormulaSearchConfig,
     mode: str = "soft",
-) -> list[tuple[str, float]]:
+) -> list[tuple[int, int, int, int, float]]:
     """Enumerate candidate CHON formulas within a neutral-mass window.
 
-    Uses precomputed mass ranges per element (C→H→O→N) to avoid redundant
-    iterations and guarantee that every feasible formula is generated
-    regardless of loop order.
-
-    Parameters
-    ----------
-    mass_min, mass_max : float
-        Neutral-mass window (Da). A small margin (+/-1 %) is added at the
-        edges to tolerate rounding.
-    cfg : FormulaSearchConfig
-        Element ranges.
-    mode : {"soft", "nom_like"}, optional
-        Ignored — kept for backward compatibility. Default ``"soft"``.
-
-    Returns
-    -------
-    list of tuple of (str, float)
-        Pairs of ``(formula_string, exact_neutral_mass)``.
+    Returns (c, h, o, n, mass) tuples — string building is deferred.
     """
     eps = 1e-9  # защита от округления в ceil/floor
     mass_min_abs = mass_min * 0.99
@@ -370,7 +353,7 @@ def _generate_candidate_formulas(
     M_N_max = n_max * M_N
     M_extra = M_O_max + M_N_max  # макс. добавка гетероатомов
 
-    result: list[tuple[str, float]] = []
+    result: list[tuple[int, int, int, int, float]] = []
 
     for c in range(c_min, c_max + 1):
         base_C = c * M_C
@@ -435,19 +418,7 @@ def _generate_candidate_formulas(
                     if h > 2 * c + n + 2:
                         continue
 
-                    # строим строку формулы
-                    parts: list[str] = []
-                    counts = {"C": c, "H": h}
-                    if o > 0:
-                        counts["O"] = o
-                    if n > 0:
-                        counts["N"] = n
-                    for el in cfg.elements:
-                        val = counts.get(el, 0)
-                        if val <= 0:
-                            continue
-                        parts.append(el if val == 1 else f"{el}{val}")
-                    result.append(("".join(parts), mass))
+                    result.append((c, h, o, n, mass))
 
     return result
 
@@ -555,6 +526,25 @@ def _beynon_m1_ratio(counts: dict[str, int]) -> float:
     for el, coeff in _BEYNON_COEFFS.items():
         total += counts.get(el, 0) * coeff
     return total / 100.0
+
+
+def _beynon_m1_ratio_cached(c: int, h: int, o: int, n: int) -> float:
+    """Теоретическое (M+1)/M для кортежа (C, H, O, N) — без dict-оверхеда."""
+    return (c * 1.1 + h * 0.015 + o * 0.04 + n * 0.37) / 100.0
+
+
+def _counts_to_str(c: int, h: int, o: int, n: int) -> str:
+    """Build a Hill-order formula string from element counts."""
+    parts = []
+    if c > 0:
+        parts.append(f"C{c}" if c > 1 else "C")
+    if h > 0:
+        parts.append(f"H{h}" if h > 1 else "H")
+    if o > 0:
+        parts.append(f"O{o}" if o > 1 else "O")
+    if n > 0:
+        parts.append(f"N{n}" if n > 1 else "N")
+    return "".join(parts)
 
 
 def _measure_m1_ratio(
@@ -714,43 +704,41 @@ def assign_formulas(
         src.table = table
         return src
 
-    # Разделим формулы и НЕЙТРАЛЬНЫЕ массы (один проход)
-    formulas_list = []
+    # Разделим counts и нейтральные массы (один проход)
+    counts_list = []
     masses_list = []
-    for f, m in candidates:
-        formulas_list.append(f)
-        masses_list.append(m)
-    cand_formulas = np.array(formulas_list, dtype=object)
+    for c, h, o, n, mass in candidates:
+        counts_list.append((c, h, o, n))
+        masses_list.append(mass)
+    cand_counts = np.array(counts_list, dtype=np.int32)
     cand_masses_neutral = np.array(masses_list, dtype=float)
+    del counts_list, masses_list
 
     # Переводим нейтральные массы в m/z — векторизовано
     _shift = _ion_shift(ion_mode)
     cand_masses_ion = cand_masses_neutral + _shift
 
-    table["brutto"] = None
-    table["assign"] = False
-    # Новая колонка: все формулы-кандидаты в пределах ppm-окна (фича #2)
-    table["all_candidates"] = None
+    # Предвычисляем DBE для всех кандидатов
+    cand_dbe = 1.0 + cand_counts[:, 0].astype(float) - cand_counts[:, 1].astype(float) / 2.0 + cand_counts[:, 2].astype(float) / 2.0
 
-    for idx, row in table.iterrows():
-        mass_obs = float(row["mass"])
+    brutto_col = [None] * len(table)
+    assign_col = [False] * len(table)
+    candidates_col = [None] * len(table)
 
-        # считаем ppm-разницу по ИОННЫМ массам
-        ppm = (cand_masses_ion - mass_obs) / mass_obs * 1e6
-        abs_ppm = np.abs(ppm)
+    for idx, (mass_obs,) in enumerate(zip(table["mass"])):
+        mass_obs = float(mass_obs)
 
+        abs_ppm = np.abs((cand_masses_ion - mass_obs) / mass_obs * 1e6)
         mask = abs_ppm <= rel_error_ppm
         if not mask.any():
+            candidates_col[idx] = []
             continue
 
         global_indices = np.where(mask)[0]
 
-        # NOM-приоритизация: выбираем лучшую формулу по хим. правдоподобию
-        # (ppm внутри окна НЕ учитывается как критерий — только как допуск)
         best_local: int | None = None
         best_score = float("inf")
 
-        # Изотопный фильтр: измерить реальное M+1/M один раз для пика
         m1_real: float | None = None
         if isotope_filter and original is not None:
             try:
@@ -759,65 +747,51 @@ def assign_formulas(
                 m1_real = None
 
         for li in global_indices:
-            formula_str = cand_formulas[li]
-            try:
-                counts = parse_formula(formula_str)
-            except Exception:
-                continue
-            c_val = counts.get("C", 0)
+            c_val = int(cand_counts[li, 0])
+            h_val = int(cand_counts[li, 1])
+            o_val = int(cand_counts[li, 2])
+            n_val = int(cand_counts[li, 3])
             if c_val <= 0:
                 continue
-            hc = counts.get("H", 0) / c_val
-            oc = counts.get("O", 0) / c_val
-            nc = counts.get("N", 0) / c_val
+            hc = h_val / c_val
+            oc = o_val / c_val
+            nc = n_val / c_val
             ndist = _nom_distance(hc, oc)
-            dbe = dbe_from_counts(counts)
-            # Штраф за DBE > 20 (выше верхней границы типичного NOM)
+            dbe = float(cand_dbe[li])
             dbe_pen = (dbe - 20) * 0.5 if dbe > 20 else 0.0
-            # Штраф за высокий N/C (N > 30% от C редко для NOM)
             nc_pen = nc * 2.0 if nc > 0.3 else 0.0
-            # Штраф за высокий абсолютный N при низком O
-            # (N>3 и O/N<0.5 — химически нехарактерно для NOM)
-            n_abs = counts.get("N", 0)
-            o_abs = counts.get("O", 0)
-            if n_abs > 3 and (o_abs == 0 or o_abs / n_abs < 0.5):
-                n_abs_pen = (n_abs - 3) * 2.0
+            if n_val > 3 and (o_val == 0 or o_val / n_val < 0.5):
+                n_abs_pen = (n_val - 3) * 2.0
             else:
                 n_abs_pen = 0.0
-            # Изотопный фильтр ¹³C: штраф при расхождении M+1/M > 20%
             iso_pen = 0.0
             if m1_real is not None and m1_real > 0:
-                m1_theor = _beynon_m1_ratio(counts)
+                m1_theor = _beynon_m1_ratio_cached(c_val, h_val, o_val, n_val)
                 if m1_theor > 0:
                     dev = abs(m1_real - m1_theor) / m1_theor
                     if dev > _ISOTOPE_TOLERANCE:
                         iso_pen = _ISOTOPE_PENALTY
-            # score = nom_weight * nom_dist + dbe_pen + nc_pen + n_abs_pen + iso_pen
-            # (ppm НЕ входит — в пределах окна все кандидаты равноправны по массе)
             score = nom_weight * ndist + dbe_pen + nc_pen + n_abs_pen + iso_pen
             if score < best_score:
                 best_score = score
                 best_local = li
+
         if best_local is None:
-            # fallback: если ни один кандидат не прошёл парсинг — берём первый по ppm
             sorted_order = np.argsort(abs_ppm[mask])
             chosen_global = int(global_indices[sorted_order[0]])
         else:
             chosen_global = int(best_local)
 
-        # Сортируем кандидатов по возрастанию |ppm| (для all_candidates)
         sorted_order = np.argsort(abs_ppm[mask])
         sorted_global = global_indices[sorted_order]
+        all_candidates_list = [_counts_to_str(*cand_counts[i]) for i in sorted_global]
+        candidates_col[idx] = all_candidates_list
+        assign_col[idx] = True
+        brutto_col[idx] = _counts_to_str(*cand_counts[chosen_global])
 
-        # Сохраняем все формулы-кандидаты (упорядочены по ppm)
-        all_candidates_list = [str(cand_formulas[i]) for i in sorted_global]
-        table.at[idx, "all_candidates"] = all_candidates_list
-
-        # Лучшая формула (по выбранному критерию: NOM-приоритет или минимальный ppm)
-        best_formula = str(cand_formulas[chosen_global])
-        table.at[idx, "brutto"] = best_formula
-        table.at[idx, "assign"] = True
-
+    table["brutto"] = brutto_col
+    table["assign"] = assign_col
+    table["all_candidates"] = candidates_col
     src.table = table
     return src
 

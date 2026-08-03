@@ -348,6 +348,10 @@ class App(tk.Tk):
                     self._on_run_success_data(data)
                 elif kind == "error":
                     self._on_run_error_data(data)
+                elif kind == "progress":
+                    stage, pct = data
+                    self.progress["value"] = pct
+                    self._set_status(f"{stage} ({pct:.0f}%)")
         except queue.Empty:
             pass
         finally:
@@ -428,7 +432,7 @@ class App(tk.Tk):
     # ── коллбеки воркера (всегда в главном потоке) ───────────────────────────
 
     def _on_run_success_data(self, payload: dict):
-        self.progress.stop()
+        self.progress["value"] = 100
         result_df = payload.get("result")
         self.result_df = result_df
         n = len(result_df) if result_df is not None else 0
@@ -443,7 +447,7 @@ class App(tk.Tk):
             self._log("[WARN] Результирующая таблица пуста.", color=WARN)
 
     def _on_run_error_data(self, payload: dict):
-        self.progress.stop()
+        self.progress["value"] = 100
         tb = payload["traceback"]
         self._set_status("Ошибка! Смотри лог.")
         self._log("[ОШИБКА ВЫПОЛНЕНИЯ]\n" + tb, color=WARN)
@@ -505,7 +509,7 @@ class App(tk.Tk):
             anchor="w",
             padx=8,
         ).pack(fill="x", side="bottom")
-        self.progress = ttk.Progressbar(self, mode="indeterminate", length=200)
+        self.progress = ttk.Progressbar(self, mode="determinate", length=200)
         self.progress.pack(fill="x", side="bottom")
 
     # ── ВКЛАДКА ПАРАМЕТРОВ ────────────────────────────────────────────────────
@@ -1005,10 +1009,10 @@ class App(tk.Tk):
                 color=FG,
             )
             self._set_status("Усреднение RAW-спектра…")
-            self.progress.start(10)
+            self.progress["value"] = 0
             self.update_idletasks()
             path = average_raw_to_csv(path, rt_min, rt_max)
-            self.progress.stop()
+            self.progress["value"] = 100
             self._set_status("Готово")
             self._log(f"[RAW] → {path}", color=OK)
 
@@ -1030,10 +1034,10 @@ class App(tk.Tk):
                 color=FG,
             )
             self._set_status("Усреднение mzML-спектра…")
-            self.progress.start(10)
+            self.progress["value"] = 0
             self.update_idletasks()
             path = _mzml_to_csv(path, rt_min=rt_min, rt_max=rt_max)
-            self.progress.stop()
+            self.progress["value"] = 100
             self._set_status("Готово")
             self._log(f"[mzML] → {path}", color=OK)
 
@@ -1076,7 +1080,7 @@ class App(tk.Tk):
         self._log(f"[DEBUG]   dacet = {spec_paths[2]}", color="info")
         self._log(f"[DEBUG]   params = {params}", color="info")
 
-        self.progress.start(10)
+        self.progress["value"] = 0
         self._set_status("Выполняется анализ…")
 
         t = threading.Thread(
@@ -1221,7 +1225,7 @@ class App(tk.Tk):
 
         self._structure_preview_label.configure(
             text=f"Поиск структуры...\n{brutto}")
-        self.progress.start(10)
+        self.progress["value"] = 0
 
         t = threading.Thread(target=self._load_structure_preview,
                              args=(brutto, n_cooh, n_oh), daemon=True)
@@ -1239,14 +1243,14 @@ class App(tk.Tk):
             self.after(0, lambda: self._show_structure_preview(molecules, brutto))
         except Exception:
             self.after(0, lambda: (
-                self.progress.stop(),
+                self.progress.configure(value=100),
                 self._structure_preview_label.configure(
                     text=f"Не удалось найти\nструктуру для {brutto}")
             ))
 
     def _show_structure_preview(self, molecules: list, brutto: str):
         """Отображение первой найденной структуры в панели превью."""
-        self.progress.stop()
+        self.progress["value"] = 100
         if not molecules:
             self._structure_preview_label.configure(
                 text=f"Структуры не найдены\n{brutto}")
