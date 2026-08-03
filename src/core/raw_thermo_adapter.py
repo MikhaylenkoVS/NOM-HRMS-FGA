@@ -1,6 +1,6 @@
 """ThermoRAW → averaged CSV bridge via RawFileReader (.NET), MPL-2.0.
 
-Replaces the GPL-3.0 ``pymsfilereader`` COM bridge with a clean-room
+Replaces the GPL-3.0 COM bridge with a clean-room
 implementation using Thermo Fisher's RawFileReader .NET library and
 ``pythonnet``.
 

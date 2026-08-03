@@ -1002,7 +1002,7 @@ class App(tk.Tk):
             if not _RAW_LOADED:
                 raise RuntimeError(
                     f"[{label}] Обработка RAW недоступна: {_RAW_ERROR}\n"
-                    "Установите MSFileReader 3.1 SP4 и comtypes."
+                    "Установите pythonnet и RawFileReader DLL в thermo/"
                 )
             self._log(
                 f"[RAW] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…",
