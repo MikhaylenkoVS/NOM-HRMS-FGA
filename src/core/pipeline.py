@@ -30,6 +30,66 @@ import time
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Кэш пайплайна
+# ---------------------------------------------------------------------------
+
+class PipelineCache:
+    """Кэш промежуточных результатов между запусками пайплайна.
+
+    Позволяет не перезагружать спектры и не перевыполнять денойзинг/assign,
+    если изменились только параметры более поздних этапов.
+    """
+
+    def __init__(self):
+        self._loaded: dict[str, object] = {}        # path → Spectrum
+        self._denoised: dict[str, object] = {}      # key → Spectrum
+        self._assigned: dict[str, object] = {}      # key → Spectrum
+        self._series: dict[str, object] = {}        # key → DataFrame
+
+    def _hash(self, *args) -> str:
+        return str(hash(args))
+
+    def load(self, path: str, loader, **kw):
+        key = f"{path}|{kw.get('sep','')}|{kw.get('mass_min',0)}|{kw.get('mass_max',0)}"
+        if key not in self._loaded:
+            self._loaded[key] = loader(path, **kw)
+        return self._loaded[key]
+
+    def denoise(self, spec, force, intensity, quantile, denoiser):
+        key = self._hash(id(spec), force, intensity, quantile)
+        if key not in self._denoised:
+            self._denoised[key] = denoiser(spec, force=force, intensity=intensity, quantile=quantile)
+        return self._denoised[key]
+
+    def assign(self, spec, rel_error_ppm, mass_min, mass_max, search_config, ion_mode, assigner):
+        key = self._hash(id(spec), rel_error_ppm, mass_min, mass_max,
+                          str(search_config.ranges) if search_config else "", ion_mode)
+        if key not in self._assigned:
+            self._assigned[key] = assigner(spec, rel_error_ppm=rel_error_ppm,
+                                           mass_min=mass_min, mass_max=mass_max,
+                                           search_config=search_config, ion_mode=ion_mode)
+        return self._assigned[key]
+
+    def series(self, src, deriv, delta, ppm_tol, max_groups, allow_gaps, finder):
+        key = self._hash(id(src), id(deriv), delta, ppm_tol, max_groups, allow_gaps)
+        if key not in self._series:
+            self._series[key] = finder(src, deriv, delta, ppm_tol=ppm_tol,
+                                       max_groups=max_groups, allow_gaps=allow_gaps)
+        return self._series[key]
+
+    def clear(self):
+        self._loaded.clear()
+        self._denoised.clear()
+        self._assigned.clear()
+        self._series.clear()
+
+
+# Глобальный экземпляр — живёт между вызовами run_pipeline в пределах сессии
+_pipeline_cache = PipelineCache()
+_result_cache: dict[int, object] = {}
+
 # ---------------------------------------------------------------------------
 # Импорт зависимостей из spectrum_ops
 # ---------------------------------------------------------------------------
@@ -373,6 +433,7 @@ def run_pipeline(
     test_sets_root=None,
     # Изотопный фильтр
     isotope_filter: bool = False,
+    use_cache: bool = True,
 ):
     """Run the full -COOH / -OH quantification pipeline.
 
@@ -469,6 +530,20 @@ def run_pipeline(
         )
 
     stats = PipelineStats()
+
+    # ── Кэш: не перевыполнять при тех же параметрах ──
+    _cache_key = hash((
+        src_path, dmet_path, dacet_path,
+        sep, load_mass_min, load_mass_max,
+        noise_force, noise_intensity, noise_quantile,
+        str(brutto_dict), rel_error, sign,
+        assign_mass_min, assign_mass_max,
+        ppm_tol, max_groups, allow_gaps,
+        output_csv, isotope_filter,
+    ))
+    if use_cache and _cache_key in _result_cache:
+        _debug("Кэш: параметры не изменились — возвращаю сохранённый результат")
+        return _result_cache[_cache_key]
 
     # -----------------------------------------------------------------------
     # ШАГ 1: Загрузка спектров
@@ -839,7 +914,10 @@ def run_pipeline(
             logger.error(msg)
             messages.append(msg)
 
-    return PipelineRunResult(table=result, stats=stats, messages=messages)
+    result_obj = PipelineRunResult(table=result, stats=stats, messages=messages)
+    if use_cache:
+        _result_cache[_cache_key] = result_obj
+    return result_obj
 
 
 # ---------------------------------------------------------------------------
