@@ -30,10 +30,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller>=6.0
           # Core deps
-          pip install numpy>=1.24 pandas>=2.0 matplotlib>=3.7 Pillow>=9.0
-          # RAW bridge dependencies
-          # RAW bridge now uses pythonnet + RawFileReader .NET
-          # RDKit: try conda name first, then PyPI fallback
+          pip install numpy>=1.24 pandas>=2.0 matplotlib>=3.7 Pillow>=9.0 scipy>=1.10
+          # RAW bridge (.NET)
+          pip install pythonnet>=3.0
+          # mzML bridge
+          pip install pymzml>=0.8
+          # RDKit
           pip install rdkit>=2023.9 2>/dev/null || pip install rdkit-pypi>=2022.9
 
       - name: Build .exe
