@@ -7,7 +7,7 @@ name = "nom-hrms-fga"
 version = "0.5.2"
 description = "NOM HRMS FGA: functional-group analyzer for natural organic matter (NOM) mass spectra"
 readme = "README.md"
-license = {text = "GPL-3.0"}
+license = {text = "MPL-2.0"}
 requires-python = ">=3.10"
 authors = [
     {name = "Vladimir S. Mikhaylenko", email = "mikhaylenkovs@gmail.com"},
