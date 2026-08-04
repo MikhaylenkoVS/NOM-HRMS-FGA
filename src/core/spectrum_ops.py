@@ -813,7 +813,7 @@ def _find_peak(mz_array, target_mz, ppm_tol):
         Index of the closest peak within ``ppm_tol``, or ``None`` if none
         falls within tolerance.
     """
-    mz = np.asarray(mz_array, dtype=float)
+    mz = np.asarray(mz_array, dtype=float) if not isinstance(mz_array, np.ndarray) else mz_array.astype(float, copy=False)
     diffs_ppm = np.abs(mz - target_mz) / target_mz * 1e6
     mask = diffs_ppm <= ppm_tol
     if not mask.any():
@@ -908,23 +908,28 @@ def find_series(
     mz_deriv = deriv.table["mass"].values
     records = []
 
-    for _, row in src.table.iterrows():
-        if not row.get("assign", False):
+    # Кэш parse_formula — одни и те же формулы повторяются между пиками
+    _formula_cache: dict[str, dict] = {}
+
+    for row in src.table.itertuples(index=False):
+        if not getattr(row, "assign", False):
             continue
 
-        m0_obs = row["mass"]
-        brutto = row.get("brutto", "")
-        # Compute theoretical m/z from assigned brutto formula (eliminates source mass error)
+        m0_obs = row.mass
+        brutto = getattr(row, "brutto", "") or ""
+        # Compute theoretical m/z from assigned brutto formula
         try:
-            counts = parse_formula(str(brutto))
+            brutto_str = str(brutto)
+            counts = _formula_cache.get(brutto_str)
+            if counts is None:
+                counts = parse_formula(brutto_str)
+                _formula_cache[brutto_str] = counts
             exact_neutral = exact_mass_from_counts(counts)
             m0_theor = _neutral_to_ion_mass(exact_neutral, CHEM.default_ion_mode)
-            # Sanity check: if theoretical diverges >1000 ppm from observed,
-            # formula is inconsistent with mass → fall back to observed
             if abs(m0_theor - m0_obs) / m0_obs > 0.001:
                 m0_theor = m0_obs
         except Exception:
-            m0_theor = m0_obs  # fallback to observed mass
+            m0_theor = m0_obs
         found_steps = []
         series_mz = []
         consecutive_misses = 0

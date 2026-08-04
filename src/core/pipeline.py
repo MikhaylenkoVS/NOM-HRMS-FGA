@@ -90,6 +90,42 @@ class PipelineCache:
 _pipeline_cache = PipelineCache()
 _result_cache: dict[int, object] = {}
 
+
+class PipelineProgress:
+    """Детальный прогресс пайплайна с шагом 1-2%.
+
+    Диапазоны: загрузка 0-24%, денойзинг 24-48%, assign 48-72%, серии 72-96%, сборка 96-100%.
+    """
+
+    def __init__(self, callback):
+        self._cb = callback
+        self._base = 0
+        self._step = 0
+        self._total_steps = 0
+
+    def _pct(self, step, total):
+        return self._base + int((step / max(total, 1)) * self._range)
+
+    def stage(self, name, base_pct, range_pct):
+        self._base = base_pct
+        self._range = range_pct
+        if self._cb:
+            self._cb(f"{name}…", base_pct)
+
+    def tick(self, step, total=None):
+        if total is None:
+            total = self._total_steps
+        self._step = step
+        self._total_steps = total
+        if self._cb:
+            pct = self._pct(step, total)
+            self._cb(None, pct)
+
+    def sub(self, name, step, total):
+        if self._cb:
+            pct = self._pct(step, total)
+            self._cb(f"  {name}", pct)
+
 # ---------------------------------------------------------------------------
 # Импорт зависимостей из spectrum_ops
 # ---------------------------------------------------------------------------

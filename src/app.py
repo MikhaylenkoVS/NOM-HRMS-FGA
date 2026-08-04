@@ -351,7 +351,7 @@ class App(tk.Tk):
                 elif kind == "progress":
                     stage, pct = data
                     self.progress["value"] = pct
-                    self._set_status(f"{stage} ({pct:.0f}%)")
+                    if stage: self._set_status(stage)
         except queue.Empty:
             pass
         finally:
