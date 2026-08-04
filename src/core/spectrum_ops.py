@@ -964,7 +964,7 @@ def find_series(
             records.append(
                 {
                     "mass_src": m0_obs,
-                    "brutto": row.get("brutto", ""),
+                    "brutto": brutto,
                     "n_groups": n_groups,
                     "steps_found": found_steps,
                     "missing": missing_steps,
