@@ -42,7 +42,7 @@ def _make_csv_with_columns(columns: list[str], rows: list[list]) -> str:
 
 def _make_spectrum(masses_and_intensities: list[tuple[float, float]]):
     """Create a Spectrum from mass/intensity pairs."""
-    from src.core.spectrum_ops import Spectrum
+    from src.core.spectrum import Spectrum
     df = pd.DataFrame(masses_and_intensities, columns=["mass", "intensity"])
     return Spectrum(table=df)
 
@@ -295,7 +295,7 @@ class TestFindSeriesSmoke:
 
     def _assigned_src_with_brutto(self, masses, brutto="C7H6O2"):
         """Return a Spectrum with assigned peaks at given masses."""
-        from src.core.spectrum_ops import Spectrum
+        from src.core.spectrum import Spectrum
         df = pd.DataFrame({
             "mass": masses,
             "intensity": [1000.0] * len(masses),
@@ -350,7 +350,7 @@ class TestBuildResultTable:
     """build_result_table assembles the final -COOH/-OH count table."""
 
     def _assigned_src(self, masses, formulas=None):
-        from src.core.spectrum_ops import Spectrum
+        from src.core.spectrum import Spectrum
         if formulas is None:
             formulas = ["C7H6O2"] * len(masses)
         df = pd.DataFrame({
