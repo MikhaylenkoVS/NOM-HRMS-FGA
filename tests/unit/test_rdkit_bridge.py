@@ -28,8 +28,8 @@ class TestToRdkitMol:
     """Convert MoleculeFragment → RDKit Mol."""
 
     def test_benzene_conversion(self):
-        from src.core.rdkit_bridge import to_rdkit_mol
-        from src.core.fragments import create_benzene
+        from src.core.chemistry.rdkit_bridge import to_rdkit_mol
+        from src.core.chemistry.fragments import create_benzene
 
         frag = create_benzene()
         mol = to_rdkit_mol(frag)
@@ -38,8 +38,8 @@ class TestToRdkitMol:
         assert heavy == 6
 
     def test_cooh_conversion(self):
-        from src.core.rdkit_bridge import to_rdkit_mol
-        from src.core.fragments import create_cooh
+        from src.core.chemistry.rdkit_bridge import to_rdkit_mol
+        from src.core.chemistry.fragments import create_cooh
 
         frag = create_cooh()
         mol = to_rdkit_mol(frag)
@@ -47,11 +47,11 @@ class TestToRdkitMol:
         assert heavy == 3  # C, O, O
 
     def test_converted_mol_has_bonds(self):
-        from src.core.rdkit_bridge import to_rdkit_mol
-        from src.core.fragments import create_methylene, create_oh
+        from src.core.chemistry.rdkit_bridge import to_rdkit_mol
+        from src.core.chemistry.fragments import create_methylene, create_oh
 
         # Build CH2-OH manually via MoleculeFragment (C-C-O backbone)
-        from src.core.fragments import MoleculeFragment
+        from src.core.chemistry.fragments import MoleculeFragment
         frag = MoleculeFragment(
             "test", {"C": 2, "O": 1}, 0,
             ["C", "C", "O"],
@@ -62,8 +62,8 @@ class TestToRdkitMol:
         assert mol.GetNumBonds() >= 2
 
     def test_naphthalene_conversion(self):
-        from src.core.rdkit_bridge import to_rdkit_mol
-        from src.core.fragments import create_naphthalene
+        from src.core.chemistry.rdkit_bridge import to_rdkit_mol
+        from src.core.chemistry.fragments import create_naphthalene
 
         frag = create_naphthalene()
         mol = to_rdkit_mol(frag)
@@ -71,8 +71,8 @@ class TestToRdkitMol:
         assert heavy == 10
 
     def test_methylene_conversion(self):
-        from src.core.rdkit_bridge import to_rdkit_mol
-        from src.core.fragments import create_methylene
+        from src.core.chemistry.rdkit_bridge import to_rdkit_mol
+        from src.core.chemistry.fragments import create_methylene
 
         frag = create_methylene()
         mol = to_rdkit_mol(frag)
@@ -90,8 +90,8 @@ class TestVisualizeFragment:
     """visualize_fragment renders a MoleculeFragment to PIL Image."""
 
     def test_visualize_without_highlight(self):
-        from src.core.rdkit_bridge import visualize_fragment
-        from src.core.fragments import create_benzene
+        from src.core.chemistry.rdkit_bridge import visualize_fragment
+        from src.core.chemistry.fragments import create_benzene
 
         frag = create_benzene()
         img = visualize_fragment(
@@ -100,8 +100,8 @@ class TestVisualizeFragment:
         assert img is not None
 
     def test_visualize_methylene_no_highlight(self):
-        from src.core.rdkit_bridge import visualize_fragment
-        from src.core.fragments import create_methylene
+        from src.core.chemistry.rdkit_bridge import visualize_fragment
+        from src.core.chemistry.fragments import create_methylene
 
         frag = create_methylene()
         img = visualize_fragment(
@@ -119,16 +119,16 @@ class TestVisualizeFragmentsGrid:
     """Grid rendering of multiple fragments."""
 
     def test_grid_two_fragments(self):
-        from src.core.rdkit_bridge import visualize_fragments_grid
-        from src.core.fragments import create_benzene, create_cooh
+        from src.core.chemistry.rdkit_bridge import visualize_fragments_grid
+        from src.core.chemistry.fragments import create_benzene, create_cooh
 
         frags = [create_benzene(), create_cooh()]
         img = visualize_fragments_grid(frags, mols_per_row=2, subImgSize=(200, 150))
         assert img is not None
 
     def test_grid_with_custom_names(self):
-        from src.core.rdkit_bridge import visualize_fragments_grid
-        from src.core.fragments import create_benzene
+        from src.core.chemistry.rdkit_bridge import visualize_fragments_grid
+        from src.core.chemistry.fragments import create_benzene
 
         frags = [create_benzene()]
         img = visualize_fragments_grid(
@@ -147,8 +147,8 @@ class TestPrintMoleculeInfo:
 
     def test_smoke(self, caplog):
         import logging
-        from src.core.rdkit_bridge import print_molecule_info
-        from src.core.molecule import Molecule
+        from src.core.chemistry.rdkit_bridge import print_molecule_info
+        from src.core.domain.molecule import Molecule
 
         m = Molecule()
         for _ in range(6):
@@ -160,15 +160,15 @@ class TestPrintMoleculeInfo:
         m.add_bond(4, 5, 2)
         m.add_bond(5, 0, 1)
 
-        with caplog.at_level(logging.INFO, logger="src.core.rdkit_bridge"):
+        with caplog.at_level(logging.INFO, logger="src.core.chemistry.rdkit_bridge"):
             print_molecule_info(m, index=1)
         assert "СТРУКТУРА #1" in caplog.text
         assert "C6" in caplog.text
 
     def test_no_index(self, caplog):
         import logging
-        from src.core.rdkit_bridge import print_molecule_info
-        from src.core.molecule import Molecule
+        from src.core.chemistry.rdkit_bridge import print_molecule_info
+        from src.core.domain.molecule import Molecule
 
         m = Molecule()
         m.add_atom("C")
@@ -177,7 +177,7 @@ class TestPrintMoleculeInfo:
         m.add_bond(0, 1, 1)
         m.add_bond(1, 2, 1)
 
-        with caplog.at_level(logging.INFO, logger="src.core.rdkit_bridge"):
+        with caplog.at_level(logging.INFO, logger="src.core.chemistry.rdkit_bridge"):
             print_molecule_info(m)
         assert "Атомов:" in caplog.text
 
@@ -193,8 +193,8 @@ class TestVisualizeConnectionSequence:
 
     def test_two_fragment_connection_smoke(self):
         """Smoke test: two fragments connected."""
-        from src.core.rdkit_bridge import visualize_connection_sequence
-        from src.core.fragments import create_methylene
+        from src.core.chemistry.rdkit_bridge import visualize_connection_sequence
+        from src.core.chemistry.fragments import create_methylene
 
         frags = [create_methylene(), create_methylene()]
         connections = [(0, 0, 1)]
@@ -204,8 +204,8 @@ class TestVisualizeConnectionSequence:
 
     def test_single_fragment_sequence(self):
         """A single fragment — graceful."""
-        from src.core.rdkit_bridge import visualize_connection_sequence
-        from src.core.fragments import create_benzene
+        from src.core.chemistry.rdkit_bridge import visualize_connection_sequence
+        from src.core.chemistry.fragments import create_benzene
 
         frags = [create_benzene()]
         images = visualize_connection_sequence(frags, [], size=(200, 150))

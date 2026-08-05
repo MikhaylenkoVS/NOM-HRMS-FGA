@@ -31,7 +31,7 @@ def _thermo_dll_dir() -> str:
     """Path to the directory containing the RawFileReader .NET DLLs."""
     if getattr(sys, "frozen", False):
         return os.path.join(sys._MEIPASS, "thermo")
-    return os.path.join(os.path.dirname(__file__), "..", "..", "thermo")
+    return os.path.join(os.path.dirname(__file__), "..", "..", "..", "thermo")
 
 
 _REQUIRED_DLLS = [

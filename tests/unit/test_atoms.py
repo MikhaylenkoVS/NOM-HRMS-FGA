@@ -1,7 +1,7 @@
 """Unit tests for atoms.py: ELEMENT_DATA, Hybridization, Atom."""
 
 import pytest
-from src.core.atoms import ELEMENT_DATA, Hybridization, Atom
+from src.core.domain.atoms import ELEMENT_DATA, Hybridization, Atom
 
 
 # ===================================================================

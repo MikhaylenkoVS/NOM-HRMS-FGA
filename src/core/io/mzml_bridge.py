@@ -6,7 +6,7 @@ which silently loses data on large profile spectra).
 
 Usage
 -----
-    from src.core.mzml_bridge import mzml_to_csv
+    from src.core.io.mzml_bridge import mzml_to_csv
 
     csv_path = mzml_to_csv("sample.mzML", output_csv="averaged.csv",
                            rt_min=0.0, rt_max=30.0)

@@ -11,7 +11,7 @@ from .fragments import (
 )
 from rdkit import Chem
 from rdkit.Chem import Draw, AllChem
-from .molecule import parse_formula, add_formula
+from ..domain.molecule import parse_formula, add_formula
 
 logger = logging.getLogger(__name__)
 

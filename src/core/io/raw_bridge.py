@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.core.raw_thermo_adapter import (
+from src.core.io.raw_thermo_adapter import (
     is_available,
     availability_error,
     average_raw_to_csv as _average_raw_to_csv,

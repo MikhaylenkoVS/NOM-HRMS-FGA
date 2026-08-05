@@ -121,7 +121,7 @@ except Exception as _core_err:
 
 # ── Импорт raw-бриджа (опционально, только Windows + MSFileReader) ──────────
 try:
-    from src.core.raw_bridge import average_raw_to_csv
+    from src.core.io.raw_bridge import average_raw_to_csv
 
     _RAW_LOADED = True
     _RAW_ERROR = ""
@@ -133,7 +133,7 @@ except Exception as _raw_err:
 
 # ── Импорт mzML-бриджа (опционально, требует pymzml) ─────────────────────────
 try:
-    from src.core.mzml_bridge import mzml_to_csv as _mzml_to_csv
+    from src.core.io.mzml_bridge import mzml_to_csv as _mzml_to_csv
 except Exception:
     _mzml_to_csv = None  # type: ignore[assignment]
 

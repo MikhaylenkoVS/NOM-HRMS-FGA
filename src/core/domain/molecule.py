@@ -1,4 +1,4 @@
-from src.core.atoms import Atom
+from src.core.domain.atoms import Atom
 from collections import defaultdict
 from typing import List, Tuple, Dict
 

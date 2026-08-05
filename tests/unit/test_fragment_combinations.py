@@ -1,13 +1,13 @@
 """Unit tests for fragment_combinations.py: filter_fragments, find_fragment_combinations."""
 
 import pytest
-from src.core.fragment_combinations import (
+from src.core.chemistry.fragment_combinations import (
     filter_fragments,
     find_fragment_combinations,
     assemble_molecule_from_combination,
     assemble_all_combinations,
 )
-from src.core.fragments import FRAGMENT_LIBRARY
+from src.core.chemistry.fragments import FRAGMENT_LIBRARY
 
 
 # ===================================================================

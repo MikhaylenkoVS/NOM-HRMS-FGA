@@ -10,7 +10,7 @@ import logging
 
 from typing import Union
 
-from src.core.molecule import Molecule
+from src.core.domain.molecule import Molecule
 
 logger = logging.getLogger(__name__)
 

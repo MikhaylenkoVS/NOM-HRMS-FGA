@@ -21,7 +21,7 @@ reactive functional groups on the parent molecule.
 
 import pandas as pd
 import logging
-from .spectrum import Spectrum
+from .domain.spectrum import Spectrum
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -29,7 +29,7 @@ import numpy as np
 from dataclasses import dataclass
 import math
 from src.core.van_krevelen import NOM_REGIONS
-from src.core.molecule import parse_formula
+from src.core.domain.molecule import parse_formula
 from src.configs import CHEM, PIPELINE
 from src.configs.loader import ISOTOPE_CFG, SPECTRUM_LOAD_CFG
 

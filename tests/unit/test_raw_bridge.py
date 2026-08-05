@@ -19,12 +19,12 @@ class TestAvailability:
     """Availability probe always returns a bool."""
 
     def test_is_available_returns_bool(self):
-        from src.core.raw_bridge import is_available
+        from src.core.io.raw_bridge import is_available
         result = is_available()
         assert isinstance(result, bool)
 
     def test_availability_error_consistent(self):
-        from src.core.raw_bridge import is_available, availability_error
+        from src.core.io.raw_bridge import is_available, availability_error
         if not is_available():
             err = availability_error()
             assert err is not None
@@ -43,13 +43,13 @@ class TestAverageRawToCsvErrors:
 
     def test_value_error_when_rt_invalid(self):
         """rt_min >= rt_max raises ValueError before file check."""
-        from src.core.raw_bridge import average_raw_to_csv
+        from src.core.io.raw_bridge import average_raw_to_csv
         with pytest.raises(ValueError, match="rt_min"):
             average_raw_to_csv("nonexistent.raw", 5.0, 3.0)
 
     def test_raises_runtime_error_when_unavailable(self):
         """If RawFileReader is unavailable, RuntimeError is raised."""
-        from src.core.raw_bridge import is_available, average_raw_to_csv
+        from src.core.io.raw_bridge import is_available, average_raw_to_csv
         if not is_available():
             with pytest.raises(RuntimeError, match="not available"):
                 average_raw_to_csv("dummy.raw", 0.0, 1.0)
@@ -58,7 +58,7 @@ class TestAverageRawToCsvErrors:
 
     def test_file_not_found_when_available(self):
         """Valid RT + nonexistent file → FileNotFoundError."""
-        from src.core.raw_bridge import is_available, average_raw_to_csv
+        from src.core.io.raw_bridge import is_available, average_raw_to_csv
         if is_available():
             with pytest.raises(FileNotFoundError):
                 average_raw_to_csv("/nonexistent/file.raw", 0.0, 1.0)
@@ -76,7 +76,7 @@ class TestAverageRawToDf:
 
     def test_returns_dataframe_with_correct_columns(self, tmp_path, monkeypatch):
         """Mock the CSV → verify DataFrame columns are mass,intensity."""
-        import src.core.raw_bridge as rb
+        import src.core.io.raw_bridge as rb
 
         csv_path = tmp_path / "fake_averaged.csv"
         with open(csv_path, "w", newline="") as fh:

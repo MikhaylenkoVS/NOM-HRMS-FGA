@@ -1,18 +1,18 @@
-from .atoms import Atom, Hybridization, ELEMENT_DATA
-from .fragments import (
+from .domain.atoms import Atom, Hybridization, ELEMENT_DATA
+from .chemistry.fragments import (
     MoleculeFragment,
     FRAGMENT_LIBRARY,
     FUNCTIONAL_GROUPS,
     ALL_FRAGMENTS,
 )
-from .fragment_combinations import (
+from .chemistry.fragment_combinations import (
     find_fragment_combinations,
     find_and_visualize_molecules,
     assemble_all_combinations,
     assemble_molecule_from_combination,
     filter_fragments,
 )
-from .molecule import Molecule
+from .domain.molecule import Molecule
 from .pipeline import run_pipeline
 from .van_krevelen import (
     NOM_REGIONS,
@@ -29,7 +29,7 @@ from .spectrum_ops import (
     DELTA_CD3,
     DELTA_CD3CO,
 )
-from .rdkit_bridge import (
+from .chemistry.rdkit_bridge import (
     to_rdkit_mol,
     visualize_fragment,
     visualize_fragments_grid,

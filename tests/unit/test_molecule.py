@@ -1,7 +1,7 @@
 """Unit tests for molecule.py: Molecule class — graph building, IHD, formula."""
 
 import pytest
-from src.core.molecule import Molecule, parse_formula, calculate_IHD, add_formula
+from src.core.domain.molecule import Molecule, parse_formula, calculate_IHD, add_formula
 
 
 # ===================================================================

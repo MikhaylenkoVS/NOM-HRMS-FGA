@@ -29,7 +29,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOT = PROJECT_ROOT / PATHS.data_dir
 TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 
-from src.core.molecule import exact_mass_from_formula
+from src.core.domain.molecule import exact_mass_from_formula
 
 # Monoisotopic element masses (single source of truth: chemistry.json).
 element_masses: Dict[str, float] = dict(CHEM.monoisotopic_masses)

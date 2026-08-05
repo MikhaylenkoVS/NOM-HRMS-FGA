@@ -5,7 +5,7 @@ Skipped when MSFileReader is not available.
 """
 
 import pytest
-from src.core.raw_bridge import is_available, average_raw_to_csv, average_raw_to_df
+from src.core.io.raw_bridge import is_available, average_raw_to_csv, average_raw_to_df
 
 pytestmark = pytest.mark.skipif(
     not is_available(), reason="MSFileReader not available"

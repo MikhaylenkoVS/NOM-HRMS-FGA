@@ -22,7 +22,7 @@ import numpy as np
 from src.configs.loader import NOISE_CFG
 
 if TYPE_CHECKING:
-    from src.core.spectrum import Spectrum
+    from src.core.domain.spectrum import Spectrum
 
 # Loaded from config
 _EPS = NOISE_CFG.eps

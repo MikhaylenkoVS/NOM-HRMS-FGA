@@ -43,7 +43,7 @@ from src.core.spectrum_ops import (
 # ---------------------------------------------------------------------------
 # Imports from molecule.py
 # ---------------------------------------------------------------------------
-from src.core.molecule import (
+from src.core.domain.molecule import (
     parse_formula,
     calculate_IHD,
     add_formula,

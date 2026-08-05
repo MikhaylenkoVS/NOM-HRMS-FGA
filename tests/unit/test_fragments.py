@@ -1,7 +1,7 @@
 """Unit tests for fragments.py: FRAGMENT_LIBRARY, FUNCTIONAL_GROUPS, MoleculeFragment."""
 
 import pytest
-from src.core.fragments import (
+from src.core.chemistry.fragments import (
     MoleculeFragment,
     FRAGMENT_LIBRARY,
     FUNCTIONAL_GROUPS,

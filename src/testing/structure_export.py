@@ -28,7 +28,7 @@ EXPORT_PNG = False  # генерировать PNG (медленно)
 # Проверка зависимостей
 # ----------------------------------------------------------------------
 try:
-    from src.core.fragment_combinations import find_and_visualize_molecules
+    from src.core.chemistry.fragment_combinations import find_and_visualize_molecules
 
     _HAS_FRAGMENT_SEARCH = True
 except ImportError as e:
@@ -150,7 +150,7 @@ def _fragment_to_rdkit(fragment):
     if not _HAS_RDKIT:
         return None
     try:
-        from src.core.rdkit_bridge import to_rdkit_mol
+        from src.core.chemistry.rdkit_bridge import to_rdkit_mol
 
         return to_rdkit_mol(fragment)
     except Exception:

@@ -25,7 +25,7 @@ import pandas as pd
 from matplotlib.patches import Polygon
 from matplotlib import patheffects
 
-from src.core.molecule import parse_formula
+from src.core.domain.molecule import parse_formula
 
 logger = logging.getLogger(__name__)
 
