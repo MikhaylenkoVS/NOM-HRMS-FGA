@@ -1,0 +1,9 @@
+{
+  "_description": "Default formula search ranges for brutto assignment",
+  "default": {
+    "C": [1, 80],
+    "H": [1, 200],
+    "O": [0, 40],
+    "N": [0, 5]
+  }
+}
