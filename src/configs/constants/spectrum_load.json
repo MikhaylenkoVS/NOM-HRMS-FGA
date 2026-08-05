@@ -1,0 +1,13 @@
+{
+  "_description": "CSV column mapping for spectrum loading",
+  "default": {
+    "mass": "mass",
+    "intensity": "intensity",
+    "resolution": "resolution",
+    "baseline": "baseline",
+    "noise": "noise",
+    "charge": "charge",
+    "retention_time": "retention_time",
+    "scan_number": "scan_number"
+  }
+}

@@ -28,6 +28,9 @@ _CONFIG_FILES = {
     "chemistry": "chemistry.json",
     "pipeline": "pipeline.json",
     "paths": "paths.json",
+    "noise": "constants/noise.json",
+    "isotope": "constants/isotope.json",
+    "spectrum_load": "constants/spectrum_load.json",
 }
 
 
@@ -127,3 +130,6 @@ def load_config(name: str) -> ConfigNamespace:
 CHEM = load_config("chemistry")
 PIPELINE = load_config("pipeline")
 PATHS = load_config("paths")
+NOISE_CFG = load_config("noise")
+ISOTOPE_CFG = load_config("isotope")
+SPECTRUM_LOAD_CFG = load_config("spectrum_load")

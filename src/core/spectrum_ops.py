@@ -31,6 +31,7 @@ import math
 from src.core.van_krevelen import NOM_REGIONS
 from src.core.molecule import parse_formula
 from src.configs import CHEM, PIPELINE
+from src.configs.loader import ISOTOPE_CFG, SPECTRUM_LOAD_CFG
 
 
 # ---------------------------------------------------------------------------
@@ -497,16 +498,16 @@ _NOM_REGION_CENTERS: list[tuple[float, float]] = [
 
 # Относительные распространённости тяжёлых изотопов (в %):
 # ¹³C: 1.1%, ²H: 0.015%, ¹⁷O: 0.04%, ¹⁵N: 0.37%
-_BEYNON_COEFFS = {"C": 1.1, "H": 0.015, "O": 0.04, "N": 0.37}
+_BEYNON_COEFFS = ISOTOPE_CFG.beynon_coefficients
 
 # Порог расхождения M+1/M для штрафа: если |реальное − теоретическое| / теоретическое > 20%
-_ISOTOPE_TOLERANCE = 0.20
+_ISOTOPE_TOLERANCE = ISOTOPE_CFG.tolerance
 
 # Штраф к score при несовпадении изотопного паттерна (средний уровень)
-_ISOTOPE_PENALTY = 2.0
+_ISOTOPE_PENALTY = ISOTOPE_CFG.penalty
 
 # Масса ¹³C − ¹²C (Da)
-_DELTA_M1 = 1.00335
+_DELTA_M1 = ISOTOPE_CFG.delta_m1
 
 
 def _beynon_m1_ratio(counts: dict[str, int]) -> float:

@@ -19,16 +19,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from src.configs.loader import NOISE_CFG
+
 if TYPE_CHECKING:
     from src.core.spectrum import Spectrum
 
-
-# ===========================================================================
-# 1-D Gaussian Mixture Model (EM, numpy-only)
-# ===========================================================================
-
-_EPS = 1e-15
-_MAX_GMM_POINTS = 5000  # subsample if more peaks (performance safeguard)
+# Loaded from config
+_EPS = NOISE_CFG.eps
+_MAX_GMM_POINTS = NOISE_CFG.subsample_max_points
 
 
 def _log_gaussian_pdf(x: np.ndarray, mean: float, var: float) -> np.ndarray:

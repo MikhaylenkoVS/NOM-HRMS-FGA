@@ -1,0 +1,8 @@
+{
+  "_description": "GMM noise threshold parameters",
+  "eps": 1e-15,
+  "max_components": 5,
+  "max_iter": 100,
+  "tol": 1e-4,
+  "subsample_max_points": 5000
+}
