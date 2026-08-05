@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.core.spectrum_ops import (
+from src.core.spectrum import (
     Spectrum,
     load_spectrum,
     denoise,

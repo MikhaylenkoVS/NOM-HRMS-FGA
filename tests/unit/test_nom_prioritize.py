@@ -3,7 +3,7 @@
 import pandas as pd
 from tests.conftest import TEST_SETS_ROOT
 from src.core.domain.spectrum import Spectrum
-from src.core.spectrum_ops import (
+from src.core.spectrum import (
     assign_formulas,
     FormulaSearchConfig,
     _nom_distance,

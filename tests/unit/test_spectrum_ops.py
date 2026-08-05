@@ -56,7 +56,7 @@ class TestLoadSpectrum:
     """load_spectrum: CSV → Spectrum with mass filtering and column mapping."""
 
     def test_loads_valid_csv(self):
-        from src.core.spectrum_ops import load_spectrum
+        from src.core.spectrum import load_spectrum
 
         path = _make_csv([(300.0, 1000.0), (400.0, 500.0)])
         try:
@@ -68,7 +68,7 @@ class TestLoadSpectrum:
             os.unlink(path)
 
     def test_respects_mass_window(self):
-        from src.core.spectrum_ops import load_spectrum
+        from src.core.spectrum import load_spectrum
 
         path = _make_csv([(100.0, 100.0), (300.0, 200.0), (900.0, 50.0)])
         try:
@@ -79,7 +79,7 @@ class TestLoadSpectrum:
             os.unlink(path)
 
     def test_raises_value_error_on_empty_window(self):
-        from src.core.spectrum_ops import load_spectrum
+        from src.core.spectrum import load_spectrum
 
         path = _make_csv([(100.0, 100.0)])
         try:
@@ -89,13 +89,13 @@ class TestLoadSpectrum:
             os.unlink(path)
 
     def test_raises_on_nonexistent_file(self):
-        from src.core.spectrum_ops import load_spectrum
+        from src.core.spectrum import load_spectrum
 
         with pytest.raises(ValueError, match="Не удалось прочитать"):
             load_spectrum("/nonexistent/path/file.csv")
 
     def test_maps_mz_column_to_mass(self):
-        from src.core.spectrum_ops import load_spectrum
+        from src.core.spectrum import load_spectrum
 
         path = _make_csv_with_columns(["m/z", "I"], [[300.0, 100.0], [400.0, 200.0]])
         try:
@@ -107,7 +107,7 @@ class TestLoadSpectrum:
             os.unlink(path)
 
     def test_raises_keyerror_on_missing_columns(self):
-        from src.core.spectrum_ops import load_spectrum
+        from src.core.spectrum import load_spectrum
 
         path = _make_csv_with_columns(["x", "y"], [[1, 2]])
         try:
@@ -117,7 +117,7 @@ class TestLoadSpectrum:
             os.unlink(path)
 
     def test_accepts_custom_mapper(self):
-        from src.core.spectrum_ops import load_spectrum
+        from src.core.spectrum import load_spectrum
 
         path = _make_csv_with_columns(["mz_val", "int_val"], [[300.0, 100.0]])
         try:
@@ -140,27 +140,27 @@ class TestNomDistance:
     """_nom_distance: distance from (O/C, H/C) to nearest NOM-region center."""
 
     def test_typical_nom_point(self):
-        from src.core.spectrum_ops import _nom_distance
+        from src.core.spectrum import _nom_distance
 
         # A point well within typical NOM region should have small distance
         d = _nom_distance(hc=1.2, oc=0.5)
         assert d < 1.0
 
     def test_far_point_returns_large_distance(self):
-        from src.core.spectrum_ops import _nom_distance
+        from src.core.spectrum import _nom_distance
 
         # (O/C, H/C) far outside NOM
         d = _nom_distance(hc=0.5, oc=2.0)
         assert d > 1.0
 
     def test_zero_hc_returns_penalty(self):
-        from src.core.spectrum_ops import _nom_distance
+        from src.core.spectrum import _nom_distance
 
         assert _nom_distance(hc=0.0, oc=0.5) == 10.0
         assert _nom_distance(hc=-0.1, oc=0.5) == 10.0
 
     def test_distance_is_non_negative(self):
-        from src.core.spectrum_ops import _nom_distance
+        from src.core.spectrum import _nom_distance
 
         for hc, oc in [(0.5, 0.2), (1.0, 0.5), (1.5, 0.8), (2.0, 0.3)]:
             assert _nom_distance(hc, oc) >= 0.0
@@ -175,7 +175,7 @@ class TestFormulaSearchConfig:
     """FormulaSearchConfig defaults and validation."""
 
     def test_defaults_have_expected_elements(self):
-        from src.core.spectrum_ops import FormulaSearchConfig
+        from src.core.spectrum import FormulaSearchConfig
 
         cfg = FormulaSearchConfig()
         assert "C" in cfg.elements
@@ -184,7 +184,7 @@ class TestFormulaSearchConfig:
         assert "N" in cfg.elements
 
     def test_custom_ranges_override(self):
-        from src.core.spectrum_ops import FormulaSearchConfig
+        from src.core.spectrum import FormulaSearchConfig
 
         cfg = FormulaSearchConfig(
             ranges={"C": (1, 10), "H": (0, 20), "O": (0, 5), "N": (0, 1)}
@@ -192,7 +192,7 @@ class TestFormulaSearchConfig:
         assert cfg.ranges["C"] == (1, 10)
 
     def test_missing_element_range_defaults(self):
-        from src.core.spectrum_ops import FormulaSearchConfig
+        from src.core.spectrum import FormulaSearchConfig
 
         cfg = FormulaSearchConfig()
         # By default __post_init__ fills in missing ranges
@@ -210,7 +210,7 @@ class TestDenoise:
     """denoise reduces peak count on noisy synthetic spectra."""
 
     def test_denoise_with_force_reduces_peaks(self):
-        from src.core.spectrum_ops import denoise
+        from src.core.spectrum import denoise
 
         # 10 strong peaks + 90 noise peaks
         masses = np.linspace(200, 700, 100)
@@ -222,14 +222,14 @@ class TestDenoise:
         assert len(result.table) < 100
 
     def test_denoise_with_intensity_threshold(self):
-        from src.core.spectrum_ops import denoise
+        from src.core.spectrum import denoise
 
         sp = _make_spectrum([(100.0, 1000.0), (101.0, 10.0)])
         result = denoise(sp, intensity=100.0)
         assert len(result.table) <= 2
 
     def test_denoise_with_quantile(self):
-        from src.core.spectrum_ops import denoise
+        from src.core.spectrum import denoise
 
         masses = np.linspace(200, 700, 50)
         intensities = np.random.default_rng(42).exponential(100, 50)
@@ -248,7 +248,7 @@ class TestAssignFormulasSmoke:
     """Smoke tests: assign_formulas produces expected columns."""
 
     def test_assigns_formulas_to_simple_spectrum(self):
-        from src.core.spectrum_ops import assign_formulas
+        from src.core.spectrum import assign_formulas
 
         # Single C7H6O2 peak at [M-H]- mass ≈ 137.02442
         sp = _make_spectrum([(137.024, 1000.0)])
@@ -257,7 +257,7 @@ class TestAssignFormulasSmoke:
         assert "brutto" in result.table.columns
 
     def test_assign_column_is_boolean(self):
-        from src.core.spectrum_ops import assign_formulas
+        from src.core.spectrum import assign_formulas
 
         sp = _make_spectrum([(137.024, 1000.0)])
         result = assign_formulas(sp, rel_error_ppm=5.0, sign="-")
@@ -265,14 +265,14 @@ class TestAssignFormulasSmoke:
 
     @pytest.mark.xfail(reason="Known: empty spectrum raises ValueError (NaN→int in formula range calc)")
     def test_empty_spectrum_no_crash(self):
-        from src.core.spectrum_ops import assign_formulas
+        from src.core.spectrum import assign_formulas
 
         sp = _make_spectrum([])
         result = assign_formulas(sp, rel_error_ppm=5.0, sign="-")
         assert len(result.table) == 0
 
     def test_mass_outside_window_not_assigned(self):
-        from src.core.spectrum_ops import assign_formulas
+        from src.core.spectrum import assign_formulas
 
         # Peak at 50 Da — too low for any reasonable CHON formula
         sp = _make_spectrum([(50.0, 1000.0)])
@@ -305,7 +305,7 @@ class TestFindSeriesSmoke:
         return Spectrum(table=df)
 
     def test_find_series_cd3_empty_on_no_match(self):
-        from src.core.spectrum_ops import find_series
+        from src.core.spectrum import find_series
 
         src = self._assigned_src_with_brutto([200.0])
         deriv = _make_spectrum([(250.0, 500.0)])  # no CD3 spacing
@@ -316,7 +316,7 @@ class TestFindSeriesSmoke:
         assert isinstance(result, pd.DataFrame)
 
     def test_find_series_returns_dataframe(self):
-        from src.core.spectrum_ops import find_series
+        from src.core.spectrum import find_series
 
         src = self._assigned_src_with_brutto([200.0])
         deriv = _make_spectrum([(200.0 + self.DELTA_CD3, 500.0)])
@@ -326,7 +326,7 @@ class TestFindSeriesSmoke:
         assert isinstance(result, pd.DataFrame)
 
     def test_find_series_respects_max_groups(self):
-        from src.core.spectrum_ops import find_series
+        from src.core.spectrum import find_series
 
         # Create a series: src at 200, deriv peaks at 200+delta, 200+2*delta, ...
         src_mass = 200.0
@@ -363,7 +363,7 @@ class TestBuildResultTable:
         return Spectrum(table=df)
 
     def test_empty_series_returns_base_table(self):
-        from src.core.spectrum_ops import build_result_table
+        from src.core.spectrum import build_result_table
 
         src = self._assigned_src([200.0, 300.0])
         result = build_result_table(src, pd.DataFrame(), pd.DataFrame())
@@ -371,7 +371,7 @@ class TestBuildResultTable:
         assert len(result) > 0
 
     def test_result_has_expected_columns(self):
-        from src.core.spectrum_ops import build_result_table
+        from src.core.spectrum import build_result_table
 
         src = self._assigned_src([200.0])
         result = build_result_table(src, pd.DataFrame(), pd.DataFrame())
@@ -380,7 +380,7 @@ class TestBuildResultTable:
         assert expected.issubset(set(result.columns))
 
     def test_n_cooh_n_oh_default_to_zero(self):
-        from src.core.spectrum_ops import build_result_table
+        from src.core.spectrum import build_result_table
 
         src = self._assigned_src([200.0])
         result = build_result_table(src, pd.DataFrame(), pd.DataFrame())

@@ -1633,7 +1633,7 @@ class App(tk.Tk):
                 df = pd.read_csv(path, sep=sep)
                 df.columns = [c.strip() for c in df.columns]
                 # Единый маппинг из spectrum_ops
-                from src.core.spectrum_ops import CSV_COLUMN_MAPPER
+                from src.core.spectrum import CSV_COLUMN_MAPPER
 
                 df = df.rename(columns=CSV_COLUMN_MAPPER)
                 if "mass" not in df.columns or "intensity" not in df.columns:

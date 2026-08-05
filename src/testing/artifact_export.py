@@ -144,7 +144,7 @@ def plot_series_grid(
     if df_series.empty:
         return
     # Используем существующую функцию из spectrum_ops с параметром save_path
-    from src.core.spectrum_ops import visualize_series as _vis_series
+    from src.core.spectrum import visualize_series as _vis_series
 
     # Создаем временный Spectrum-объект? Но visualize_series требует Spectrum.
     # Для упрощения вызываем с пустыми Spectrum, если надо.

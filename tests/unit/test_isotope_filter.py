@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from src.core.spectrum_ops import _beynon_m1_ratio
+from src.core.spectrum import _beynon_m1_ratio
 
 
 class TestBeynonM1Ratio:
@@ -53,7 +53,7 @@ class TestIsotopePenaltyThreshold:
 
     def _compute_penalty(self, m1_theor, m1_real):
         """Simulate the penalty logic from assign_formulas."""
-        from src.core.spectrum_ops import _ISOTOPE_TOLERANCE, _ISOTOPE_PENALTY
+        from src.core.spectrum import _ISOTOPE_TOLERANCE, _ISOTOPE_PENALTY
         dev = abs(m1_real - m1_theor) / m1_theor
         return _ISOTOPE_PENALTY if dev > _ISOTOPE_TOLERANCE else 0.0
 

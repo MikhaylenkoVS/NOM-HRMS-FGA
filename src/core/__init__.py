@@ -19,7 +19,7 @@ from .van_krevelen import (
     compute_van_krevelen_data,
     create_van_krevelen_plot,
 )
-from .spectrum_ops import (
+from .spectrum import (
     load_spectrum,
     denoise,
     find_series,

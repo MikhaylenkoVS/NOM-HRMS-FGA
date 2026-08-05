@@ -130,7 +130,7 @@ class PipelineProgress:
 # Импорт зависимостей из spectrum_ops
 # ---------------------------------------------------------------------------
 try:
-    from src.core.spectrum_ops import (
+    from src.core.spectrum import (
         Spectrum,
         load_spectrum,
         denoise,

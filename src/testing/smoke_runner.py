@@ -145,7 +145,7 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
     # Пайплайн их не возвращает напрямую, но мы можем вытащить из его внутренностей.
     # Чтобы не менять API, выполним find_series повторно с теми же параметрами.
     try:
-        from src.core.spectrum_ops import (
+        from src.core.spectrum import (
             load_spectrum,
             denoise,
             find_series,
@@ -175,7 +175,7 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
         )
 
         # Назначаем формулы (используем тот же вызов, что и пайплайн)
-        from src.core.spectrum_ops import assign_formulas_simple
+        from src.core.spectrum import assign_formulas_simple
 
         src_sp = assign_formulas_simple(
             src_sp, rel_error_ppm=_p["rel_error"], ion_mode=CHEM.default_ion_mode

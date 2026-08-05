@@ -1,34 +1,57 @@
-"""GMM-based noise threshold detection for mass spectra.
-
-Clean-room implementation (MPL-2.0).  Independently designed algorithm:
-
-1. Fit a 1-D Gaussian mixture model (EM) on log10(intensities).
-2. Select the number of components K* that minimises BIC.
-3. Find the intersection of the two lowest-mean Gaussians — the noise / signal
-   boundary in log-space.
-4. Exponentiate back to get the intensity threshold.
-
-The implementation is self-contained (numpy-only) and deliberately avoids
-copying variable names, heuristics, or control flow from any GPL source.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
+"""Denoising + GMM noise threshold."""
+import logging
 import numpy as np
-
+import math
+from dataclasses import dataclass
+from typing import Optional
+from src.core.domain.spectrum import Spectrum
 from src.configs.loader import NOISE_CFG
 
-if TYPE_CHECKING:
-    from src.core.domain.spectrum import Spectrum
+logger = logging.getLogger(__name__)
 
-# Loaded from config
-_EPS = NOISE_CFG.eps
-_MAX_GMM_POINTS = NOISE_CFG.subsample_max_points
+# Denoise wrapper (from spectrum_ops.py)
 
+def denoise(
+    spec,
+    *,
+    force=2.0,
+    intensity=None,
+    quantile=None,
+):
+    """Remove noise peaks from a spectrum.
 
+    Thin wrapper around ``Spectrum.noise_filter()``.
+
+    Parameters
+    ----------
+    spec : Spectrum
+        Input spectrum.
+    force : float, keyword-only, optional
+        Multiplier applied to the auto-detected noise level. Default 1.5.
+    intensity : float, keyword-only, optional
+        Hard absolute intensity threshold. Takes priority when given.
+    quantile : float, keyword-only, optional
+        Lower intensity quantile in [0, 1]. Used if ``intensity`` is None.
+
+    Returns
+    -------
+    Spectrum
+        Denoised spectrum.
+
+    Notes
+    -----
+    Parameter priority is ``intensity`` > ``quantile`` > ``force``.
+    """
+    return spec.noise_filter(force=force, intensity=intensity, quantile=quantile)
+
+# ===========================================================================
+# ЭТАП 2b: Назначение брутто-формул
+# ===========================================================================
+
+# Default per-element count ranges for brutto assignment.
+# Source: pipeline.json -> default_brutto_dict. JSON stores [min, max] lists;
+
+# GMM noise threshold (from noise.py)
 def _log_gaussian_pdf(x: np.ndarray, mean: float, var: float) -> np.ndarray:
     """Log-probability density of a 1-D normal distribution."""
     return -0.5 * (np.log(2 * np.pi * var) + (x - mean) ** 2 / var)
@@ -87,21 +110,21 @@ def fit_gmm_1d(
         # E-step: responsibilities
         log_resp = np.empty((n, K))
         for k in range(K):
-            log_resp[:, k] = np.log(weights[k] + _EPS) + _log_gaussian_pdf(x, means[k], vars[k])
+            log_resp[:, k] = np.log(weights[k] + NOISE_CFG.eps) + _log_gaussian_pdf(x, means[k], vars[k])
 
         log_resp_max = log_resp.max(axis=1, keepdims=True)
         resp = np.exp(log_resp - log_resp_max)
         resp_sum = resp.sum(axis=1, keepdims=True)
-        resp /= np.maximum(resp_sum, _EPS)
+        resp /= np.maximum(resp_sum, NOISE_CFG.eps)
 
         # M-step
         Nk = resp.sum(axis=0)
         weights_new = Nk / n
-        means_new = np.sum(resp * x[:, np.newaxis], axis=0) / np.maximum(Nk, _EPS)
+        means_new = np.sum(resp * x[:, np.newaxis], axis=0) / np.maximum(Nk, NOISE_CFG.eps)
         vars_new = np.zeros(K)
         for k in range(K):
             diff = x - means_new[k]
-            vars_new[k] = np.sum(resp[:, k] * diff ** 2) / max(Nk[k], _EPS)
+            vars_new[k] = np.sum(resp[:, k] * diff ** 2) / max(Nk[k], NOISE_CFG.eps)
 
         # Regularise: prevent variance collapse
         vars_new = np.maximum(vars_new, 1e-6 * np.var(x))
@@ -111,7 +134,7 @@ def fit_gmm_1d(
         weights = weights_new
 
         # Log-likelihood
-        log_lik = np.sum(np.log(np.maximum(resp_sum.flatten(), _EPS))) + np.sum(log_resp_max)
+        log_lik = np.sum(np.log(np.maximum(resp_sum.flatten(), NOISE_CFG.eps))) + np.sum(log_resp_max)
         if abs(log_lik - log_likelihood) < tol:
             log_likelihood = log_lik
             break
@@ -165,16 +188,16 @@ def gaussian_intersection(
     C = (mu1 ** 2) / (2.0 * v1) - (mu2 ** 2) / (2.0 * v2) \
         - np.log(sigma2 / sigma1) - np.log(pi1 / pi2)
 
-    if abs(A) < _EPS:
+    if abs(A) < NOISE_CFG.eps:
         # Degenerate: equal variances → linear equation
-        if abs(B) > _EPS:
+        if abs(B) > NOISE_CFG.eps:
             return -C / B
         # Otherwise fall back to midpoint
         return (mu1 + mu2) / 2.0
 
     disc = B ** 2 - 4.0 * A * C
     if disc < 0:
-        # No real intersection — return midpoint
+        # No real intersection -- return midpoint
         return (mu1 + mu2) / 2.0
 
     sqrt_disc = np.sqrt(disc)
@@ -254,9 +277,9 @@ def compute_noise_threshold(
     # Subsample for performance: GMM on 5 000 points is instant,
     # 500 000 would allocate an n×K matrix (7.5M elements) per EM iteration.
     n_total = len(intensities)
-    if n_total > _MAX_GMM_POINTS:
+    if n_total > NOISE_CFG.subsample_max_points:
         rng = np.random.default_rng(42)
-        idx = rng.choice(n_total, _MAX_GMM_POINTS, replace=False)
+        idx = rng.choice(n_total, NOISE_CFG.subsample_max_points, replace=False)
         x = np.log10(intensities[idx])
     else:
         x = np.log10(intensities)
@@ -287,7 +310,7 @@ def compute_noise_threshold(
     weights = weights[order]
 
     if best_K == 1:
-        # Single component — use mean as "threshold" (no real noise/signal split)
+        # Single component -- use mean as "threshold" (no real noise/signal split)
         x_thr = means[0]
     else:
         mu1, mu2 = means[0], means[1]

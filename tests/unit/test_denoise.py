@@ -3,7 +3,7 @@ from pathlib import Path
 from src.configs import PATHS
 import pandas as pd
 import pytest
-from src.core.spectrum_ops import load_spectrum, denoise
+from src.core.spectrum import load_spectrum, denoise
 
 
 THIS_DIR = Path(__file__).resolve().parents[1]

@@ -32,7 +32,7 @@ from src.core.pipeline import (
 # ---------------------------------------------------------------------------
 # Imports from spectrum_ops.py
 # ---------------------------------------------------------------------------
-from src.core.spectrum_ops import (
+from src.core.spectrum import (
     exact_mass_from_counts,
     dbe_from_counts,
     _row_to_brutto,
@@ -274,7 +274,7 @@ class TestExactMassFromCounts:
         """H2O mass ~18.01056 Da (uses actual ATOMIC_MASS values from config)."""
         mass = exact_mass_from_counts({"H": 2, "O": 1})
         # Use actual ATOMIC_MASS values to verify correctness at 1e-6
-        from src.core.spectrum_ops import ATOMIC_MASS
+        from src.core.spectrum import ATOMIC_MASS
 
         expected = 2 * ATOMIC_MASS["H"] + ATOMIC_MASS["O"]
         assert abs(mass - expected) < 1e-12
@@ -282,7 +282,7 @@ class TestExactMassFromCounts:
     def test_zero_count_ignored(self):
         """Element with count 0 is skipped."""
         mass = exact_mass_from_counts({"C": 12, "H": 0})
-        from src.core.spectrum_ops import ATOMIC_MASS
+        from src.core.spectrum import ATOMIC_MASS
 
         expected = 12 * ATOMIC_MASS["C"]
         assert abs(mass - expected) < 1e-12
@@ -544,7 +544,7 @@ class TestGeneratorShiftConsistency:
 
     def test_dm_shift_matches_delta_cd3(self):
         """Generator's dm_shift_per_group fallback == DELTA_CD3."""
-        from src.core.spectrum_ops import DELTA_CD3
+        from src.core.spectrum import DELTA_CD3
         from src.configs import CHEM
 
         fallback = CHEM.derivatization_shifts["delta_cd3"]
@@ -554,7 +554,7 @@ class TestGeneratorShiftConsistency:
 
     def test_da_shift_matches_delta_cd3co(self):
         """Generator's da_shift_per_group fallback == DELTA_CD3CO."""
-        from src.core.spectrum_ops import DELTA_CD3CO
+        from src.core.spectrum import DELTA_CD3CO
         from src.configs import CHEM
 
         fallback = CHEM.derivatization_shifts["delta_cd3co"]

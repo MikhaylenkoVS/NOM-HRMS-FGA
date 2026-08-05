@@ -294,7 +294,7 @@ class Spectrum:
         elif quantile is not None:
             threshold = float(self.table["intensity"].quantile(quantile))
         else:
-            from src.core.noise import compute_noise_threshold
+            from src.core.spectrum import compute_noise_threshold
 
             intens = self.intensity[self.intensity > 0]
             if len(intens) < 3:
