@@ -7,6 +7,7 @@ from src.configs import CHEM, PIPELINE, PATHS
 from ._cache import _pipeline_cache, _result_cache, PipelineProgress
 from ._helpers import _debug, _normalize_brutto, _ppm_error
 from ._stats import PipelineStats, PipelineRunResult, SeriesStats
+from ._test import _run_test_mode
 from src.core.timer import PipelineTimings
 # ---------------------------------------------------------------------------
 try:
@@ -29,6 +30,30 @@ except Exception as _e:
         f"[PIPELINE] CRITICAL: не удалось импортировать spectrum_ops: {_e}",
     )
 logger = logging.getLogger(__name__)
+
+def _make_sub_progress(progress_callback, base_pct, range_pct, label_tpl):
+    """Create a per-step callback that maps ``(step, total)`` → absolute %.
+
+    Parameters
+    ----------
+    progress_callback : callable or None
+        Outer callback ``(label, pct) → None``.
+    base_pct : int
+        Starting percentage for this sub-stage.
+    range_pct : int
+        Width of the percentage range allocated to this sub-stage.
+    label_tpl : str
+        Template string with ``{0}`` = step, ``{1}`` = total.
+    """
+    if not progress_callback:
+        return None
+
+    def cb(step, total):
+        pct = base_pct + int(step / max(total, 1) * range_pct)
+        progress_callback(label_tpl.format(step, total), pct)
+
+    return cb
+
 
 def run_pipeline(
     src_path=None,
@@ -67,6 +92,7 @@ def run_pipeline(
     # Изотопный фильтр
     isotope_filter: bool = False,
     use_cache: bool = True,
+    progress_callback=None,
 ):
     """Run the full -COOH / -OH quantification pipeline.
 
@@ -110,6 +136,10 @@ def run_pipeline(
         instead. Default ``False``.
     test_sets_root : str or None, keyword-only, optional
         Root directory of the test sets used when ``test_mode=True``.
+    progress_callback : callable or None, keyword-only, optional
+        If given, called as ``progress_callback(stage_name, pct)`` at each
+        pipeline stage (0–100).  Stage names use Russian labels matching
+        the GUI status bar.
 
     Returns
     -------
@@ -189,6 +219,8 @@ def run_pipeline(
     _debug(f"dacet_path= {dacet_path}")
     _debug(f"load_mass_min={load_mass_min}, load_mass_max={load_mass_max}")
 
+    if progress_callback:
+        progress_callback("Загрузка src…", 2)
     _mapper = {"mass": "mass", "intensity": "intensity"}
     try:
         src = load_spectrum(
@@ -201,6 +233,8 @@ def run_pipeline(
         )
         stats.src_loaded = len(src.table) if hasattr(src, "table") else 0
         _debug(f"src загружен: {stats.src_loaded} пиков")
+        if progress_callback:
+            progress_callback("Загрузка dmet…", 5)
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА загрузки src: {e}\n{traceback.format_exc()}"
         logger.error(msg)
@@ -217,6 +251,8 @@ def run_pipeline(
         )
         stats.dmet_loaded = len(dmet.table) if hasattr(dmet, "table") else 0
         _debug(f"dmet загружен: {stats.dmet_loaded} пиков")
+        if progress_callback:
+            progress_callback("Загрузка dacet…", 8)
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА загрузки dmet: {e}\n{traceback.format_exc()}"
         logger.error(msg)
@@ -241,6 +277,8 @@ def run_pipeline(
     print(
         f"  Загружено пиков:  src={stats.src_loaded},  dmet={stats.dmet_loaded},  dacet={stats.dacet_loaded}"
     )
+    if progress_callback:
+        progress_callback("Загрузка завершена", 10)
 
     # -----------------------------------------------------------------------
     # ШАГ 2a: Шумоподавление
@@ -256,6 +294,8 @@ def run_pipeline(
     try:
         # Сохранить копию до денойза для изотопного фильтра
         src_original = src.copy() if isotope_filter else None
+        if progress_callback:
+            progress_callback("Шумоподавление src…", 12)
         src = denoise(
             src, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
         )
@@ -267,6 +307,8 @@ def run_pipeline(
         messages.append(msg)
 
     try:
+        if progress_callback:
+            progress_callback("Шумоподавление dmet…", 15)
         dmet = denoise(
             dmet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
         )
@@ -278,6 +320,8 @@ def run_pipeline(
         messages.append(msg)
 
     try:
+        if progress_callback:
+            progress_callback("Шумоподавление dacet…", 18)
         dacet = denoise(
             dacet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
         )
@@ -291,6 +335,8 @@ def run_pipeline(
     print(
         f"  После шумоподавления: src={stats.src_denoised},  dmet={stats.dmet_denoised},  dacet={stats.dacet_denoised}"
     )
+    if progress_callback:
+        progress_callback("Шумоподавление завершено", 20)
 
     # -----------------------------------------------------------------------
     # ШАГ 2b: Назначение брутто-формул
@@ -306,6 +352,11 @@ def run_pipeline(
     _debug(f"brutto_dict={'default' if brutto_dict is None else brutto_dict}")
 
     try:
+        if progress_callback:
+            progress_callback("Генерация формул-кандидатов…", 22)
+        _assign_cb = _make_sub_progress(
+            progress_callback, 23, 28, "Формула {0}/{1}…"
+        )
         src = assign_formulas(
             src,
             rel_error_ppm=rel_error,
@@ -313,6 +364,7 @@ def run_pipeline(
             mass_max=assign_mass_max,
             isotope_filter=isotope_filter,
             original=src_original,
+            progress_callback=_assign_cb,
         )
         n_assigned = int(src.table.get("assign", pd.Series(dtype=bool)).sum())
         stats.assigned_count = n_assigned
@@ -340,6 +392,9 @@ def run_pipeline(
         n_assigned = 0
 
     print(f"  Назначено формул: {n_assigned} из {stats.src_denoised} пиков")
+
+    if progress_callback:
+        progress_callback("Назначение формул завершено", 52)
 
     # Строим копию только с назначенными пиками
     try:
@@ -370,6 +425,9 @@ def run_pipeline(
 
     df_dmet = pd.DataFrame()
     try:
+        _cd3_cb = _make_sub_progress(
+            progress_callback, 53, 13, "Серия CD3 {0}/{1}…"
+        )
         df_dmet = find_series(
             src,
             dmet,
@@ -377,6 +435,7 @@ def run_pipeline(
             ppm_tol=ppm_tol,
             max_groups=max_groups,
             allow_gaps=allow_gaps,
+            progress_callback=_cd3_cb,
         )
         stats.dmet.rows = len(df_dmet)
         if not df_dmet.empty:
@@ -405,6 +464,8 @@ def run_pipeline(
             print(
                 f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dmet.missing_total}"
             )
+    if progress_callback:
+        progress_callback("Поиск серий CD3 завершён", 67)
 
     # -----------------------------------------------------------------------
     # ШАГ 4: Серии CD3CO (N_OH)
@@ -419,6 +480,9 @@ def run_pipeline(
 
     df_dacet = pd.DataFrame()
     try:
+        _cd3co_cb = _make_sub_progress(
+            progress_callback, 68, 13, "Серия CD3CO {0}/{1}…"
+        )
         df_dacet = find_series(
             src,
             dacet,
@@ -426,6 +490,7 @@ def run_pipeline(
             ppm_tol=ppm_tol,
             max_groups=max_groups,
             allow_gaps=allow_gaps,
+            progress_callback=_cd3co_cb,
         )
         stats.dacet.rows = len(df_dacet)
         if not df_dacet.empty:
@@ -451,6 +516,8 @@ def run_pipeline(
             print(
                 f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dacet.missing_total}"
             )
+    if progress_callback:
+        progress_callback("Поиск серий CD3CO завершён", 82)
 
     # -----------------------------------------------------------------------
     # ШАГ 5: Итоговая таблица
@@ -481,6 +548,8 @@ def run_pipeline(
     if not result.empty:
         print(f"  Соединений с N_COOH > 0: {stats.result_n_cooh_gt0}")
         print(f"  Соединений с N_OH   > 0: {stats.result_n_oh_gt0}")
+    if progress_callback:
+        progress_callback("Сборка итоговой таблицы…", 90)
 
     # -----------------------------------------------------------------------
     # ШАГ 6: Визуализация
@@ -491,6 +560,8 @@ def run_pipeline(
         print("ШАГ 6: Визуализация пропущенных пиков")
         print("=" * 60)
         try:
+            if progress_callback:
+                progress_callback("Визуализация CD3…", 92)
             visualize_series(
                 src,
                 dmet,
@@ -505,6 +576,8 @@ def run_pipeline(
             logger.error(msg)
             messages.append(msg)
         try:
+            if progress_callback:
+                progress_callback("Визуализация CD3CO…", 94)
             visualize_series(
                 src,
                 dacet,
@@ -524,6 +597,8 @@ def run_pipeline(
     # -----------------------------------------------------------------------
     if output_csv and not result.empty:
         try:
+            if progress_callback:
+                progress_callback("Сохранение CSV…", 96)
             result.to_csv(output_csv, index=False, sep=";", encoding="utf-8-sig")
             print(f"\nИтоговая таблица сохранена: {output_csv}")
             _debug(f"CSV сохранён в {output_csv}, строк={len(result)}")
@@ -541,6 +616,8 @@ def run_pipeline(
         print("ШАГ 7: Van Krevelen диаграмма")
         print("=" * 60)
         try:
+            if progress_callback:
+                progress_callback("Van Krevelen диаграмма…", 98)
             create_van_krevelen_plot(result, output_path=van_krevelen_output)
         except Exception as e:
             msg = f"[PIPELINE] ОШИБКА Van Krevelen: {e}\n{traceback.format_exc()}"
@@ -550,26 +627,7 @@ def run_pipeline(
     result_obj = PipelineRunResult(table=result, stats=stats, messages=messages)
     if use_cache:
         _result_cache[_cache_key] = result_obj
+    if progress_callback:
+        progress_callback("Готово", 100)
     return result_obj
-
-
-# ---------------------------------------------------------------------------
-# ТЕСТ-РЕЖИМ
-# ---------------------------------------------------------------------------
-
-#: Конфигурация дериватизации для тест-режима:
-#: имена файлов из paths.json, сдвиги масс из chemistry.json.
-_DERIV_SPECS = [
-    (
-        PATHS.spectrum_files["deutermethylated"],
-        DELTA_CD3 if not _IMPORT_ERROR else CHEM.derivatization_shifts["delta_cd3"],
-        "deutermethylated",
-    ),
-    (
-        PATHS.spectrum_files["deuteroacylated"],
-        DELTA_CD3CO if not _IMPORT_ERROR else CHEM.derivatization_shifts["delta_cd3co"],
-        "deuteroacylated",
-    ),
-]
-_TEST_MATCH_PPM = PIPELINE.test_mode["match_ppm"]
 

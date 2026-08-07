@@ -4,7 +4,7 @@
 # Мягкий пиннинг (минимальные нижние границы). Версии подобраны
 # так, чтобы гарантировать наличие используемого API при широкой
 # совместимости. Список проверен по фактическим import в src/,
-# tests/, tools/ и src/simulations/.
+# tests/, tools/ и src/sim/.
 #
 # Системная зависимость (НЕ ставится через pip):
 #   * tkinter — часть стандартной библиотеки CPython, но в ряде
@@ -37,16 +37,16 @@ Pillow>=9.0
 # --- Тестирование ---
 pytest>=7.0
 # Генерация синтетических тест-сетов из PubChem
-# (src/simulations/search_pubchem_nom_like_cids.py):
+# (src/sim/search_pubchem_nom_like_cids.py):
 #   pubchempy>=1.0.4
 #
 # Встроенный вывод структур в средах Jupyter/IPython
 # (опциональный импорт в src/core/rdkit_bridge.py):
 #   ipython>=8.0
 #
-# Усреднение ThermoRAW-файлов (только Windows, src/core/raw_bridge.py):
-#   comtypes>=1.1.14
-#   + MSFileReader 3.1 SP4 (системная DLL, не ставится через pip)
+# Усреднение ThermoRAW-файлов (только Windows, src/core/io/raw_thermo_adapter.py):
+#   pythonnet>=3.0
+#   + RawFileReader DLLs в thermo/ (проприетарные, ThermoFisher)
 #
 # Конвертация mzML → CSV (src/core/mzml_bridge.py):
 pymzml>=2.5

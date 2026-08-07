@@ -22,17 +22,15 @@ count functional groups, assign molecular formulas in negative ion mode
 
 **Repository:** https://github.com/MikhaylenkoVS/NOM-HRMS-FGA
 
-**Version / Tag:** v0.5.0
+**Version / Tag:** v0.7.0
 
-**Release date:** 2026-07-13
+**Release date:** 2026-08-07
 
-**Release URL:** https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases/tag/v0.5.0
+**Release URL:** https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases/tag/v0.7.0
 
 **Archived version (DOI):** [DOI будет присвоен при архивировании релиза на Zenodo]
 
-**License:** GPL-3.0 (see `LICENSE`). Third-party code under
-`external/usrednenie_spectrov_i_hromatogramm/` is distributed under GPL-3.0 and
-retains its own license.
+**License:** MPL-2.0 (see `LICENSE`).
 
 **Programming language / Runtime:** Python ≥ 3.10.
 
@@ -72,7 +70,7 @@ some Linux distributions, e.g. `apt install python3-tk`).
 # 1. Install
 pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 
-# 2. Run the automated test suite (305 tests)
+# 2. Run the automated test suite (318 tests)
 pytest
 ```
 
@@ -101,13 +99,11 @@ DELTA_CD3 = 17.03448 Да на группу) и дейтероацилирова
 
 **Репозиторий:** https://github.com/MikhaylenkoVS/NOM-HRMS-FGA
 
-**Версия / тег:** v0.5.0
+**Версия / тег:** v0.7.0
 
 **Архивная версия (DOI):** [DOI будет присвоен при архивировании релиза на Zenodo]
 
-**Лицензия:** GPL-3.0 (см. файл `LICENSE`). Сторонний код в каталоге
-`external/usrednenie_spectrov_i_hromatogramm/` распространяется под лицензией
-GPL-3.0 и сохраняет собственную лицензию.
+**Лицензия:** MPL-2.0 (см. файл `LICENSE`).
 
 **Язык программирования / среда выполнения:** Python ≥ 3.10.
 
@@ -147,7 +143,7 @@ python tools/build_exe.py    # создаёт dist/NOM_HRMS_FGA.exe (~120 МБ)
 # 1. Установить
 pip install git+https://github.com/MikhaylenkoVS/NOM-HRMS-FGA.git
 
-# 2. Запустить автоматический набор тестов (305 тестов)
+# 2. Запустить автоматический набор тестов (318 тестов)
 pytest
 ```
 

@@ -3,10 +3,29 @@ import logging, traceback
 from pathlib import Path
 import pandas as pd
 from src.configs import PIPELINE, PATHS, CHEM
-from src.core.spectrum import load_spectrum, denoise, assign_formulas, find_series, build_result_table
+from src.core.spectrum import (
+    load_spectrum, denoise, assign_formulas, find_series, build_result_table,
+    DELTA_CD3, DELTA_CD3CO,
+)
 from ._stats import TestSetResult, PipelineStats
-from ._helpers import _debug
+from ._helpers import _debug, _match_row_by_mass, _normalize_brutto
 logger = logging.getLogger(__name__)
+
+#: Конфигурация дериватизации для тест-режима:
+#: имена файлов из paths.json, сдвиги масс из chemistry.json.
+_DERIV_SPECS = [
+    (
+        PATHS.spectrum_files["deutermethylated"],
+        DELTA_CD3,
+        "deutermethylated",
+    ),
+    (
+        PATHS.spectrum_files["deuteroacylated"],
+        DELTA_CD3CO,
+        "deuteroacylated",
+    ),
+]
+_TEST_MATCH_PPM = PIPELINE.test_mode["match_ppm"]
 
 def _run_test_mode(
     test_sets_root=None,

@@ -568,7 +568,7 @@ class TestGeneratorShiftConsistency:
         import sys
 
         # Prevent side effects from full import
-        spec = importlib.util.find_spec("src.simulations.generate_test_sets")
+        spec = importlib.util.find_spec("src.sim.generate_test_sets")
         assert (
             spec is not None
         ), "generate_test_sets module not found — integrity check skipped"

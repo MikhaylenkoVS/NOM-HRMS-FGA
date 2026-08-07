@@ -57,25 +57,28 @@ def test_fallback_signature_matches_real():
 
 
 def test_call_sites_match_signature():
-    """Все вызовы embed_figure в app.py используют совместимые аргументы."""
-    app_path = Path(__file__).resolve().parents[2] / "src" / "app.py"
-    source = app_path.read_text(encoding="utf-8")
+    """Все вызовы embed_figure в app.py и ui/_*.py используют совместимые аргументы."""
+    root = Path(__file__).resolve().parents[2] / "src"
+    sources = {"app.py": (root / "app.py").read_text(encoding="utf-8")}
+    ui_dir = root / "ui"
+    for f in ui_dir.glob("_*.py"):
+        sources[f"ui/{f.name}"] = f.read_text(encoding="utf-8")
 
-    # Ищем все вызовы embed_figure(...) — исключаем определение функции и импорт
-    calls = re.findall(r"embed_figure\(([^)]*)\)", source)
-    # Отфильтровываем определение fallback'а (там тоже "embed_figure")
-    call_sites = [
-        c for c in calls
-        if "def embed_figure" not in source[
-            max(0, source.find(c) - 20):source.find(c)
-        ]
-    ]
+    all_calls = []
+    for fname, source in sources.items():
+        calls = re.findall(r"embed_figure\(([^)]*)\)", source)
+        for c in calls:
+            # Отфильтровываем определение fallback'а
+            if "def embed_figure" not in source[
+                max(0, source.find(c) - 20):source.find(c)
+            ]:
+                all_calls.append((fname, c))
 
-    assert len(call_sites) >= 3, (
-        f"Ожидалось минимум 3 места вызова, найдено {len(call_sites)}"
+    assert len(all_calls) >= 3, (
+        f"Ожидалось минимум 3 места вызова, найдено {len(all_calls)}"
     )
 
-    for i, args_str in enumerate(call_sites):
+    for i, (fname, args_str) in enumerate(all_calls):
         # Считаем позиционные аргументы (до первого `=` если есть keyword)
         pos_args = [
             a.strip() for a in args_str.split(",")

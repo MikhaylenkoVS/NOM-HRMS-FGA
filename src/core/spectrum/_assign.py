@@ -25,6 +25,7 @@ def assign_formulas(
     original=None,
     rel_error: float | None = None,
     sign: str | None = None,
+    progress_callback=None,
 ):
     """Assign brutto formulas by brute-force CHON enumeration.
 
@@ -128,7 +129,10 @@ def assign_formulas(
     assign_col = [False] * len(table)
     candidates_col = [None] * len(table)
 
+    n_peaks = len(table)
     for idx, (mass_obs,) in enumerate(zip(table["mass"])):
+        if progress_callback:
+            progress_callback(idx + 1, n_peaks)
         mass_obs = float(mass_obs)
 
         abs_ppm = np.abs((cand_masses_ion - mass_obs) / mass_obs * 1e6)

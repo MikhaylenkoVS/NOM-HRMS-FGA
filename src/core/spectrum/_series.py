@@ -30,7 +30,7 @@ def _find_peak(mz_array, target_mz, ppm_tol):
         Index of the closest peak within ``ppm_tol``, or ``None`` if none
         falls within tolerance.
     """
-    mz = np.asarray(mz_array, dtype=float) if not isinstance(mz_array, np.ndarray) else mz_array.astype(float, copy=False)
+    mz = mz_array.astype(float, copy=False) if isinstance(mz_array, np.ndarray) else np.asarray(mz_array, dtype=float)
     diffs_ppm = np.abs(mz - target_mz) / target_mz * 1e6
     mask = diffs_ppm <= ppm_tol
     if not mask.any():
@@ -48,6 +48,7 @@ def find_series(
     allow_gaps=True,
     min_series_length=1,
     max_consecutive_misses=3,
+    progress_callback=None,
 ):
     """Detect homologous derivatization series in a labelled spectrum.
 
@@ -128,7 +129,10 @@ def find_series(
     # Кэш parse_formula — одни и те же формулы повторяются между пиками
     _formula_cache: dict[str, dict] = {}
 
-    for row in src.table.itertuples(index=False):
+    n_total = len(src.table)
+    for i, row in enumerate(src.table.itertuples(index=False), start=1):
+        if progress_callback:
+            progress_callback(i, n_total)
         if not getattr(row, "assign", False):
             continue
 
