@@ -49,5 +49,5 @@ pytest>=7.0
 #   + RawFileReader DLLs в thermo/ (проприетарные, ThermoFisher)
 #
 # Конвертация mzML → CSV (src/core/mzml_bridge.py):
-pymzml>=2.5
+pymzml>=2.6.1
 zstandard>=0.22
