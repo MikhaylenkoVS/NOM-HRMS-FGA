@@ -1,0 +1,34 @@
+name: Feature Request
+description: Предложить новую функциональность
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: Проблема
+      description: Какую проблему решает эта функциональность?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Желаемый результат
+      description: Что должно быть реализовано?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Рассмотренные альтернативы
+  - type: textarea
+    attributes:
+      label: Scope (что входит)
+  - type: textarea
+    attributes:
+      label: Non-goals (что НЕ входит)
+  - type: dropdown
+    attributes:
+      label: Влияет на научные результаты?
+      options: ["Нет", "Да (требуется scientific validation)"]
+  - type: textarea
+    attributes:
+      label: Ожидаемая валидация
+      description: Как проверить, что фича работает правильно?

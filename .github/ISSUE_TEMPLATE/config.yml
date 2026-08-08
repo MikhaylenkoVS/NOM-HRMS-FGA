@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AI Workflow Documentation
+    url: https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/blob/main/docs/ai_workflow.md
+    about: Документация по AI-assisted workflow
+  - name: ADR Index
+    url: https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/blob/main/.ai/decisions/index.md
+    about: Архитектурные решения

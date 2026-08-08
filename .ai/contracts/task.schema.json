@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/.ai/contracts/task.schema.json",
+  "title": "Task Packet",
+  "description": "Schema for task.json in .ai/tasks/active/<task-id>/",
+  "type": "object",
+  "required": [
+    "schema_version", "id", "title", "status", "type", "risk_level",
+    "created_at", "updated_at", "owners", "git", "scope",
+    "requirements", "validation", "artifacts", "links"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft", "designed", "implementation",
+        "validation", "review", "approved",
+        "merged", "completed", "archived"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "bugfix", "feature", "refactor", "documentation",
+        "test", "performance", "scientific", "architecture",
+        "formula-db", "packaging", "security", "release", "maintenance"
+      ]
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "owners": {
+      "type": "object",
+      "required": ["planner", "implementer", "approver"],
+      "properties": {
+        "planner": {"type": "string"},
+        "implementer": {"type": "string"},
+        "approver": {"type": "string"}
+      }
+    },
+    "git": {
+      "type": "object",
+      "required": ["base_branch", "working_branch"],
+      "properties": {
+        "base_branch": {"type": "string", "minLength": 1},
+        "working_branch": {"type": "string"},
+        "pull_request": {"type": ["string", "null"]}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": ["allowed_paths", "forbidden_paths"],
+      "properties": {
+        "allowed_paths": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "forbidden_paths": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "max_changed_files": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "required": ["must_have", "must_not"],
+      "properties": {
+        "must_have": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "must_not": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "required_checks", "required_test_commands",
+        "requires_benchmark", "requires_reference_equivalence",
+        "requires_adr", "requires_human_approval"
+      ],
+      "properties": {
+        "required_checks": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "required_test_commands": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "requires_benchmark": {"type": "boolean"},
+        "requires_reference_equivalence": {"type": "boolean"},
+        "requires_adr": {"type": "boolean"},
+        "requires_human_approval": {"type": "boolean"}
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["design", "acceptance", "implementation_report"],
+      "properties": {
+        "design": {"type": "string"},
+        "acceptance": {"type": "string"},
+        "implementation_report": {"type": "string"},
+        "benchmark_report": {"type": ["string", "null"]},
+        "rollback_plan": {"type": ["string", "null"]}
+      }
+    },
+    "links": {
+      "type": "object",
+      "required": ["issue", "pull_request", "adr"],
+      "properties": {
+        "issue": {"type": ["string", "null"]},
+        "pull_request": {"type": ["string", "null"]},
+        "adr": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}

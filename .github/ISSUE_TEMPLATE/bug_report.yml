@@ -1,0 +1,49 @@
+name: Bug Report
+description: Сообщить об ошибке
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: Ожидаемое поведение
+      description: Что должно происходить?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Фактическое поведение
+      description: Что происходит на самом деле?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Шаги для воспроизведения
+      placeholder: |
+        1. Открыть приложение
+        2. Загрузить файл ...
+        3. Нажать ...
+        4. Ошибка
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Версия приложения
+      placeholder: e.g., v0.6.0
+  - type: textarea
+    attributes:
+      label: Окружение
+      placeholder: |
+        - OS: Windows 11
+        - Python: 3.12 (если применимо)
+        - .exe или pip install?
+  - type: textarea
+    attributes:
+      label: Логи (без конфиденциальных данных)
+  - type: dropdown
+    attributes:
+      label: Регрессия?
+      options: ["Нет", "Да, работало в версии ..."]
+  - type: dropdown
+    attributes:
+      label: Влияет на научные результаты?
+      options: ["Нет", "Да (опишите ниже)"]

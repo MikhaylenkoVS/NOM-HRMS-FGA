@@ -1,0 +1,32 @@
+name: Architecture Decision
+description: Запрос на архитектурное решение
+title: "arch: "
+labels: ["architecture", "needs-adr"]
+body:
+  - type: textarea
+    attributes:
+      label: Требуемое решение
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Контекст
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Ограничения
+  - type: textarea
+    attributes:
+      label: Альтернативы
+  - type: textarea
+    attributes:
+      label: Риски
+  - type: input
+    attributes:
+      label: Ожидаемый ADR (путь)
+      placeholder: ".ai/decisions/NNNN-title.md"
+  - type: input
+    attributes:
+      label: Утверждающий (human approver)
+      placeholder: "GitHub username"

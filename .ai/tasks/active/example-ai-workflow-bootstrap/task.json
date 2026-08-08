@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "id": "example-ai-workflow-bootstrap",
+  "title": "Establish AI-assisted engineering workflow",
+  "status": "implementation",
+  "type": "architecture",
+  "risk_level": "medium",
+  "created_at": "2026-08-08T00:00:00Z",
+  "updated_at": "2026-08-08T00:00:00Z",
+  "owners": {
+    "planner": "perplexity",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "feature/example-ai-workflow-bootstrap",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      ".ai/",
+      "tools/ai_workflow.py",
+      "AGENTS.md",
+      "CONTRIBUTING.md",
+      "docs/ai_workflow.md",
+      "docs/ai_task_lifecycle.md",
+      "docs/ai_review_protocol.md",
+      "docs/scientific_change_protocol.md",
+      "docs/release_checklist.md",
+      "docs/github_manual_setup.md",
+      ".github/ISSUE_TEMPLATE/",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      ".github/CODEOWNERS",
+      ".github/dependabot.yml",
+      ".github/workflows/ci.yml",
+      ".github/workflows/ai-artifacts.yml",
+      ".github/workflows/benchmark.yml",
+      ".github/workflows/release-readiness.yml",
+      ".github/workflows/security.yml"
+    ],
+    "forbidden_paths": [
+      "src/core/",
+      "src/app.py",
+      "src/ui/",
+      "src/structures/",
+      "src/simulations/",
+      "src/configs/",
+      "data/"
+    ],
+    "max_changed_files": null
+  },
+  "requirements": {
+    "must_have": [
+      "AGENTS.md with rules for AI agents",
+      "Task packet protocol in .ai/tasks/",
+      "CLI tool tools/ai_workflow.py (stdlib only)",
+      "ADR-0001 for AI-assisted workflow",
+      "GitHub Actions for CI, AI artifacts, benchmark, release, security",
+      "Issue template forms (bug, feature, scientific, performance, architecture)",
+      "PR template",
+      "Documentation: workflow, task_lifecycle, review_protocol, scientific_change, release_checklist, github_manual_setup",
+      "CONTRIBUTING.md",
+      "CODEOWNERS, dependabot",
+      "Example task packet demonstrating correct format",
+      "Unit tests for CLI"
+    ],
+    "must_not": [
+      "Change scientific code in src/core/",
+      "Change GUI in src/app.py, src/ui/, src/structures/",
+      "Change packaging scripts in tools/build_exe.py",
+      "Add new dependencies",
+      "Change existing test logic",
+      "Push to main",
+      "Merge PR"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py check-repo",
+      "python tools/ai_workflow.py validate-task example-ai-workflow-bootstrap",
+      "pytest tests/unit/test_ai_workflow.py -v"
+    ],
+    "required_test_commands": [
+      "python tools/ai_workflow.py new-task test-smoke --title Test --type test --risk low",
+      "python tools/ai_workflow.py validate-task test-smoke",
+      "python tools/ai_workflow.py render-handoff test-smoke",
+      "python tools/ai_workflow.py check-repo"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": false,
+    "requires_adr": true,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": ["0001-ai-assisted-development-workflow.md"]
+  }
+}

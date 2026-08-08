@@ -1,0 +1,11 @@
+# CODEOWNERS
+# TODO: Replace <YOUR-GITHUB-USERNAME> with your actual GitHub username.
+# See docs/github_manual_setup.md for instructions.
+
+# Default owner for everything
+* @MikhaylenkoVS
+
+# AI infrastructure is maintained by the repo owner
+.ai/ @MikhaylenkoVS
+AGENTS.md @MikhaylenkoVS
+CONTRIBUTING.md @MikhaylenkoVS

@@ -1,0 +1,39 @@
+name: Scientific Validation
+description: Запрос на валидацию научного изменения
+title: "sci: "
+labels: ["scientific", "needs-validation"]
+body:
+  - type: textarea
+    attributes:
+      label: Научное предположение
+      description: Что проверяется?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Затрагиваемые методы
+      description: Какие модули/алгоритмы затрагиваются?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Эталонные данные / источник
+      description: Какой reference dataset используется?
+  - type: textarea
+    attributes:
+      label: Ожидаемый инвариант
+      description: Что должно сохраниться неизменным?
+  - type: textarea
+    attributes:
+      label: Критерии приёмки
+  - type: textarea
+    attributes:
+      label: Риски false positives / false negatives
+  - type: dropdown
+    attributes:
+      label: Доступность валидационного датасета
+      options:
+        - "В репозитории (data/test_sets/)"
+        - "Внешний (требуется загрузка)"
+        - "Публичный (ссылка)"
+        - "Приватный"

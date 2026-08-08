@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/.ai/contracts/implementation_report.schema.json",
+  "title": "Implementation Report",
+  "description": "Schema for implementation_report.md content expectations",
+  "type": "object",
+  "required": ["task_id", "date", "summary", "changes_made", "tests_executed"],
+  "properties": {
+    "task_id": {"type": "string"},
+    "date": {"type": "string", "format": "date"},
+    "summary": {"type": "string", "minLength": 10},
+    "changes_made": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "change_type", "description"],
+        "properties": {
+          "file": {"type": "string"},
+          "change_type": {"type": "string", "enum": ["add", "modify", "delete"]},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "tests_added": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "test_file": {"type": "string"},
+          "test_name": {"type": "string"},
+          "verifies": {"type": "string"}
+        }
+      }
+    },
+    "tests_executed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "exit_code"],
+        "properties": {
+          "command": {"type": "string"},
+          "exit_code": {"type": "integer"}
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "open_issues": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

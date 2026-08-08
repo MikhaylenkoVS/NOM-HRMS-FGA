@@ -1,0 +1,40 @@
+name: Performance Task
+description: Задача на оптимизацию производительности
+title: "perf: "
+labels: ["performance", "benchmark"]
+body:
+  - type: textarea
+    attributes:
+      label: Метрика для оптимизации
+      description: Что измеряем?
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Baseline (текущее значение)
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Целевое значение
+  - type: textarea
+    attributes:
+      label: Репрезентативная нагрузка
+  - type: textarea
+    attributes:
+      label: Оборудование / окружение
+      placeholder: |
+        - CPU:
+        - RAM:
+        - OS:
+        - Python:
+  - type: textarea
+    attributes:
+      label: Допустимые trade-offs
+  - type: textarea
+    attributes:
+      label: Запрещённые регрессии
+  - type: dropdown
+    attributes:
+      label: Требуется benchmark report?
+      options: ["Да (обязательно)", "Нет"]

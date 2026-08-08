@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/.ai/contracts/benchmark_report.schema.json",
+  "title": "Benchmark Report",
+  "description": "Schema for benchmark_report.md content expectations",
+  "type": "object",
+  "required": ["task_id", "date", "baseline", "environment", "results", "conclusion"],
+  "properties": {
+    "task_id": {"type": "string"},
+    "date": {"type": "string", "format": "date"},
+    "baseline": {"type": "string"},
+    "environment": {
+      "type": "object",
+      "required": ["cpu", "os", "python"],
+      "properties": {
+        "cpu": {"type": "string"},
+        "ram": {"type": "string"},
+        "os": {"type": "string"},
+        "python": {"type": "string"}
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metric", "baseline_value", "after_value", "status"],
+        "properties": {
+          "metric": {"type": "string"},
+          "baseline_value": {},
+          "after_value": {},
+          "delta": {},
+          "status": {"type": "string", "enum": ["pass", "fail", "review"]}
+        }
+      }
+    },
+    "command_executed": {"type": "string"},
+    "conclusion": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "NEEDS HUMAN REVIEW"]
+    }
+  }
+}

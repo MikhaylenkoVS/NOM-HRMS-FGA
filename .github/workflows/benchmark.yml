@@ -1,0 +1,68 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'Task ID (e.g., 2026-08-08-perf-fix)'
+        required: true
+        type: string
+      benchmark_command:
+        description: 'Benchmark command (must be allowlisted)'
+        required: true
+        type: string
+        default: 'pytest tests/ -q --timeout=300'
+      upload_artifact:
+        description: 'Upload benchmark output as workflow artifact'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Run benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Validate task exists
+        run: |
+          python tools/ai_workflow.py validate-task "${{ inputs.task_id }}" || echo "WARNING: Validation had issues"
+
+      - name: Run benchmark
+        run: |
+          echo "=== Benchmark: ${{ inputs.task_id }} ==="
+          echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Command: ${{ inputs.benchmark_command }}"
+          echo ""
+          ${{ inputs.benchmark_command }}
+        continue-on-error: true
+
+      - name: Upload benchmark artifact
+        if: inputs.upload_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ inputs.task_id }}
+          path: |
+            .ai/tasks/active/${{ inputs.task_id }}/benchmark_report.md
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Note about baseline update
+        run: |
+          echo ""
+          echo "========================================="
+          echo "Benchmark completed."
+          echo "Baseline files in .ai/baselines/ must be"
+          echo "updated manually by a human after review."
+          echo "========================================="

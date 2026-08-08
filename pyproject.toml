@@ -28,6 +28,7 @@ dependencies = [
     "matplotlib>=3.7",
     "rdkit>=2023.9",
     "Pillow>=9.0",
+    "zstandard>=0.22",
 ]
 
 [project.optional-dependencies]

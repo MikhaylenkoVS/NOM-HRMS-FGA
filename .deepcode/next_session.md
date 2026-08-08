@@ -1,95 +1,101 @@
-# План для следующей сессии — v0.6 реструктуризация + external
+# План для следующей сессии — formula_db: база формул + бенчмарк
 
-> **Создан:** 2026-08-05 | **Обновлён:** 2026-08-07 | **Статус:** 🟢 v0.6-рефакторинг завершён
-
-## ✅ Сделано (07.08.2026)
-
-- v0.6 задачи закрыты (progress_callback, find_series оптимизация, бенчмарк)
-- app.py: 1953 → 362 строки (9 миксинов в `src/ui/_*.py`)
-- Предзагрузка структур (мгновенный показ в табе «Результаты»)
-- Исправлены баги импортов в `pipeline/_run.py` и `pipeline/_test.py`
-- **Тесты: 318 passed.**
-
-## ✅ Уже сделано и запушено
-
-| Пакет | Файлов | Макс. строк | Коммит |
-|--------|:---:|:---:|--------|
-| `domain/` (spectrum, molecule, atoms) | 3 | 337 | eb93f95 |
-| `chemistry/` (fragments, rdkit, combinations) | 4 | 566 | eb93f95 |
-| `io/` (raw, mzml bridges) | 3 | 255 | eb93f95 |
-| `spectrum/` (бывший spectrum_ops + noise) | 10 | 330 | 2679378 |
-| `pipeline/` (бывший pipeline.py) | 6 | 544 | d1f5712 |
-| Константы → `configs/constants/*.json` | 4 | — | a995ea2 |
-| `FRAGMENT_LIBRARY` → `_fragment_data.py` | 1 | 266 | ea1ddac |
-| GPL-3.0 → MPL-2.0 | — | — | 6da88d2 |
-
-**Тесты: 318 passed.**
+> **Создан:** 2026-08-08 | **Статус:** 🟡 formula_db код готов, нужна интеграция в UI/pipeline
 
 ---
 
-## ⬜ app.py → `ui/` (единственная оставшаяся задача)
+## ✅ Уже сделано
 
-### Текущее состояние
+### formula_db — база формул (CNOSP uint32 + byte shuffle + Zstd)
 
-- `src/app.py` — 1862 строки, класс `App(tk.Tk)` с 50 методами
-- 9 миксин-классов уже написаны и лежат в `src/ui/_*.py` (созданы скриптом `_split_app.py`, но удалены при откате)
-- `src/ui/plots.py` и `src/ui/theme.py` — существуют и используются
+| Файл | Назначение |
+|------|-----------|
+| `src/core/formula_db/__init__.py` | Публичное API |
+| `src/core/formula_db/__main__.py` | CLI: `python -m src.core.formula_db build` |
+| `src/core/formula_db/_packed.py` | CNOSP uint32 pack/unpack, byte shuffle, H restoration, ceil_div |
+| `src/core/formula_db/_builder.py` | Integer-only генератор, byte shuffle + Zstd, progress bar |
+| `src/core/formula_db/_reader.py` | Runtime: decompress → unshuffle → uint32 → restore H → search |
+| `src/core/formula_db/_manager.py` | Download/verify менеджер |
+| `tests/unit/test_formula_db.py` | 43 теста |
 
-### План действий
+### Готовая база данных
 
-1. **Восстановить миксины** — запустить скрипт из `_b.py` (последняя версия в истории git):
-   ```bash
-   git show d1f5712:_b.py  # или пересоздать
-   ```
-   Либо переписать скрипт разбивки — 9 миксинов, каждый со своим `ClassMixin`:
+```
+data/formula_db/chposp_1000_zstd9_v2.fdb            35 MB
+data/formula_db/chposp_1000_zstd9_v2.manifest.json  2.5 MB
+```
 
-   | Файл | Класс | Методы |
-   |------|-------|--------|
-   | `_log.py` | `LogMixin` | `_poll_log_queue`, `_append_log_raw`, `_log`, `_clear_log`, `_save_log`, `_set_status`, `_clear_frame` |
-   | `_run.py` | `RunMixin` | `_run`, `_run_worker`, `_resolve_path`, `_on_run_success_data`, `_on_run_error_data` |
-   | `_params.py` | `ParamsMixin` | `_build_params_tab`, `_build_params_files`, …, `_parse_params`, `_on_noise_method_change` |
-   | `_tabs.py` | `TabsMixin` | `_build_spectra_tab`, `_build_series_tab`, …, `_build_log_tab` |
-   | `_results.py` | `ResultsMixin` | `_fill_result_table`, …, `_sort_tree` |
-   | `_structures.py` | `StructuresMixin` | `_load_structure_preview`, `_show_structure_preview`, `_refresh_structures_tab` |
-   | `_plots.py` | `PlotsMixin` | `_plot_van_krevelen`, …, `_plot_hist` |
-   | `_presets.py` | `PresetsMixin` | `_import_csv`, `_apply_preset`, …, `_export_csv` |
-   | `_build.py` | `BuildMixin` | `_build_ui` |
+- **79,576,593 формулы** (CHNOSP, до 1000 Da, closed-shell)
+- Формат v2: CNOSP uint32 (4 байта, без H) + byte shuffle + Zstd level 9
+- H восстанавливается детерминированно из CNOSP + массовых границ блока
+- Сжатие: 318 MB raw → 35 MB (8.8×, благодаря byte shuffle)
 
-2. **Вынести общие константы в `src/ui/_config.py`**:
-   ```python
-   FG = "gray20"
-   _GUI_DEFAULTS = _PIPE_CFG.run_pipeline_defaults
-   # и остальные, используемые в миксинах
-   ```
+### Benchmark итог
 
-3. **Обновить `app.py`**:
-   ```python
-   from src.ui._config import FG, _GUI_DEFAULTS, ...
-   from src.ui._log import LogMixin
-   # ... все 9 миксинов
-   
-   class App(tk.Tk, LogMixin, RunMixin, ResultsMixin, 
-             StructuresMixin, PlotsMixin, PresetsMixin,
-             ParamsMixin, TabsMixin, BuildMixin):
-       # __init__ остаётся в app.py
-       # pass  # все методы — из миксинов
-   ```
+| Вариант | Размер |
+|---------|:---:|
+| v1 (CHNOSP 5B, без shuffle, zstd9) | 316 MB |
+| v1 (CHNOSP 5B, без shuffle, zstd22) | 291 MB |
+| v2 (CNOSP 4B + byte shuffle, zstd9) | **35 MB** ✓ |
+| v2 (CNOSP 4B + byte shuffle, zstd22) | 30 MB |
 
-4. **Заменить `FG` → `self.FG` или импорт из `_config`** во всех миксинах
-
-5. **Прогнать тесты**: `python -m pytest tests/`
+### Все тесты: 361 passed
 
 ---
 
-## Другие отложенные задачи
+## ⬜ Что осталось сделать
 
-| Задача | Файл |
-|--------|------|
-| Прогресс-бар в pipeline | `pipeline/_run.py` — добавить 4 вызова `progress_callback` |
-| Бенчмарк на реальных данных | `data/real_sets/set_01/` |
-| Преконфигурированные пресеты | `configs/presets/` |
-| Smoke-тест в CI | `.github/workflows/release_exe.yml` |
-| Bump версии | `pyproject.toml: version = "0.6.0"` |
+### 1. Интеграция formula_db в assign_formulas и pipeline
+
+- Адаптировать `src/core/spectrum/_assign.py`:
+  - проверять наличие `FormulaDatabaseReader`
+  - если база найдена → использовать `reader.search()` с ppm-окном
+  - если нет → fallback на старый `_generate_candidate_formulas()`
+- Интегрировать `DatabaseManager` для проверки/скачивания базы
+- Передавать `element_filter` (из `FormulaSearchConfig.ranges`) в `reader.search()`
+
+### 2. Интеграция в GUI
+
+- При старте: проверить наличие базы через `DatabaseManager.is_available()`
+- Если нет → кнопка «скачать базу» с индикацией версии/размера
+- UI-прогресс при загрузке
+- Выбор локального файла `.manifest.json` вручную
+
+### 3. Интеграция в PyInstaller / installer
+
+- Добавить `zstandard` в hidden imports (`.spec`)
+- Не встраивать 35 MB базу в executable
+- База — отдельная опция установки (Inno Setup / NSIS)
+
+### 4. Документация
+
+- Как собрать базу разработчику
+- Где лежит база у пользователя (platformdirs: `user_data_dir("NOM-HRMS-FGA")`)
+- Как проверить SHA-256
+- Формат manifest
+- Ограничения химического профиля (P trivalent, S divalent)
+
+---
+
+## Ключевые API (для интеграции)
+
+```python
+# Упаковка
+from src.core.formula_db import pack_c_n_o_s_p, unpack_c_n_o_s_p
+
+# Поиск
+from src.core.formula_db import FormulaDatabaseReader
+reader = FormulaDatabaseReader("path/to/chposp_1000_zstd9_v2.manifest.json")
+results = reader.search(target_mass=122.0368, ppm=1.0, element_filter={"C": (1,50)})
+# → list[SearchResult] (formula_str, counts, exact_mass, error_ppm, dbe)
+
+# Менеджер загрузок
+from src.core.formula_db import DatabaseManager
+mgr = DatabaseManager()
+if not mgr.is_available():
+    mgr.download(progress_callback=my_cb)
+reader = mgr.get_reader()
+```
 
 ---
 
@@ -97,8 +103,8 @@
 
 ```bash
 cd C:\Users\mvs\PycharmProjects\NOM-HRMS-FGA
-git pull
-python -m pytest tests/ -q   # должно быть 318 passed
-```
+python -m pytest tests/ -q    # 361 passed
 
-Первая команда следующей сессии: создать `src/ui/_config.py` и восстановить миксины.
+# Полная пересборка базы (25 мин)
+python -m src.core.formula_db build --output data/formula_db/chposp_1000_zstd9_v2 --max-mass 1000
+```
