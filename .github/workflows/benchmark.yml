@@ -12,7 +12,7 @@ on:
         required: true
         type: choice
         options:
-          - ai-workflow-smoke
+          - ai-workflow-validation-smoke
       upload_artifact:
         description: 'Upload benchmark output as workflow artifact'
         type: boolean
@@ -45,19 +45,20 @@ jobs:
           python tools/run_benchmark.py "${{ inputs.benchmark_id }}" --task-id "${{ inputs.task_id }}"
 
       - name: Upload benchmark artifact
-        if: inputs.upload_artifact
+        if: ${{ always() && inputs.upload_artifact }}
         uses: actions/upload-artifact@v7
         with:
           name: benchmark-${{ inputs.task_id }}
-          path: .ai/tasks/active/${{ inputs.task_id }}/benchmark_report.md
+          path: .ai/reports/benchmarks/${{ inputs.task_id }}/
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - name: Note about baseline update
+        if: ${{ always() }}
         run: |
           echo ""
           echo "========================================="
           echo "Benchmark completed."
-          echo "Baseline files in .ai/baselines/ must be"
-          echo "updated manually by a human after review."
+          echo "Reports saved in .ai/reports/benchmarks/"
+          echo "Manual baseline update: .ai/baselines/"
           echo "========================================="

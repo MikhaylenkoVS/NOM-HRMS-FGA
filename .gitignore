@@ -57,3 +57,7 @@ NOM-HRMS-deconvolution/
 *.egg-info/
 .aider*
 test_sets.zip
+
+# AI workflow runtime reports (not committed)
+.ai/reports/benchmarks/
+

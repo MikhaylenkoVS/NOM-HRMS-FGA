@@ -499,23 +499,62 @@ def cmd_validate_task(args) -> int:
 
     # Consistency: requires_benchmark -> benchmark_report artifact
     if task_data.get("validation", {}).get("requires_benchmark"):
-        if not task_data.get("artifacts", {}).get("benchmark_report"):
-            errors.append("requires_benchmark=true but benchmark_report artifact is null")
+        bench_val = task_data.get("artifacts", {}).get("benchmark_report")
+        if not bench_val:
+            errors.append("requires_benchmark=true but benchmark_report artifact is null or missing")
+        elif not isinstance(bench_val, str) or not bench_val.strip():
+            errors.append("requires_benchmark=true but benchmark_report path is empty")
         else:
-            bench_path = task_dir / task_data["artifacts"]["benchmark_report"]
-            if not bench_path.is_file():
-                errors.append(f"benchmark_report '{task_data['artifacts']['benchmark_report']}' not found")
+            if not _check_path_safe(task_dir, bench_val):
+                errors.append(f"benchmark_report path escapes task directory: {bench_val}")
+            else:
+                bench_path = task_dir / bench_val
+                if not bench_path.is_file():
+                    errors.append(f"benchmark_report '{bench_val}' not found")
+                elif bench_path.stat().st_size < 50:
+                    errors.append(f"benchmark_report '{bench_val}' is empty or too short")
 
     # Consistency: requires_adr -> adr links
     if task_data.get("validation", {}).get("requires_adr"):
         adr_list = task_data.get("links", {}).get("adr", [])
         if not adr_list:
-            warnings.append("requires_adr=true but no ADR links in task.json")
+            errors.append("requires_adr=true but links.adr is empty")
+        else:
+            for adr_ref in adr_list:
+                if not isinstance(adr_ref, str):
+                    errors.append(f"ADR reference is not a string: {adr_ref}")
+                    continue
+                if ".." in adr_ref or adr_ref.startswith("/"):
+                    errors.append(f"ADR path unsafe: {adr_ref}")
+                    continue
+                adr_path = DECISIONS_DIR / adr_ref
+                if not adr_path.is_file():
+                    errors.append(f"ADR '{adr_ref}' not found in decisions/")
 
-    # Check artifact files exist
+    # Consistency: requires_reference_equivalence -> reference_validation artifact
+    if task_data.get("validation", {}).get("requires_reference_equivalence"):
+        ref_val = task_data.get("artifacts", {}).get("reference_validation")
+        if not ref_val:
+            errors.append("requires_reference_equivalence=true but reference_validation artifact is null or missing")
+        elif not isinstance(ref_val, str) or not ref_val.strip():
+            errors.append("requires_reference_equivalence=true but reference_validation path is empty")
+        else:
+            if not _check_path_safe(task_dir, ref_val):
+                errors.append(f"reference_validation path escapes task directory: {ref_val}")
+            else:
+                ref_path = task_dir / ref_val
+                if not ref_path.is_file():
+                    errors.append(f"reference_validation '{ref_val}' not found")
+                elif ref_path.stat().st_size < 20:
+                    errors.append(f"reference_validation '{ref_val}' is empty")
+
+    # Check artifact files exist and paths are safe
     for artifact_key in ["design", "acceptance", "implementation_report"]:
         artifact_val = task_data.get("artifacts", {}).get(artifact_key)
         if artifact_val:
+            if not _check_path_safe(task_dir, artifact_val):
+                errors.append(f"Artifact '{artifact_key}' path escapes task directory: {artifact_val}")
+                continue
             art_path = task_dir / artifact_val
             if not art_path.is_file():
                 errors.append(f"Required artifact '{artifact_val}' not found")
@@ -1207,6 +1246,24 @@ def cmd_check_repo(args) -> int:
         return 0
 
 
+def _check_path_safe(task_dir: Path, artifact_path: str) -> bool:
+    """Check that artifact_path does not escape task_dir via path traversal."""
+    if os.path.isabs(artifact_path):
+        return False
+    if re.match(r'^[A-Za-z]:', artifact_path) or artifact_path.startswith('\\\\'):
+        return False
+    if '..' in Path(artifact_path).parts:
+        return False
+    try:
+        resolved = (task_dir / artifact_path).resolve()
+        task_root = task_dir.resolve()
+        if hasattr(resolved, 'is_relative_to'):
+            return resolved.is_relative_to(task_root)
+        return str(resolved).startswith(str(task_root) + os.sep)
+    except (ValueError, OSError):
+        return False
+
+
 def _check_workflow_safety(wf_file: Path, errors: list, warnings: list) -> None:
     """Scan a workflow YAML for unsafe patterns."""
     try:
@@ -1216,38 +1273,58 @@ def _check_workflow_safety(wf_file: Path, errors: list, warnings: list) -> None:
 
     wf_name = wf_file.name
 
-    # Detect shell injection: ${{ inputs.*command }}, ${{ inputs.*script }}
-    shell_input_patterns = [
-        r'\$\{\{\s*inputs\.\w*command\w*\s*\}\}',
-        r'\$\{\{\s*inputs\.\w*script\w*\s*\}\}',
-        r'\$\{\{\s*inputs\.\w*shell\w*\s*\}\}',
+    # Detect shell injection: unsafe input names used in ${{ inputs.X }}
+    unsafe_input_patterns = [
+        r'\$\{\{\s*inputs\.\w*(?:command|script|shell|args|module|expression)\w*\s*\}\}',
     ]
-    for pattern in shell_input_patterns:
+    for pattern in unsafe_input_patterns:
         if re.search(pattern, content):
             errors.append(
-                f"Workflow safety: {wf_name} contains shell-injectable input "
+                f"Workflow safety: {wf_name} contains unsafe shell-injectable input "
                 f"(matches '{pattern}'). Replace with choice input and allowlisted runner."
             )
 
-    # Detect shell=True in run steps (Python subprocess)
+    # Detect shell=True in run steps
     if re.search(r'shell\s*:\s*True', content):
         warnings.append(f"Workflow safety: {wf_name} uses shell:true in a subprocess call.")
 
-    # Check benchmark.yml uses choice input for benchmark_id
+    # Detect failure swallowing
     if wf_name == "benchmark.yml":
-        if "benchmark_command" in content and "type: choice" not in content:
+        if re.search(r'\|\|\s*true', content) or re.search(r'\|\|\s*echo', content):
+            errors.append("Workflow safety: benchmark.yml must not swallow failures with || true or || echo.")
+        if re.search(r'set\s+\+e', content):
+            errors.append("Workflow safety: benchmark.yml must not use set +e.")
+        if re.search(r'if-no-files-found:\s*ignore', content):
+            errors.append("Workflow safety: benchmark.yml must not ignore missing artifacts.")
+
+    # Strict benchmark.yml policy
+    if wf_name == "benchmark.yml":
+        # Must NOT contain unsafe input names as workflow_dispatch inputs
+        forbidden_inputs = [
+            "benchmark_command", "shell_command", "script", "command",
+            "args", "module", "expression",
+        ]
+        # Find input keys in workflow_dispatch section
+        input_keys = re.findall(r'^\s{6}(\w+):\s*$', content, re.MULTILINE)
+        for ik in input_keys:
+            if ik in forbidden_inputs:
+                errors.append(
+                    f"Workflow safety: benchmark.yml input '{ik}' is forbidden. "
+                    f"Allowed: task_id, benchmark_id, upload_artifact."
+                )
+        # Must use type: choice for benchmark_id
+        if "benchmark_id" in content and "type: choice" not in content:
             errors.append(
-                "Workflow safety: benchmark.yml must use 'type: choice' for benchmark_id, "
-                "not arbitrary free-text input."
+                "Workflow safety: benchmark.yml must use 'type: choice' for benchmark_id."
             )
-        if "type: choice" in content and "options:" in content:
-            # Extract options from the YAML
-            options_match = re.findall(r'options:\s*\n(\s*-\s*\S+)', content)
-            if not options_match:
-                # Try multiline
-                opt_section = re.search(r'options:(.*?)(?:\n\s*\n|\n\S)', content, re.DOTALL)
-                # Basic check: options section exists
-                pass  # YAML structure validated by simple presence check
+        # Must have non-empty options
+        if "type: choice" in content:
+            if "options:" not in content:
+                errors.append("Workflow safety: benchmark.yml choice input has no options.")
+        # Must launch via run_benchmark.py
+        if "run:" in content and "run_benchmark.py" not in content:
+            if wf_name == "benchmark.yml":
+                warnings.append("Workflow safety: benchmark.yml run step should use tools/run_benchmark.py.")
 
 
 # ----------------------------------------------------------------------
