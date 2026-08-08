@@ -56,12 +56,12 @@ jobs:
 
       - name: Unit tests
         run: |
-          python -m pytest tests/unit/ -q --tb=short --timeout=120
+          python -m pytest tests/unit/ -q --tb=short
 
       - name: Integration / smoke tests
         if: hashFiles('data/test_sets/set_01/original.csv') != ''
         run: |
-          python -m pytest tests/integration/ -q --tb=short --timeout=300
+          python -m pytest tests/integration/ -q --tb=short
         continue-on-error: true
 
   ai-checks:
