@@ -1,4 +1,5 @@
 """Tests for formula_db: pack/unpack, build, reader, cache, download."""
+
 from __future__ import annotations
 
 import hashlib
@@ -26,10 +27,10 @@ from src.core.formula_db._reader import (
 )
 from src.core.formula_db._builder import BuildConfig, build_database
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. Round-trip pack/unpack
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestPackUnpack:
     def test_roundtrip_chon(self):
@@ -100,6 +101,7 @@ class TestPackUnpack:
 # 2. Mass calculation
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestMass:
     def test_c7h6o2(self):
         # C7H6O2: 7*12 + 6*1.00782503223 + 2*15.99491461957
@@ -116,8 +118,12 @@ class TestMass:
 
     def test_with_s_and_p(self):
         expected = (
-            10 * MASSES["C"] + 15 * MASSES["H"] + 0 * MASSES["N"]
-            + 3 * MASSES["O"] + 2 * MASSES["S"] + 1 * MASSES["P"]
+            10 * MASSES["C"]
+            + 15 * MASSES["H"]
+            + 0 * MASSES["N"]
+            + 3 * MASSES["O"]
+            + 2 * MASSES["S"]
+            + 1 * MASSES["P"]
         )
         mass = calculate_exact_mass({"C": 10, "H": 15, "O": 3, "S": 2, "P": 1})
         assert abs(mass - expected) < 1e-9
@@ -130,6 +136,7 @@ class TestMass:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. DBE calculation
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestDBE:
     def test_c7h6o2(self):
@@ -162,6 +169,7 @@ class TestDBE:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. Closed-shell validity
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestValidity:
     def test_c7h6o2_valid(self):
@@ -197,6 +205,7 @@ class TestValidity:
 # 5. formula_to_string
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestFormulaString:
     def test_c7h6o2(self):
         assert formula_to_string({"C": 7, "H": 6, "O": 2}) == "C7H6O2"
@@ -220,6 +229,7 @@ class TestFormulaString:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. Small DB build + reader
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBuildAndRead:
     @pytest.fixture
@@ -254,7 +264,7 @@ class TestBuildAndRead:
             assert "raw_size" in b
             assert "formula_count" in b
             assert "compressed_sha256" in b
-            assert b["raw_size"] == b["formula_count"]  * 4
+            assert b["raw_size"] == b["formula_count"] * 4
 
     def test_reader_loads(self, small_db):
         with FormulaDatabaseReader(small_db, cache_size=4) as reader:
@@ -264,9 +274,7 @@ class TestBuildAndRead:
     def test_reader_exact_search(self, small_db):
         with FormulaDatabaseReader(small_db, cache_size=4) as reader:
             # C2H6O: 3*12 + 8*1.00782503223 + 15.99491461957
-            mass = (
-                2 * MASSES["C"] + 6 * MASSES["H"] + 1 * MASSES["O"]
-            )
+            mass = 2 * MASSES["C"] + 6 * MASSES["H"] + 1 * MASSES["O"]
             results = reader.search(mass, ppm=0.1)
             assert len(results) > 0
             assert "C2H6O" in results[0].formula_str
@@ -298,14 +306,18 @@ class TestBuildAndRead:
         """Verify .fdb payload has no float64 masses embedded."""
         output = tmp_path / "test_nomass"
         config = BuildConfig(
-            output=output, max_mass=50.0, elements=("C", "H", "N", "O"),
-            bin_width=0.1, compression_level=3,
+            output=output,
+            max_mass=50.0,
+            elements=("C", "H", "N", "O"),
+            bin_width=0.1,
+            compression_level=3,
         )
         build_database(config)
         fdb = output.with_suffix(".fdb")
         data = fdb.read_bytes()
         # .fdb is compressed — we test the decompressed payload
         import zstandard as zstd
+
         dctx = zstd.ZstdDecompressor()
 
         with open(output.with_suffix(".manifest.json")) as mf:
@@ -319,7 +331,7 @@ class TestBuildAndRead:
                 # No float64 should appear (8 bytes of IEEE 754 would have
                 # recognizable patterns)
                 for i in range(0, len(raw) - 7, 5):
-                    chunk = raw[i:i+8]
+                    chunk = raw[i : i + 8]
                     if len(chunk) < 8:
                         break
                     # Rough check: packed ints won't look like valid float64
@@ -328,6 +340,7 @@ class TestBuildAndRead:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 7. LRU cache
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestLRUCache:
     def test_put_get(self):
@@ -357,12 +370,15 @@ class TestLRUCache:
         """Verify repeated searches don't re-decompress blocks."""
         output = tmp_path / "test_cache"
         config = BuildConfig(
-            output=output, max_mass=50.0,
-            bin_width=0.1, compression_level=3,
+            output=output,
+            max_mass=50.0,
+            bin_width=0.1,
+            compression_level=3,
         )
         build_database(config)
         reader = FormulaDatabaseReader(
-            output.with_suffix(".manifest.json"), cache_size=4,
+            output.with_suffix(".manifest.json"),
+            cache_size=4,
         )
         try:
             mass = 2 * MASSES["C"] + 6 * MASSES["H"] + MASSES["O"]

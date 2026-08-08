@@ -1,4 +1,5 @@
 """ResultsMixin — extracted from app.py."""
+
 import threading, queue, os, sys, traceback, io
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -7,12 +8,25 @@ import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from src.ui._config import BG, FG, ACCENT, PANEL, WARN, OK, IMG_W, IMG_H, MONO, _GUI_DEFAULTS, _FORMULA_RANGES
+from src.ui._config import (
+    BG,
+    FG,
+    ACCENT,
+    PANEL,
+    WARN,
+    OK,
+    IMG_W,
+    IMG_H,
+    MONO,
+    _GUI_DEFAULTS,
+    _FORMULA_RANGES,
+)
 from src.ui.plots import embed_figure
 
 
 class ResultsMixin:
     """Extracted from app.py."""
+
     def _fill_result_table(self, df: pd.DataFrame):
         self._log(
             f"[DEBUG] _fill_result_table: {len(df)} строк, "
@@ -48,9 +62,8 @@ class ResultsMixin:
 
             missing_d = r.get("missing_dmet", [])
             missing_a = r.get("missing_dacet", [])
-            has_missing = (
-                (isinstance(missing_d, list) and len(missing_d) > 0) or
-                (isinstance(missing_a, list) and len(missing_a) > 0)
+            has_missing = (isinstance(missing_d, list) and len(missing_d) > 0) or (
+                isinstance(missing_a, list) and len(missing_a) > 0
             )
 
             # Визуальный индикатор: если есть альтернативные формулы-кандидаты
@@ -107,8 +120,7 @@ class ResultsMixin:
         n_oh = int(row.get("N_OH", 0))
 
         if not brutto:
-            self._structure_preview_label.configure(
-                text="Нет формулы\nдля этого пика")
+            self._structure_preview_label.configure(text="Нет формулы\nдля этого пика")
             return
 
         # ── мгновенная выдача из кэша ──
@@ -120,11 +132,15 @@ class ResultsMixin:
 
         # ── fallback: генерация на лету (если предзагрузка не завершена) ──
         self._structure_preview_label.configure(
-            text=f"Поиск структуры...\n{brutto_str}")
+            text=f"Поиск структуры...\n{brutto_str}"
+        )
         self.progress["value"] = 0
 
-        t = threading.Thread(target=self._load_structure_preview,
-                             args=(brutto_str, n_cooh, n_oh), daemon=True)
+        t = threading.Thread(
+            target=self._load_structure_preview,
+            args=(brutto_str, n_cooh, n_oh),
+            daemon=True,
+        )
         t.start()
 
     def _on_formula_double_click(self, event):
@@ -165,13 +181,18 @@ class ResultsMixin:
         tk.Label(
             dialog,
             text=f"m/z = {row['mass']:.5f}  —  выберите формулу:",
-            bg=BG, fg=FG, font=("Segoe UI", 10),
+            bg=BG,
+            fg=FG,
+            font=("Segoe UI", 10),
         ).pack(padx=12, pady=(12, 8))
 
         combo_var = tk.StringVar(value=current_brutto)
         combo = ttk.Combobox(
-            dialog, textvariable=combo_var, values=candidates,
-            state="readonly", width=30,
+            dialog,
+            textvariable=combo_var,
+            values=candidates,
+            state="readonly",
+            width=30,
         )
         combo.pack(padx=12, pady=4)
 
@@ -187,7 +208,9 @@ class ResultsMixin:
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(pady=12)
         ttk.Button(btn_frame, text="OK", command=_on_ok).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Отмена", command=_on_cancel).pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="Отмена", command=_on_cancel).pack(
+            side="left", padx=4
+        )
 
         combo.bind("<Return>", lambda e: _on_ok())
         combo.focus_set()
@@ -223,16 +246,20 @@ class ResultsMixin:
         # Обновить превью структуры для новой формулы
         if new_formula in self._structure_cache:
             self._show_structure_preview(
-                self._structure_cache[new_formula], new_formula)
+                self._structure_cache[new_formula], new_formula
+            )
         else:
             n_cooh = int(row.get("N_COOH", 0))
             n_oh = int(row.get("N_OH", 0))
             self._structure_preview_label.configure(
-                text=f"Поиск структуры...\n{new_formula}")
+                text=f"Поиск структуры...\n{new_formula}"
+            )
             self.progress["value"] = 0
             t = threading.Thread(
                 target=self._load_structure_preview,
-                args=(new_formula, n_cooh, n_oh), daemon=True)
+                args=(new_formula, n_cooh, n_oh),
+                daemon=True,
+            )
             t.start()
 
     def _sort_tree(self, col: str):
@@ -253,4 +280,3 @@ class ResultsMixin:
         self._fill_result_table(self.result_df)
 
     # ── Импорт CSV ────────────────────────────────────────────────────
-

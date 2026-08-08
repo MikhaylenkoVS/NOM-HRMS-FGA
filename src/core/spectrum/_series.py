@@ -1,4 +1,5 @@
 """Auto-generated."""
+
 import logging
 import numpy as np
 import pandas as pd
@@ -30,7 +31,11 @@ def _find_peak(mz_array, target_mz, ppm_tol):
         Index of the closest peak within ``ppm_tol``, or ``None`` if none
         falls within tolerance.
     """
-    mz = mz_array.astype(float, copy=False) if isinstance(mz_array, np.ndarray) else np.asarray(mz_array, dtype=float)
+    mz = (
+        mz_array.astype(float, copy=False)
+        if isinstance(mz_array, np.ndarray)
+        else np.asarray(mz_array, dtype=float)
+    )
     diffs_ppm = np.abs(mz - target_mz) / target_mz * 1e6
     mask = diffs_ppm <= ppm_tol
     if not mask.any():
@@ -38,6 +43,7 @@ def _find_peak(mz_array, target_mz, ppm_tol):
     # Find the closest peak among those within tolerance
     valid = np.where(mask, diffs_ppm, np.inf)
     return int(np.argmin(valid))
+
 
 def find_series(
     src,
@@ -208,7 +214,7 @@ def find_series(
         ],
     )
 
+
 # ===========================================================================
 # Сборка итоговой таблицы
 # ===========================================================================
-

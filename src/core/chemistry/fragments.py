@@ -207,6 +207,7 @@ class MoleculeFragment:
 # Fragment data — imported from _fragment_data.py
 from ._fragment_data import FRAGMENT_LIBRARY, FUNCTIONAL_GROUPS
 
+
 def create_methylene():
     return MoleculeFragment("methylene", {"C": 1}, 0, ["C"], [], [0, 0])
 
@@ -799,10 +800,13 @@ def create_i():
 
 # ── Ациклические азот-содержащие фрагменты ─────────────────────────────────
 
+
 def create_aminomethyl():
     """CH2-NH-  (первичный амин, 2 точки присоединения)."""
     return MoleculeFragment(
-        "aminomethyl", {"C": 1, "N": 1}, 0,
+        "aminomethyl",
+        {"C": 1, "N": 1},
+        0,
         ["C", "N"],
         [(0, 1, 1)],
         [0, 1],
@@ -812,7 +816,9 @@ def create_aminomethyl():
 def create_amide_link():
     """-CO-NH-  (амидный мостик, 2 точки присоединения)."""
     return MoleculeFragment(
-        "amide_link", {"C": 1, "N": 1, "O": 1}, 1,
+        "amide_link",
+        {"C": 1, "N": 1, "O": 1},
+        1,
         ["C", "O", "N"],
         [(0, 1, 2), (0, 2, 1)],
         [0, 2],
@@ -822,7 +828,9 @@ def create_amide_link():
 def create_ethylamine():
     """-CH2-CH2-NH-  (этиламиновый мостик, 2 точки)."""
     return MoleculeFragment(
-        "ethylamine", {"C": 2, "N": 1}, 0,
+        "ethylamine",
+        {"C": 2, "N": 1},
+        0,
         ["C", "C", "N"],
         [(0, 1, 1), (1, 2, 1)],
         [0, 2],

@@ -12,7 +12,6 @@ from src.core.chemistry.fragments import (
     create_methylene,
 )
 
-
 # ===================================================================
 # FRAGMENT_LIBRARY
 # ===================================================================
@@ -33,9 +32,9 @@ class TestFragmentLibrary:
             hf = data["heavy_formula"]
             assert isinstance(hf, dict), f"{name}: heavy_formula not dict"
             for el, n in hf.items():
-                assert isinstance(n, int) and n > 0, (
-                    f"{name}: heavy_formula[{el}] = {n}"
-                )
+                assert (
+                    isinstance(n, int) and n > 0
+                ), f"{name}: heavy_formula[{el}] = {n}"
 
     def test_ihd_is_non_negative_int(self):
         for name, data in FRAGMENT_LIBRARY.items():
@@ -146,7 +145,9 @@ class TestMoleculeFragment:
             joined.connect_to(b, my_point=0, other_point=0, bond_order=1)
 
     def test_repr(self):
-        f = MoleculeFragment("test", {"C": 1, "O": 2}, 1, ["C", "O", "O"], [(0, 1, 2), (0, 2, 1)], [0])
+        f = MoleculeFragment(
+            "test", {"C": 1, "O": 2}, 1, ["C", "O", "O"], [(0, 1, 2), (0, 2, 1)], [0]
+        )
         r = repr(f)
         assert "test" in r
         assert "atoms=3" in r
@@ -169,9 +170,9 @@ class TestFactoryFunctions:
     def test_all_factories_return_molecule_fragment(self):
         for name, factory in ALL_FRAGMENTS.items():
             result = factory()
-            assert isinstance(result, MoleculeFragment), (
-                f"create_{name}() did not return MoleculeFragment"
-            )
+            assert isinstance(
+                result, MoleculeFragment
+            ), f"create_{name}() did not return MoleculeFragment"
             assert result.name == name, f"create_{name}() name mismatch: {result.name}"
 
     def test_create_benzene(self):
@@ -208,7 +209,7 @@ class TestFactoryFunctions:
     def test_chain_connection(self):
         """Build CH3-CH2-OH stepwise."""
         methyl = create_methylene()  # -CH2-
-        oh = create_oh()            # -OH
+        oh = create_oh()  # -OH
 
         # First connection: methyl + methyl = ethane-like
         ethane = methyl.connect_to(methyl, my_point=0, other_point=0, bond_order=1)

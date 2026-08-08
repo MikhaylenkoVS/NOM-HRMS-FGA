@@ -43,12 +43,8 @@ class DatabaseManager:
     ):
         import platformdirs
 
-        self._data_dir = Path(
-            data_dir or platformdirs.user_data_dir("NOM-HRMS-FGA")
-        )
-        self._release_url = (
-            release_manifest_url or _RELEASE_MANIFEST_URL_DEFAULT
-        )
+        self._data_dir = Path(data_dir or platformdirs.user_data_dir("NOM-HRMS-FGA"))
+        self._release_url = release_manifest_url or _RELEASE_MANIFEST_URL_DEFAULT
         self._data_dir.mkdir(parents=True, exist_ok=True)
 
     @property
@@ -86,9 +82,7 @@ class DatabaseManager:
                 f"Local DB SHA-256 mismatch: expected {expected}, got {actual}"
             )
 
-    def get_reader(
-        self, db_id: str = "chposp_1000", cache_size: int = 8
-    ) -> object:
+    def get_reader(self, db_id: str = "chposp_1000", cache_size: int = 8) -> object:
         """Return a FormulaDatabaseReader for the local DB.
 
         Raises FileNotFoundError if DB not available.

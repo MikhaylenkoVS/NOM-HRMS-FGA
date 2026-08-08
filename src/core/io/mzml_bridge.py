@@ -68,8 +68,7 @@ def _centroid_profile(mz_array, int_array, min_intensity=0.0):
 def _spectrum_is_profile(spec_elem) -> bool:
     """Check whether the spectrum element represents a profile spectrum."""
     return any(
-        cp.get("accession") == "MS:1000128"
-        for cp in spec_elem.findall(f"{_NS}cvParam")
+        cp.get("accession") == "MS:1000128" for cp in spec_elem.findall(f"{_NS}cvParam")
     )
 
 
@@ -171,9 +170,7 @@ def mzml_to_csv(
                 continue
 
             if is_profile:
-                mz_cent, int_cent = _centroid_profile(
-                    mz_arr, int_arr, min_intensity
-                )
+                mz_cent, int_cent = _centroid_profile(mz_arr, int_arr, min_intensity)
                 if len(mz_cent) > 0:
                     all_mz.extend(mz_cent.tolist())
                     all_int.extend(int_cent.tolist())
@@ -186,9 +183,7 @@ def mzml_to_csv(
         reader.close()
 
     if scan_count == 0:
-        raise ValueError(
-            f"No MS1 scans found in RT window [{rt_min}, {rt_max}] min"
-        )
+        raise ValueError(f"No MS1 scans found in RT window [{rt_min}, {rt_max}] min")
 
     # ── average: group by m/z (5-decimal tolerance) and sum intensities ─────
     if progress_callback:
@@ -224,6 +219,7 @@ def is_available() -> bool:
     """Check whether mzML bridge is available (pymzml importable)."""
     try:
         import pymzml  # noqa: F401
+
         return True
     except ImportError:
         return False

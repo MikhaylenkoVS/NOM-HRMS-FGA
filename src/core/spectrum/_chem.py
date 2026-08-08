@@ -1,4 +1,5 @@
 """Auto-generated."""
+
 import logging
 import math
 import pandas as pd
@@ -33,6 +34,7 @@ def exact_mass_from_counts(counts: dict[str, int]) -> float:
         mass += ATOMIC_MASS[elem] * n
     return mass
 
+
 def dbe_from_counts(counts: dict[str, int]) -> float:
     """Compute the double-bond equivalent (DBE) for a CHON formula.
 
@@ -51,6 +53,7 @@ def dbe_from_counts(counts: dict[str, int]) -> float:
     h = counts.get("H", 0)
     n = counts.get("N", 0)
     return max(0.0, 1 + c - h / 2.0 + n / 2.0)
+
 
 def _row_to_brutto(row, element_order=None):
     """Build a Hill-like brutto formula string from element columns of a row.
@@ -83,6 +86,7 @@ def _row_to_brutto(row, element_order=None):
             if val > 0:
                 parts.append(el if val == 1 else f"{el}{val}")
     return "".join(parts) if parts else None
+
 
 # -- CSV column name mapper (IMP-11) -------------------------------------------
 # Единый маппинг имён колонок CSV → mass / intensity, используется

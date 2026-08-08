@@ -27,6 +27,7 @@ _RAW_ERROR: str | None = None
 
 # ── DLL resolution ────────────────────────────────────────────────────────────
 
+
 def _thermo_dll_dir() -> str:
     """Path to the directory containing the RawFileReader .NET DLLs."""
     if getattr(sys, "frozen", False):
@@ -134,7 +135,9 @@ def average_raw_to_csv(
 
     if output_csv is None:
         base = os.path.splitext(os.path.basename(raw_path))[0]
-        output_csv = os.path.join(os.path.dirname(raw_path) or ".", f"{base}_averaged.csv")
+        output_csv = os.path.join(
+            os.path.dirname(raw_path) or ".", f"{base}_averaged.csv"
+        )
 
     output_csv = os.path.abspath(output_csv)
     df.to_csv(output_csv, index=False, float_format="%.6f")
@@ -181,7 +184,10 @@ def average_raw_to_df(
 
         first_scan = raw_file.RunHeaderEx.FirstSpectrum
         last_scan = raw_file.RunHeaderEx.LastSpectrum
-        _log(progress_callback, f"Scans: {first_scan}–{last_scan}, RT window: {rt_min:.2f}–{rt_max:.2f} min")
+        _log(
+            progress_callback,
+            f"Scans: {first_scan}–{last_scan}, RT window: {rt_min:.2f}–{rt_max:.2f} min",
+        )
 
         # Find scan range for the RT window
         start_scan = _scan_at_rt(raw_file, rt_min, first_scan, last_scan, "first")
@@ -213,7 +219,9 @@ def average_raw_to_df(
             _log(progress_callback, f"Averaged centroid spectrum: {len(masses)} peaks")
         else:
             masses = np.array(list(avg_scan.SegmentedScan.Positions), dtype=float)
-            intensities = np.array(list(avg_scan.SegmentedScan.Intensities), dtype=float)
+            intensities = np.array(
+                list(avg_scan.SegmentedScan.Intensities), dtype=float
+            )
             _log(progress_callback, f"Averaged segmented spectrum: {len(masses)} peaks")
     finally:
         raw_file.Dispose()

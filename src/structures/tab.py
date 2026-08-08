@@ -186,7 +186,9 @@ class StructureViewerTab(ttk.Frame):
         self._clear_cards()
 
         t = threading.Thread(
-            target=self._search_worker, args=(brutto, n_cooh, n_oh, max_bases), daemon=True
+            target=self._search_worker,
+            args=(brutto, n_cooh, n_oh, max_bases),
+            daemon=True,
         )
         t.start()
 

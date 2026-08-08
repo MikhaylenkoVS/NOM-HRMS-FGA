@@ -22,9 +22,21 @@ def benchmark(set_dir: str) -> None:
         return
 
     print(f"Benchmark: {root.name}")
-    print(f"  src:  {src_csv.stat().st_size:,} bytes" if src_csv.exists() else "  src: MISSING")
-    print(f"  dmet: {dmet_csv.stat().st_size:,} bytes" if dmet_csv.exists() else "  dmet: MISSING")
-    print(f"  dacet: {dacet_csv.stat().st_size:,} bytes" if dacet_csv.exists() else "  dacet: MISSING")
+    print(
+        f"  src:  {src_csv.stat().st_size:,} bytes"
+        if src_csv.exists()
+        else "  src: MISSING"
+    )
+    print(
+        f"  dmet: {dmet_csv.stat().st_size:,} bytes"
+        if dmet_csv.exists()
+        else "  dmet: MISSING"
+    )
+    print(
+        f"  dacet: {dacet_csv.stat().st_size:,} bytes"
+        if dacet_csv.exists()
+        else "  dacet: MISSING"
+    )
 
     defaults = PIPELINE.run_pipeline_defaults
     t0 = time.perf_counter()
@@ -40,7 +52,9 @@ def benchmark(set_dir: str) -> None:
     print(f"\nTotal: {elapsed:.2f}s")
     if timings:
         print(f"  Breakdown: {timings.summary()}")
-    print(f"  Result rows: {len(res.table) if hasattr(res, 'table') and res.table is not None else 'N/A'}")
+    print(
+        f"  Result rows: {len(res.table) if hasattr(res, 'table') and res.table is not None else 'N/A'}"
+    )
 
 
 if __name__ == "__main__":

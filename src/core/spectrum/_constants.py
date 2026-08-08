@@ -1,4 +1,5 @@
 """Auto-generated."""
+
 import logging
 import math
 import numpy as np
@@ -34,6 +35,7 @@ _FS_ELEMENTS: tuple[str, ...] = tuple(_FORMULA_SEARCH["elements"])
 _FS_RANGES: dict[str, tuple[int, int]] = {
     el: tuple(rng) for el, rng in _FORMULA_SEARCH["ranges"].items()
 }
+
 
 @dataclass(slots=True)
 class FormulaSearchConfig:
@@ -82,4 +84,3 @@ class FormulaSearchConfig:
         for el in self.elements:
             if el not in self.ranges:
                 raise ValueError(f"Для элемента {el!r} не задан диапазон в ranges")
-

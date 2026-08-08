@@ -3,7 +3,6 @@
 import pytest
 from src.core.domain.atoms import ELEMENT_DATA, Hybridization, Atom
 
-
 # ===================================================================
 # ELEMENT_DATA
 # ===================================================================
@@ -25,15 +24,17 @@ class TestElementData:
         for el, data in ELEMENT_DATA.items():
             assert "atomic_number" in data, f"{el}: missing atomic_number"
             assert "valence" in data, f"{el}: missing valence"
-            assert isinstance(data["atomic_number"], int), f"{el}: atomic_number not int"
+            assert isinstance(
+                data["atomic_number"], int
+            ), f"{el}: atomic_number not int"
             assert isinstance(data["valence"], int), f"{el}: valence not int"
 
     def test_charge_aware_elements_have_valence_charged(self):
         """N, O, P, S must expose valence_charged dict."""
         for el in self.CHARGE_AWARE:
-            assert "valence_charged" in ELEMENT_DATA[el], (
-                f"{el}: missing valence_charged"
-            )
+            assert (
+                "valence_charged" in ELEMENT_DATA[el]
+            ), f"{el}: missing valence_charged"
             vc = ELEMENT_DATA[el]["valence_charged"]
             assert isinstance(vc, dict), f"{el}: valence_charged not a dict"
 

@@ -1,4 +1,5 @@
 """Auto-generated."""
+
 import logging
 import pandas as pd
 import warnings
@@ -21,6 +22,7 @@ CSV_COLUMN_MAPPER = {
     "int": "intensity",
     "Int": "intensity",
 }
+
 
 def load_spectrum(
     path,
@@ -105,7 +107,7 @@ def load_spectrum(
     sp = Spectrum(table=df, metadata=metadata)
     return sp
 
+
 # ===========================================================================
 # Шумоподавление
 # ===========================================================================
-

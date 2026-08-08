@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 from src.core.spectrum import load_spectrum, denoise
 
-
 THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
 
@@ -32,9 +31,7 @@ def test_denoise_original_preserves_signals_and_reduces_noise(set_dir: Path):
 
     rel_error_ppm = 0.5
 
-    denoised = denoise(
-        src, force=10.0, intensity=100, quantile=None
-    )  # denoise wrapper
+    denoised = denoise(src, force=10.0, intensity=100, quantile=None)  # denoise wrapper
     den_df = denoised.table.copy()
 
     # 1. recall по сигналам

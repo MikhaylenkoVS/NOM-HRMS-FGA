@@ -54,7 +54,11 @@ def filter_fragments(target_heavy, target_ihd, fragment_library):
 
 
 def find_fragment_combinations(
-    target_heavy_formula, target_ihd, num_cooh=0, num_oh=0, max_bases=10,
+    target_heavy_formula,
+    target_ihd,
+    num_cooh=0,
+    num_oh=0,
+    max_bases=10,
     first_only=False,
 ):
     """Enumerate fragment multisets matching a target formula and IHD.
@@ -105,8 +109,11 @@ def find_fragment_combinations(
             # Функциональные группы «перерасходуют» атомы — пробуем без них
             if num_cooh > 0 or num_oh > 0:
                 return find_fragment_combinations(
-                    target_heavy_formula, target_ihd,
-                    num_cooh=0, num_oh=0, max_bases=max_bases,
+                    target_heavy_formula,
+                    target_ihd,
+                    num_cooh=0,
+                    num_oh=0,
+                    max_bases=max_bases,
                 )
             return []
 
@@ -122,9 +129,15 @@ def find_fragment_combinations(
     # При first_only: ароматические фрагменты первыми — превью получает
     # химически осмысленные структуры с циклами
     _AROMATIC = {
-        "benzene", "naphthalene", "anthracene",
-        "pyridine", "pyrimidine", "pyrazine",
-        "pyrrole", "imidazole", "furan",
+        "benzene",
+        "naphthalene",
+        "anthracene",
+        "pyridine",
+        "pyrimidine",
+        "pyrazine",
+        "pyrrole",
+        "imidazole",
+        "furan",
     }
     if first_only:
         names = sorted(lib.keys(), key=lambda n: (0 if n in _AROMATIC else 1, n))
@@ -148,13 +161,15 @@ def find_fragment_combinations(
                 bases_dict = {
                     names[i]: c for i, c in enumerate(current_counts) if c > 0
                 }
-                results.append({
-                    "bases": bases_dict,
-                    "cooh": num_cooh,
-                    "oh": num_oh,
-                    "total_heavy_formula": target_heavy_formula.copy(),
-                    "total_ihd": target_ihd,
-                })
+                results.append(
+                    {
+                        "bases": bases_dict,
+                        "cooh": num_cooh,
+                        "oh": num_oh,
+                        "total_heavy_formula": target_heavy_formula.copy(),
+                        "total_ihd": target_ihd,
+                    }
+                )
                 if first_only:
                     return True
             return False
@@ -505,6 +520,7 @@ def find_and_visualize_molecules(
 
             # Генерируем 2D-координаты (CoordGen для зигзагов sp3)
             from rdkit.Chem import rdDepictor
+
             rdDepictor.SetPreferCoordGen(True)
             AllChem.Compute2DCoords(rdkit_mol)
             # Добавляем только полярные водороды (на гетероатомах)
@@ -537,7 +553,9 @@ def find_and_visualize_molecules(
     # === ШАГ 7: Вывод результатов ===
     sep = "=" * 60
     logger.info(sep)
-    logger.info(f"📊 ИТОГО: найдено {len(molecules_data)} структур для {brutto_formula}")
+    logger.info(
+        f"📊 ИТОГО: найдено {len(molecules_data)} структур для {brutto_formula}"
+    )
     logger.info(sep)
 
     for i, mol_data in enumerate(molecules_data, 1):

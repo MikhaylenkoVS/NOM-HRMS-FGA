@@ -1,4 +1,5 @@
 """Build result table."""
+
 import logging
 import pandas as pd
 import numpy as np
@@ -6,6 +7,7 @@ from ._chem import _counts_to_str
 from src.core.domain.molecule import parse_formula
 
 logger = logging.getLogger(__name__)
+
 
 def build_result_table(src, df_dmet, df_dacet):
     """Assemble the final -COOH / -OH count table per brutto formula.
@@ -44,9 +46,11 @@ def build_result_table(src, df_dmet, df_dacet):
     def _enrich(df, prefix):
         if df.empty:
             return pd.DataFrame(
-                {"mass_key": pd.Series(dtype="float64"),
-                 f"n_{prefix}": pd.Series(dtype="int64"),
-                 f"missing_{prefix}": pd.Series(dtype="object")}
+                {
+                    "mass_key": pd.Series(dtype="float64"),
+                    f"n_{prefix}": pd.Series(dtype="int64"),
+                    f"missing_{prefix}": pd.Series(dtype="object"),
+                }
             )
         tmp = df[["mass_src", "n_groups", "missing"]].copy()
         tmp["mass_key"] = tmp["mass_src"].round(4)
@@ -82,6 +86,7 @@ def build_result_table(src, df_dmet, df_dacet):
         .sort_values("mass")
         .reset_index(drop=True)
     )
+
 
 # ===========================================================================
 # Визуализация серий с пропущенными пиками

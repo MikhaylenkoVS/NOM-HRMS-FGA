@@ -1,10 +1,13 @@
 """Pipeline helpers."""
+
 import logging
 from pathlib import Path
 import pandas as pd
 from typing import Optional, Any
 from src.core.domain.molecule import parse_formula
+
 logger = logging.getLogger(__name__)
+
 
 def _debug(msg: str) -> None:
     logger.debug(msg)
@@ -135,5 +138,3 @@ def _match_row_by_mass(
 # ---------------------------------------------------------------------------
 # Датаклассы статистики
 # ---------------------------------------------------------------------------
-
-

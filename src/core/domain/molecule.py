@@ -330,8 +330,6 @@ def exact_mass_from_formula(formula: str) -> float:
     mass = 0.0
     for element, count in composition.items():
         if element not in mass_table:
-            raise ValueError(
-                f"Неизвестный элемент в формуле {formula}: {element}"
-            )
+            raise ValueError(f"Неизвестный элемент в формуле {formula}: {element}")
         mass += mass_table[element] * count
     return mass

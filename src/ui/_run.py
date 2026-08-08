@@ -1,4 +1,5 @@
 """RunMixin — extracted from app.py."""
+
 import threading, queue, os, sys, traceback, io
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -7,12 +8,25 @@ import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from src.ui._config import BG, FG, ACCENT, PANEL, WARN, OK, IMG_W, IMG_H, MONO, _GUI_DEFAULTS, _FORMULA_RANGES
+from src.ui._config import (
+    BG,
+    FG,
+    ACCENT,
+    PANEL,
+    WARN,
+    OK,
+    IMG_W,
+    IMG_H,
+    MONO,
+    _GUI_DEFAULTS,
+    _FORMULA_RANGES,
+)
 from src.ui.plots import embed_figure
 
 
 class RunMixin:
     """Extracted from app.py."""
+
     def _on_run_success_data(self, payload: dict):
         self.progress["value"] = 100
         result_df = payload.get("result")
@@ -131,7 +145,7 @@ class RunMixin:
             return
 
         self._clear_log()
-        self._structure_cache.clear()     # сброс кэша структур
+        self._structure_cache.clear()  # сброс кэша структур
         self._structure_preloading = False
         self._log("[DEBUG] ═══ Запуск анализа ═══", color="info")
         self._log(f"[DEBUG]   src   = {spec_paths[0]}", color="info")
@@ -191,4 +205,3 @@ class RunMixin:
             sys.stderr = orig_stderr
 
     # ── Таблица результатов ───────────────────────────────────────────────────
-

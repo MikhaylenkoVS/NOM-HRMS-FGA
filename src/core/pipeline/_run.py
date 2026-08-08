@@ -1,4 +1,5 @@
 """run_pipeline — main pipeline entry point."""
+
 import logging, traceback, os, time
 import pandas as pd
 from pathlib import Path
@@ -9,6 +10,7 @@ from ._helpers import _debug, _normalize_brutto, _ppm_error
 from ._stats import PipelineStats, PipelineRunResult, SeriesStats
 from ._test import _run_test_mode
 from src.core.timer import PipelineTimings
+
 # ---------------------------------------------------------------------------
 try:
     from src.core.spectrum import (
@@ -30,6 +32,7 @@ except Exception as _e:
         f"[PIPELINE] CRITICAL: не удалось импортировать spectrum_ops: {_e}",
     )
 logger = logging.getLogger(__name__)
+
 
 def _make_sub_progress(progress_callback, base_pct, range_pct, label_tpl):
     """Create a per-step callback that maps ``(step, total)`` → absolute %.
@@ -195,15 +198,29 @@ def run_pipeline(
     stats = PipelineStats()
 
     # ── Кэш: не перевыполнять при тех же параметрах ──
-    _cache_key = hash((
-        src_path, dmet_path, dacet_path,
-        sep, load_mass_min, load_mass_max,
-        noise_force, noise_intensity, noise_quantile,
-        str(brutto_dict), rel_error, sign,
-        assign_mass_min, assign_mass_max,
-        ppm_tol, max_groups, allow_gaps,
-        output_csv, isotope_filter,
-    ))
+    _cache_key = hash(
+        (
+            src_path,
+            dmet_path,
+            dacet_path,
+            sep,
+            load_mass_min,
+            load_mass_max,
+            noise_force,
+            noise_intensity,
+            noise_quantile,
+            str(brutto_dict),
+            rel_error,
+            sign,
+            assign_mass_min,
+            assign_mass_max,
+            ppm_tol,
+            max_groups,
+            allow_gaps,
+            output_csv,
+            isotope_filter,
+        )
+    )
     if use_cache and _cache_key in _result_cache:
         _debug("Кэш: параметры не изменились — возвращаю сохранённый результат")
         return _result_cache[_cache_key]
@@ -354,9 +371,7 @@ def run_pipeline(
     try:
         if progress_callback:
             progress_callback("Генерация формул-кандидатов…", 22)
-        _assign_cb = _make_sub_progress(
-            progress_callback, 23, 28, "Формула {0}/{1}…"
-        )
+        _assign_cb = _make_sub_progress(progress_callback, 23, 28, "Формула {0}/{1}…")
         src = assign_formulas(
             src,
             rel_error_ppm=rel_error,
@@ -425,9 +440,7 @@ def run_pipeline(
 
     df_dmet = pd.DataFrame()
     try:
-        _cd3_cb = _make_sub_progress(
-            progress_callback, 53, 13, "Серия CD3 {0}/{1}…"
-        )
+        _cd3_cb = _make_sub_progress(progress_callback, 53, 13, "Серия CD3 {0}/{1}…")
         df_dmet = find_series(
             src,
             dmet,
@@ -630,4 +643,3 @@ def run_pipeline(
     if progress_callback:
         progress_callback("Готово", 100)
     return result_obj
-

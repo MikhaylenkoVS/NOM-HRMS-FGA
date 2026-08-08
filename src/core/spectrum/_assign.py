@@ -1,11 +1,18 @@
 """Auto-generated."""
+
 import logging
 import math
 import numpy as np
 from src.core.domain.spectrum import Spectrum
 from ._denoise import compute_noise_threshold
 from ._generate import _generate_candidate_formulas, _ion_shift, _neutral_to_ion_mass
-from ._constants import FormulaSearchConfig, ATOMIC_MASS, _FS_RANGES, _FS_ELEMENTS, _FORMULA_SEARCH
+from ._constants import (
+    FormulaSearchConfig,
+    ATOMIC_MASS,
+    _FS_RANGES,
+    _FS_ELEMENTS,
+    _FORMULA_SEARCH,
+)
 from ._chem import _beynon_m1_ratio_cached, _counts_to_str, _nom_distance
 from src.configs import CHEM, PIPELINE
 
@@ -123,7 +130,12 @@ def assign_formulas(
     cand_masses_ion = cand_masses_neutral + _shift
 
     # Предвычисляем DBE для всех кандидатов
-    cand_dbe = 1.0 + cand_counts[:, 0].astype(float) - cand_counts[:, 1].astype(float) / 2.0 + cand_counts[:, 2].astype(float) / 2.0
+    cand_dbe = (
+        1.0
+        + cand_counts[:, 0].astype(float)
+        - cand_counts[:, 1].astype(float) / 2.0
+        + cand_counts[:, 2].astype(float) / 2.0
+    )
 
     brutto_col = [None] * len(table)
     assign_col = [False] * len(table)
@@ -201,4 +213,3 @@ def assign_formulas(
     table["all_candidates"] = candidates_col
     src.table = table
     return src
-
