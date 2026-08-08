@@ -41,15 +41,16 @@ jobs:
           python tools/ai_workflow.py validate-task "${{ inputs.task_id }}"
 
       - name: Run benchmark (blocking)
+        id: benchmark_run
         run: |
           python tools/run_benchmark.py "${{ inputs.benchmark_id }}" --task-id "${{ inputs.task_id }}"
 
       - name: Upload benchmark artifact
-        if: ${{ always() && inputs.upload_artifact }}
+        if: ${{ always() && inputs.upload_artifact && steps.benchmark_run.outputs.report_created == 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: benchmark-${{ inputs.task_id }}
-          path: .ai/reports/benchmarks/${{ inputs.task_id }}/
+          name: benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.benchmark_run.outputs.report_dir }}
           retention-days: 30
           if-no-files-found: error
 
@@ -59,6 +60,6 @@ jobs:
           echo ""
           echo "========================================="
           echo "Benchmark completed."
-          echo "Reports saved in .ai/reports/benchmarks/"
+          echo "Report status: ${{ steps.benchmark_run.outputs.report_status || 'unknown' }}"
           echo "Manual baseline update: .ai/baselines/"
           echo "========================================="

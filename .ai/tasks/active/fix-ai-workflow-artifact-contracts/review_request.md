@@ -1,26 +1,15 @@
 # Review Request
 
 **Task:** fix-ai-workflow-artifact-contracts
-**Reviewer:** [Perplexity / Human]
-**Date:** {{DATE}}
+**Reviewer:** Human / Perplexity
+**Date:** 2026-08-08
+**Status:** Awaiting human/Perplexity review before completion.
 
 ## What was implemented
+Structured benchmark reports, strict semantic validation, path safety.
+Merged in PR #155.
 
-[Brief description]
-
-## Files changed
-
-[list of files]
-
-## Tests
-
-[Test results summary]
-
-## Implementation report
-
-[Link to implementation_report.md](implementation_report.md)
-
-## Special attention needed
-
-- [Area 1]
-- [Area 2]
+## Special attention
+- Benchmark report path uses resolve()-based safety
+- requires_benchmark/adr/reference are now blocking errors
+- Workflow safety scan is regex-based, not full YAML parser

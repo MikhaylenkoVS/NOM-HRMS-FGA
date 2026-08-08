@@ -1,6 +1,6 @@
 # Rollback Plan
 
-**Task:** fix-ai-workflow-artifact-contracts
+**Task:** fix-ai-workflow-validation-and-artifact-safety
 
 ## How to detect failure
 
@@ -11,7 +11,7 @@
 ### Code rollback
 
 ```bash
-git revert COMMIT_SHA
+git revert <commit>
 git push origin
 ```
 

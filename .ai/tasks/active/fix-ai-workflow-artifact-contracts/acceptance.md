@@ -1,30 +1,8 @@
-# Acceptance Criteria
+# Acceptance: Fix artifact contracts
 
-## Must have
-
-- [ ] Criterion 1
-- [ ] Criterion 2
-
-## Must not
-
-- [ ] Regression 1
-- [ ] Regression 2
-
-## Test commands
-
-```bash
-# Unit tests
-pytest tests/ -q -m unit
-
-# Integration tests
-pytest tests/ -q -m integration
-
-# Specific test file
-pytest tests/unit/test_xxx.py -v
-```
-
-## Success metrics
-
-| Metric | Target | Measurement method |
-|--------|--------|--------------------|
-| | | |
+- [x] Benchmark reports: JSON, MD, raw_output.txt
+- [x] requires_benchmark: blocking error if missing
+- [x] requires_adr: blocking error if empty
+- [x] Path traversal: resolve() check
+- [x] Workflow safety: forbidden inputs detected
+- [x] Tests: 37 pass, no skips

@@ -1,27 +1,12 @@
-# Design
+# Design: Fix artifact contracts and semantic validation
 
-## Approach
+## Problem
+Benchmark runner produced no structured reports. requires_* checks were
+warnings, not errors. Path traversal check was string-based, not resolve()-based.
+Workflow safety scan had weak pattern matching.
 
-[Chosen approach]
-
-## Architecture
-
-[Key modules, interfaces, data flow]
-
-## Alternatives considered
-
-| Alternative | Pros | Cons | Reason rejected |
-|------------|------|------|-----------------|
-| | | | |
-
-## API / Interface changes
-
-[New or changed functions, classes, CLI args, file formats]
-
-## Data model
-
-[Schema, relationships, constraints]
-
-## Error handling
-
-[Expected failure modes and responses]
+## Solution
+- Structured JSON+MD+raw benchmark reports in .ai/reports/benchmarks/
+- Strict requires_benchmark/adr/reference checks (blocking errors)
+- _check_path_safe() with resolve() + is_relative_to()
+- Stricter workflow safety: forbidden inputs, || true, if-no-files-found
