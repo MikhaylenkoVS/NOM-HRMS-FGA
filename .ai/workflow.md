@@ -49,7 +49,16 @@ python tools/ai_workflow.py task-status <id>
 python tools/ai_workflow.py complete-task <id>
 python tools/ai_workflow.py archive-task <id>
 python tools/ai_workflow.py check-repo
+python tools/run_benchmark.py <benchmark-id> --task-id <id>
 ```
+
+## Benchmark execution policy
+
+- Benchmarks run only via registered IDs in `tools/run_benchmark.py` allowlist
+- Arbitrary shell commands are NEVER accepted
+- New benchmark IDs require human-approved PR
+- Unknown benchmark IDs produce blocking failure
+- `validate-task` must pass before benchmark runs
 
 ## Когда нужен task packet
 

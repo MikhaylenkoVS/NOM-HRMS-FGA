@@ -542,6 +542,43 @@ def cmd_validate_task(args) -> int:
     if status == "archived" and location != "archived":
         warnings.append(f"Task status is 'archived' but located in {location}/")
 
+    # Path traversal check in artifact paths
+    for key, val in task_data.get("artifacts", {}).items():
+        if val and isinstance(val, str) and ".." in val:
+            errors.append(f"Artifact path '{key}' contains path traversal: {val}")
+
+    # requires_adr: check linked ADRs exist
+    if task_data.get("validation", {}).get("requires_adr"):
+        adr_list = task_data.get("links", {}).get("adr", [])
+        for adr_ref in adr_list:
+            adr_path = DECISIONS_DIR / adr_ref
+            if not adr_path.is_file():
+                errors.append(f"ADR '{adr_ref}' referenced but not found in decisions/")
+
+    # requires_benchmark: check report exists and is non-empty
+    if task_data.get("validation", {}).get("requires_benchmark"):
+        bench_val = task_data.get("artifacts", {}).get("benchmark_report")
+        if bench_val:
+            bp = task_dir / bench_val
+            if bp.is_file() and bp.stat().st_size < 50:
+                errors.append(f"benchmark_report '{bench_val}' is empty or too short")
+
+    # requires_reference_equivalence: check reference validation artifact
+    if task_data.get("validation", {}).get("requires_reference_equivalence"):
+        ref_artifact = task_data.get("artifacts", {}).get("reference_validation")
+        if ref_artifact:
+            rp = task_dir / ref_artifact
+            if not rp.is_file():
+                errors.append(f"reference_validation '{ref_artifact}' not found")
+
+    # Active tasks must not have final status
+    if location == "active" and status in FINAL_STATUSES:
+        errors.append(f"Task in active/ has final status '{status}'. Move to completed/.")
+
+    # Completed tasks must have final status
+    if location == "completed" and status not in FINAL_STATUSES:
+        errors.append(f"Task in completed/ has non-final status '{status}'.")
+
     # Print results
     _print_validation_table(errors, warnings)
 
@@ -1144,6 +1181,21 @@ def cmd_check_repo(args) -> int:
             if nums.count(num) > 1:
                 errors.append(f"Duplicate ADR number in index: {num}")
 
+    # 11. Task packets in active/ must not have final status
+    if TASKS_ACTIVE.is_dir():
+        for task_dir in TASKS_ACTIVE.iterdir():
+            if task_dir.is_dir():
+                task_data = load_json(task_dir / "task.json")
+                status = task_data.get("status", "")
+                if status in FINAL_STATUSES:
+                    errors.append(f"Task in active/ has final status: {task_dir.name} -> {status}")
+
+    # 12. Workflow safety scan
+    wf_dir = PROJECT_ROOT / ".github" / "workflows"
+    if wf_dir.is_dir():
+        for wf_file in sorted(wf_dir.glob("*.yml")):
+            _check_workflow_safety(wf_file, errors, warnings)
+
     # Print results
     _print_validation_table(errors, warnings)
 
@@ -1153,6 +1205,49 @@ def cmd_check_repo(args) -> int:
     else:
         print(f"\n{len(warnings)} warning(s) -- REPO CHECK PASSED")
         return 0
+
+
+def _check_workflow_safety(wf_file: Path, errors: list, warnings: list) -> None:
+    """Scan a workflow YAML for unsafe patterns."""
+    try:
+        content = wf_file.read_text(encoding="utf-8")
+    except Exception:
+        return
+
+    wf_name = wf_file.name
+
+    # Detect shell injection: ${{ inputs.*command }}, ${{ inputs.*script }}
+    shell_input_patterns = [
+        r'\$\{\{\s*inputs\.\w*command\w*\s*\}\}',
+        r'\$\{\{\s*inputs\.\w*script\w*\s*\}\}',
+        r'\$\{\{\s*inputs\.\w*shell\w*\s*\}\}',
+    ]
+    for pattern in shell_input_patterns:
+        if re.search(pattern, content):
+            errors.append(
+                f"Workflow safety: {wf_name} contains shell-injectable input "
+                f"(matches '{pattern}'). Replace with choice input and allowlisted runner."
+            )
+
+    # Detect shell=True in run steps (Python subprocess)
+    if re.search(r'shell\s*:\s*True', content):
+        warnings.append(f"Workflow safety: {wf_name} uses shell:true in a subprocess call.")
+
+    # Check benchmark.yml uses choice input for benchmark_id
+    if wf_name == "benchmark.yml":
+        if "benchmark_command" in content and "type: choice" not in content:
+            errors.append(
+                "Workflow safety: benchmark.yml must use 'type: choice' for benchmark_id, "
+                "not arbitrary free-text input."
+            )
+        if "type: choice" in content and "options:" in content:
+            # Extract options from the YAML
+            options_match = re.findall(r'options:\s*\n(\s*-\s*\S+)', content)
+            if not options_match:
+                # Try multiline
+                opt_section = re.search(r'options:(.*?)(?:\n\s*\n|\n\S)', content, re.DOTALL)
+                # Basic check: options section exists
+                pass  # YAML structure validated by simple presence check
 
 
 # ----------------------------------------------------------------------

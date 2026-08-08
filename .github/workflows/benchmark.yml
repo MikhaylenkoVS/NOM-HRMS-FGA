@@ -4,14 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       task_id:
-        description: 'Task ID (e.g., 2026-08-08-perf-fix)'
+        description: 'Task ID associated with this benchmark run'
         required: true
         type: string
-      benchmark_command:
-        description: 'Benchmark command (must be allowlisted)'
+      benchmark_id:
+        description: 'Registered benchmark identifier'
         required: true
-        type: string
-        default: 'pytest tests/ -q --timeout=300'
+        type: choice
+        options:
+          - ai-workflow-smoke
       upload_artifact:
         description: 'Upload benchmark output as workflow artifact'
         type: boolean
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
   benchmark:
-    name: Run benchmark
+    name: Run benchmark (${{ inputs.benchmark_id }})
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,26 +36,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Validate task exists
+      - name: Validate task packet (blocking)
         run: |
-          python tools/ai_workflow.py validate-task "${{ inputs.task_id }}" || echo "WARNING: Validation had issues"
+          python tools/ai_workflow.py validate-task "${{ inputs.task_id }}"
 
-      - name: Run benchmark
+      - name: Run benchmark (blocking)
         run: |
-          echo "=== Benchmark: ${{ inputs.task_id }} ==="
-          echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          echo "Command: ${{ inputs.benchmark_command }}"
-          echo ""
-          ${{ inputs.benchmark_command }}
-        continue-on-error: true
+          python tools/run_benchmark.py "${{ inputs.benchmark_id }}" --task-id "${{ inputs.task_id }}"
 
       - name: Upload benchmark artifact
         if: inputs.upload_artifact
         uses: actions/upload-artifact@v7
         with:
           name: benchmark-${{ inputs.task_id }}
-          path: |
-            .ai/tasks/active/${{ inputs.task_id }}/benchmark_report.md
+          path: .ai/tasks/active/${{ inputs.task_id }}/benchmark_report.md
           retention-days: 30
           if-no-files-found: ignore
 

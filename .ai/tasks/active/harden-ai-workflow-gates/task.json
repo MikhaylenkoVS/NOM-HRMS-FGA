@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "id": "harden-ai-workflow-gates",
+  "title": "Harden AI-workflow CI gates and benchmark execution",
+  "status": "draft",
+  "type": "security",
+  "risk_level": "high",
+  "created_at": "2026-08-08T19:28:51Z",
+  "updated_at": "2026-08-08T19:28:51Z",
+  "owners": {
+    "planner": "perplexity",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "fix/harden-ai-workflow-gates",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      ".ai/tasks/",
+      ".ai/workflow.md",
+      ".ai/README.md",
+      ".github/workflows/benchmark.yml",
+      ".github/workflows/ci.yml",
+      ".github/workflows/ai-artifacts.yml",
+      ".github/workflows/security.yml",
+      ".github/workflows/release-readiness.yml",
+      "tools/ai_workflow.py",
+      "tools/run_benchmark.py",
+      "tests/unit/test_ai_workflow.py",
+      "docs/ai_workflow.md",
+      "docs/github_manual_setup.md",
+      "docs/ai_review_protocol.md",
+      "CONTRIBUTING.md"
+    ],
+    "forbidden_paths": [
+      "src/core/",
+      "src/app.py",
+      "src/ui/",
+      "src/structures/",
+      "src/simulations/",
+      "data/",
+      "tools/build_exe.py"
+    ],
+    "max_changed_files": null
+  },
+  "requirements": {
+    "must_have": [
+      "Remove arbitrary shell execution from benchmark workflow",
+      "Safe benchmark runner with ID allowlist (tools/run_benchmark.py)",
+      "Audit and categorize continue-on-error usage",
+      "Move example-ai-workflow-bootstrap to completed/",
+      "Strengthen validate-task semantic checks",
+      "Strengthen check-repo workflow safety scan",
+      "Tests for benchmark runner and new validation rules",
+      "Updated documentation"
+    ],
+    "must_not": [
+      "Change scientific/application code",
+      "Add secrets or real credentials",
+      "Add cloud/SaaS dependencies",
+      "Add arbitrary shell execution from workflow inputs",
+      "Perform auto-merge/release/push to main"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py check-repo",
+      "python tools/ai_workflow.py validate-task harden-ai-workflow-gates",
+      "pytest tests/unit/test_ai_workflow.py -v"
+    ],
+    "required_test_commands": [
+      "python -m pytest tests/unit/test_ai_workflow.py -v"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": false,
+    "requires_adr": false,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": []
+  }
+}
