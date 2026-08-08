@@ -2,11 +2,11 @@
   "schema_version": 1,
   "id": "harden-ai-workflow-gates",
   "title": "Harden AI-workflow CI gates and benchmark execution",
-  "status": "draft",
+  "status": "review",
   "type": "security",
   "risk_level": "high",
   "created_at": "2026-08-08T19:28:51Z",
-  "updated_at": "2026-08-08T19:28:51Z",
+  "updated_at": "2026-08-08T20:00:00Z",
   "owners": {
     "planner": "perplexity",
     "implementer": "deepcode",

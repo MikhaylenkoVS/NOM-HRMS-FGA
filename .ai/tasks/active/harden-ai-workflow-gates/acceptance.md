@@ -4,7 +4,7 @@
 
 - [ ] benchmark.yml: arbitrary shell input removed, replaced with benchmark_id choice
 - [ ] tools/run_benchmark.py: safe runner with allowlist, task validation gate
-- [ ] benchmark CLI: `python tools/ai_workflow.py run-benchmark <id> --task-id <id>`
+- [ ] benchmark CLI: `python tools/ai_workflow.py run-benchmark ID --task-id ID`
 - [ ] ci.yml: lint-advisory naming with migration plan comment
 - [ ] ai-artifacts.yml: `|| true` removed from validation (blocking)
 - [ ] security.yml: dependency-check-advisory naming with reason
