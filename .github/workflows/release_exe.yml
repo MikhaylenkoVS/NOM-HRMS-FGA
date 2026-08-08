@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload as Artifact
         if: inputs.upload_artifact || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NOM_HRMS_FGA.exe
           path: dist/NOM_HRMS_FGA.exe

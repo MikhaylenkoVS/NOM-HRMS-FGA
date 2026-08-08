@@ -78,7 +78,7 @@ jobs:
           cat release_readiness_report.md
 
       - name: Upload report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-readiness-${{ inputs.version }}
           path: release_readiness_report.md
