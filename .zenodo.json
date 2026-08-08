@@ -1,0 +1,16 @@
+{
+    "title": "NOM-HRMS-FGA: Functional-Group Analyzer for Natural Organic Matter Mass Spectra",
+    "description": "Open-source Python software for deconvolution of high-resolution mass spectra (HPLC-HRMS) of natural organic matter (NOM). Combines selective chemical derivatization with isotope labelling to count functional groups, assign molecular formulas, and enumerate candidate structures.",
+    "creators": [
+        {
+            "name": "Mikhaylenko, Vladimir S.",
+            "affiliation": "Lomonosov Moscow State University",
+            "orcid": "0000-0001-7545-6275"
+        }
+    ],
+    "license": "MPL-2.0",
+    "keywords": ["mass-spectrometry", "natural-organic-matter", "humic-substances", "derivatization", "functional-groups", "hrms", "cheminformatics"],
+    "upload_type": "software",
+    "access_right": "open",
+    "version": "0.6.0"
+}
