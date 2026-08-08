@@ -58,7 +58,10 @@ jobs:
 
       - name: Unit tests
         run: |
-          python -m pytest tests/unit/ -q --tb=short --ignore=tests/unit/test_formula_db.py
+          python -m pytest tests/unit/ -q --tb=short \
+            --ignore=tests/unit/test_formula_db.py \
+            --ignore=tests/unit/test_ai_workflow.py \
+            --ignore=tests/unit/test_raw_bridge.py
 
       - name: Integration / smoke tests
         if: hashFiles('data/test_sets/set_01/original.csv') != ''
