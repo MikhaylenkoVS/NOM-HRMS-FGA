@@ -1,4 +1,5 @@
 """PresetsMixin — extracted from app.py."""
+
 import threading, queue, os, sys, traceback, io
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -7,12 +8,25 @@ import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from src.ui._config import BG, FG, ACCENT, PANEL, WARN, OK, IMG_W, IMG_H, MONO, _GUI_DEFAULTS, _FORMULA_RANGES
+from src.ui._config import (
+    BG,
+    FG,
+    ACCENT,
+    PANEL,
+    WARN,
+    OK,
+    IMG_W,
+    IMG_H,
+    MONO,
+    _GUI_DEFAULTS,
+    _FORMULA_RANGES,
+)
 from src.ui.plots import embed_figure
 
 
 class PresetsMixin:
     """Extracted from app.py."""
+
     def _import_csv(self):
         """Загрузить result_table.csv, заполнить таблицу и структуры."""
         path = filedialog.askopenfilename(
@@ -53,7 +67,10 @@ class PresetsMixin:
             return
         params = preset.get("params", {})
         # Масс-фильтр
-        for var, key in [(self.mass_min_var, "load_mass_min"), (self.mass_max_var, "load_mass_max")]:
+        for var, key in [
+            (self.mass_min_var, "load_mass_min"),
+            (self.mass_max_var, "load_mass_max"),
+        ]:
             if key in params:
                 var.set(str(params[key]))
         # Шумоподавление
@@ -70,8 +87,12 @@ class PresetsMixin:
             self.max_groups_var.set(str(params["max_groups"]))
         # Диапазоны элементов
         er = params.get("element_ranges", {})
-        for el, (var_min, var_max) in [("C", (self.c_min, self.c_max)), ("H", (self.h_min, self.h_max)),
-                                         ("O", (self.o_min, self.o_max)), ("N", (self.n_min, self.n_max))]:
+        for el, (var_min, var_max) in [
+            ("C", (self.c_min, self.c_max)),
+            ("H", (self.h_min, self.h_max)),
+            ("O", (self.o_min, self.o_max)),
+            ("N", (self.n_min, self.n_max)),
+        ]:
             if el in er:
                 var_min.set(str(er[el][0]))
                 var_max.set(str(er[el][1]))
@@ -84,11 +105,14 @@ class PresetsMixin:
             return
 
         import os, glob
+
         csv_files = glob.glob(os.path.join(folder, "*.csv"))
         raw_files = glob.glob(os.path.join(folder, "*.raw"))
         all_files = csv_files + raw_files
         if not all_files:
-            messagebox.showwarning("Нет файлов", f"В папке нет .csv или .raw файлов: {folder}")
+            messagebox.showwarning(
+                "Нет файлов", f"В папке нет .csv или .raw файлов: {folder}"
+            )
             return
 
         found = {"src": None, "dmet": None, "dacet": None}
@@ -112,16 +136,17 @@ class PresetsMixin:
         self.src_var.set(found["src"] or "")
         self.dmet_var.set(found["dmet"] or "")
         self.dacet_var.set(found["dacet"] or "")
-        if hasattr(self, '_folder_path_var'):
+        if hasattr(self, "_folder_path_var"):
             self._folder_path_var.set(folder)
 
         found_count = sum(1 for v in found.values() if v)
         self._log(
-            f"[INFO] Папка: {folder} → найдено {found_count}/3 спектров", color=OK)
+            f"[INFO] Папка: {folder} → найдено {found_count}/3 спектров", color=OK
+        )
         if found_count < 3:
             messagebox.showwarning(
                 "Не все спектры",
-                f"Автоматически найдено {found_count} из 3 спектров. Проверьте оставшиеся поля вручную."
+                f"Автоматически найдено {found_count} из 3 спектров. Проверьте оставшиеся поля вручную.",
             )
 
     def _export_csv(self):
@@ -140,4 +165,3 @@ class PresetsMixin:
                 messagebox.showerror("Ошибка", str(e))
 
     # ── Van Krevelen ──────────────────────────────────────────────────────────
-

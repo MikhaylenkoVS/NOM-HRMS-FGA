@@ -9,7 +9,6 @@ from src.core.chemistry.fragment_combinations import (
 )
 from src.core.chemistry.fragments import FRAGMENT_LIBRARY
 
-
 # ===================================================================
 # filter_fragments
 # ===================================================================
@@ -95,9 +94,7 @@ class TestFindFragmentCombinations:
 
     def test_with_cooh_functional_group(self):
         """Target C7O2, IHD=5 — C6H6 (benzene) + COOH."""
-        combos = find_fragment_combinations(
-            {"C": 7, "O": 2}, 5, num_cooh=1, num_oh=0
-        )
+        combos = find_fragment_combinations({"C": 7, "O": 2}, 5, num_cooh=1, num_oh=0)
         assert len(combos) >= 1
         for c in combos:
             assert c["cooh"] == 1 or c["cooh"] == 0
@@ -119,9 +116,7 @@ class TestFindFragmentCombinations:
 
     def test_functional_groups_exhaust_target_falls_back(self):
         """COOH requests more atoms than the target has → fallback to no COOH."""
-        combos = find_fragment_combinations(
-            {"C": 1}, 0, num_cooh=2, num_oh=0
-        )
+        combos = find_fragment_combinations({"C": 1}, 0, num_cooh=2, num_oh=0)
         # Should fall back to no functional groups
         assert len(combos) >= 0
 
@@ -159,13 +154,15 @@ class TestAssembleMoleculeFromCombination:
 
     def test_assemble_empty_combination_raises(self):
         with pytest.raises(ValueError):
-            assemble_molecule_from_combination({
-                "bases": {},
-                "cooh": 0,
-                "oh": 0,
-                "total_heavy_formula": {},
-                "total_ihd": 0,
-            })
+            assemble_molecule_from_combination(
+                {
+                    "bases": {},
+                    "cooh": 0,
+                    "oh": 0,
+                    "total_heavy_formula": {},
+                    "total_ihd": 0,
+                }
+            )
 
     def test_assemble_unknown_fragment_raises(self):
         combo = {

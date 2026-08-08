@@ -19,8 +19,7 @@ REAL_PARAMS = list(REAL_SIG.parameters.keys())
 def test_real_signature_is_correct():
     """Реальная embed_figure должна иметь сигнатуру (fig, parent, toolbar)."""
     assert REAL_PARAMS == ["fig", "parent", "toolbar"], (
-        f"Ожидалась сигнатура (fig, parent, toolbar), "
-        f"получена {REAL_PARAMS}"
+        f"Ожидалась сигнатура (fig, parent, toolbar), " f"получена {REAL_PARAMS}"
     )
 
 
@@ -34,13 +33,10 @@ def test_fallback_signature_matches_real():
     except_pos = source.find("_UI_ERROR =")
     assert except_pos > 0, "Не найден блок except в app.py"
 
-    fallback_match = re.search(
-        r"def embed_figure\(([^)]*)\)",
-        source[except_pos:]
-    )
-    assert fallback_match is not None, (
-        "Не найдено fallback-определение embed_figure в except-блоке app.py"
-    )
+    fallback_match = re.search(r"def embed_figure\(([^)]*)\)", source[except_pos:])
+    assert (
+        fallback_match is not None
+    ), "Не найдено fallback-определение embed_figure в except-блоке app.py"
 
     fallback_params_str = fallback_match.group(1)
     # Извлекаем имена параметров (до '=' если есть default)
@@ -69,20 +65,20 @@ def test_call_sites_match_signature():
         calls = re.findall(r"embed_figure\(([^)]*)\)", source)
         for c in calls:
             # Отфильтровываем определение fallback'а
-            if "def embed_figure" not in source[
-                max(0, source.find(c) - 20):source.find(c)
-            ]:
+            if (
+                "def embed_figure"
+                not in source[max(0, source.find(c) - 20) : source.find(c)]
+            ):
                 all_calls.append((fname, c))
 
-    assert len(all_calls) >= 3, (
-        f"Ожидалось минимум 3 места вызова, найдено {len(all_calls)}"
-    )
+    assert (
+        len(all_calls) >= 3
+    ), f"Ожидалось минимум 3 места вызова, найдено {len(all_calls)}"
 
     for i, (fname, args_str) in enumerate(all_calls):
         # Считаем позиционные аргументы (до первого `=` если есть keyword)
         pos_args = [
-            a.strip() for a in args_str.split(",")
-            if "=" not in a and a.strip()
+            a.strip() for a in args_str.split(",") if "=" not in a and a.strip()
         ]
         # Должно быть 2 позиционных: (fig, parent) — toolbar опциональный
         assert len(pos_args) <= 3, (

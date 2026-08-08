@@ -1,4 +1,5 @@
 """Auto-generated."""
+
 import logging
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -172,4 +173,3 @@ def visualize_series(
     else:
         plt.show()
     plt.close(fig)
-

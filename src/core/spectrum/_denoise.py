@@ -1,4 +1,5 @@
 """Denoising + GMM noise threshold."""
+
 import logging
 import numpy as np
 import math
@@ -10,6 +11,7 @@ from src.configs.loader import NOISE_CFG
 logger = logging.getLogger(__name__)
 
 # Denoise wrapper (from spectrum_ops.py)
+
 
 def denoise(
     spec,
@@ -44,12 +46,14 @@ def denoise(
     """
     return spec.noise_filter(force=force, intensity=intensity, quantile=quantile)
 
+
 # ===========================================================================
 # ЭТАП 2b: Назначение брутто-формул
 # ===========================================================================
 
 # Default per-element count ranges for brutto assignment.
 # Source: pipeline.json -> default_brutto_dict. JSON stores [min, max] lists;
+
 
 # GMM noise threshold (from noise.py)
 def _log_gaussian_pdf(x: np.ndarray, mean: float, var: float) -> np.ndarray:
@@ -99,7 +103,9 @@ def fit_gmm_1d(
     # ── Initialisation (equal-frequency bins) ───────────────────────
     x_sorted = np.sort(x)
     bin_edges = np.linspace(0, n, K + 1, dtype=int)
-    means = np.array([np.mean(x_sorted[bin_edges[i]:bin_edges[i + 1]]) for i in range(K)])
+    means = np.array(
+        [np.mean(x_sorted[bin_edges[i] : bin_edges[i + 1]]) for i in range(K)]
+    )
     vars = np.ones(K) * np.var(x) * 0.5  # shared initial variance
     weights = np.full(K, 1.0 / K)
 
@@ -110,7 +116,9 @@ def fit_gmm_1d(
         # E-step: responsibilities
         log_resp = np.empty((n, K))
         for k in range(K):
-            log_resp[:, k] = np.log(weights[k] + NOISE_CFG.eps) + _log_gaussian_pdf(x, means[k], vars[k])
+            log_resp[:, k] = np.log(weights[k] + NOISE_CFG.eps) + _log_gaussian_pdf(
+                x, means[k], vars[k]
+            )
 
         log_resp_max = log_resp.max(axis=1, keepdims=True)
         resp = np.exp(log_resp - log_resp_max)
@@ -120,11 +128,13 @@ def fit_gmm_1d(
         # M-step
         Nk = resp.sum(axis=0)
         weights_new = Nk / n
-        means_new = np.sum(resp * x[:, np.newaxis], axis=0) / np.maximum(Nk, NOISE_CFG.eps)
+        means_new = np.sum(resp * x[:, np.newaxis], axis=0) / np.maximum(
+            Nk, NOISE_CFG.eps
+        )
         vars_new = np.zeros(K)
         for k in range(K):
             diff = x - means_new[k]
-            vars_new[k] = np.sum(resp[:, k] * diff ** 2) / max(Nk[k], NOISE_CFG.eps)
+            vars_new[k] = np.sum(resp[:, k] * diff**2) / max(Nk[k], NOISE_CFG.eps)
 
         # Regularise: prevent variance collapse
         vars_new = np.maximum(vars_new, 1e-6 * np.var(x))
@@ -134,7 +144,9 @@ def fit_gmm_1d(
         weights = weights_new
 
         # Log-likelihood
-        log_lik = np.sum(np.log(np.maximum(resp_sum.flatten(), NOISE_CFG.eps))) + np.sum(log_resp_max)
+        log_lik = np.sum(
+            np.log(np.maximum(resp_sum.flatten(), NOISE_CFG.eps))
+        ) + np.sum(log_resp_max)
         if abs(log_lik - log_likelihood) < tol:
             log_likelihood = log_lik
             break
@@ -164,8 +176,12 @@ def bic(log_likelihood: float, n_params: int, n_samples: int) -> float:
 
 
 def gaussian_intersection(
-    mu1: float, sigma1: float, pi1: float,
-    mu2: float, sigma2: float, pi2: float,
+    mu1: float,
+    sigma1: float,
+    pi1: float,
+    mu2: float,
+    sigma2: float,
+    pi2: float,
 ) -> float:
     """Find x where two weighted 1-D Gaussians intersect.
 
@@ -181,12 +197,16 @@ def gaussian_intersection(
 
     Returns the root that lies between μ₁ and μ₂.
     """
-    v1, v2 = sigma1 ** 2, sigma2 ** 2
+    v1, v2 = sigma1**2, sigma2**2
 
     A = 1.0 / (2.0 * v1) - 1.0 / (2.0 * v2)
     B = mu2 / v2 - mu1 / v1
-    C = (mu1 ** 2) / (2.0 * v1) - (mu2 ** 2) / (2.0 * v2) \
-        - np.log(sigma2 / sigma1) - np.log(pi1 / pi2)
+    C = (
+        (mu1**2) / (2.0 * v1)
+        - (mu2**2) / (2.0 * v2)
+        - np.log(sigma2 / sigma1)
+        - np.log(pi1 / pi2)
+    )
 
     if abs(A) < NOISE_CFG.eps:
         # Degenerate: equal variances → linear equation
@@ -195,7 +215,7 @@ def gaussian_intersection(
         # Otherwise fall back to midpoint
         return (mu1 + mu2) / 2.0
 
-    disc = B ** 2 - 4.0 * A * C
+    disc = B**2 - 4.0 * A * C
     if disc < 0:
         # No real intersection -- return midpoint
         return (mu1 + mu2) / 2.0
@@ -272,7 +292,9 @@ def compute_noise_threshold(
     NoiseThresholdResult
     """
     if len(intensities) == 0:
-        return NoiseThresholdResult(threshold=0.0, threshold_log=-np.inf, n_components=1, bic_values=[])
+        return NoiseThresholdResult(
+            threshold=0.0, threshold_log=-np.inf, n_components=1, bic_values=[]
+        )
 
     # Subsample for performance: GMM on 5 000 points is instant,
     # 500 000 would allocate an n×K matrix (7.5M elements) per EM iteration.
@@ -299,7 +321,9 @@ def compute_noise_threshold(
             best_model = (weights, means, vars_arr)
 
     if best_model is None:
-        return NoiseThresholdResult(threshold=0.0, threshold_log=-np.inf, n_components=1, bic_values=bics)
+        return NoiseThresholdResult(
+            threshold=0.0, threshold_log=-np.inf, n_components=1, bic_values=bics
+        )
 
     weights, means, vars_arr = best_model
 
@@ -318,12 +342,10 @@ def compute_noise_threshold(
         pi1, pi2 = weights[0], weights[1]
         x_thr = gaussian_intersection(mu1, sigma1, pi1, mu2, sigma2, pi2)
 
-    thr = 10.0 ** x_thr
+    thr = 10.0**x_thr
     return NoiseThresholdResult(
         threshold=float(thr),
         threshold_log=float(x_thr),
         n_components=best_K,
         bic_values=[float(v) for v in bics],
     )
-
-

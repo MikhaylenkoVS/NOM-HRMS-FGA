@@ -1,4 +1,5 @@
 """PlotsMixin — extracted from app.py."""
+
 import threading, queue, os, sys, traceback, io
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -7,12 +8,25 @@ import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from src.ui._config import BG, FG, ACCENT, PANEL, WARN, OK, IMG_W, IMG_H, MONO, _GUI_DEFAULTS, _FORMULA_RANGES
+from src.ui._config import (
+    BG,
+    FG,
+    ACCENT,
+    PANEL,
+    WARN,
+    OK,
+    IMG_W,
+    IMG_H,
+    MONO,
+    _GUI_DEFAULTS,
+    _FORMULA_RANGES,
+)
 from src.ui.plots import embed_figure
 
 
 class PlotsMixin:
     """Extracted from app.py."""
+
     def _plot_van_krevelen(self):
         if self.result_df is None or self.result_df.empty:
             messagebox.showinfo(
@@ -33,7 +47,9 @@ class PlotsMixin:
             if self._vk_figure is not None:
                 plt.close(self._vk_figure)
 
-            fig = create_van_krevelen_plot(self.result_df, color_by=self.vk_color_var.get())
+            fig = create_van_krevelen_plot(
+                self.result_df, color_by=self.vk_color_var.get()
+            )
             self._vk_figure = fig
             embed_figure(fig, self.vk_canvas_frame)
             self._log("[DEBUG] _plot_van_krevelen: диаграмма построена", color=OK)
@@ -256,7 +272,7 @@ class PlotsMixin:
             messagebox.showwarning(
                 "Ошибка построения гистограмм",
                 "Не удалось построить гистограммы функциональных групп.\n"
-                "Проверьте данные в таблице результатов."
+                "Проверьте данные в таблице результатов.",
             )
             self._log(f"[ОШИБКА] _auto_plot_hist: {traceback.format_exc()}", color=WARN)
             plt.close("all")
@@ -311,4 +327,3 @@ class PlotsMixin:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  ТОЧКА ВХОДА
 # ═══════════════════════════════════════════════════════════════════════════════
-

@@ -14,14 +14,10 @@ permissions:
   contents: read
 
 jobs:
-  # ── Advisory: pre-existing style violations (62+ files) ──────────────
-  # TODO(#tech-debt): Enable blocking lint after fixing all violations.
-  # Migration plan: run `black src/ tests/ tools/` and commit in a
-  # dedicated `tech-debt/enable-blocking-lint` task.
-  lint-advisory:
-    name: Lint advisory (flake8 + black check)
+  # ── Blocking: formatting and lint ─────────────────────────────────
+  lint:
+    name: Lint (flake8 + black check)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -30,10 +26,8 @@ jobs:
       - run: pip install flake8>=7.0 black>=24.0
       - name: flake8
         run: flake8 src/ tests/ tools/
-        continue-on-error: true
       - name: black check
         run: black --check src/ tests/ tools/
-        continue-on-error: true
 
   test:
     name: Test (Python ${{ matrix.python-version }})

@@ -9,6 +9,7 @@ of exporting structures for a single compound
 (:class:`SetSmokeResult`), and the whole suite
 (:class:`SmokeSuiteResult`).
 """
+
 from dataclasses import dataclass, field
 from typing import List, Optional
 from pathlib import Path

@@ -1,9 +1,12 @@
 """Pipeline statistics dataclasses."""
+
 import logging
 from dataclasses import dataclass, field
 import pandas as pd
 from typing import Optional
+
 logger = logging.getLogger(__name__)
+
 
 class SeriesStats:
     """Summary statistics for one derivatization-series search.
@@ -149,4 +152,3 @@ class TestSetResult:
 # ---------------------------------------------------------------------------
 # Основной пайплайн
 # ---------------------------------------------------------------------------
-

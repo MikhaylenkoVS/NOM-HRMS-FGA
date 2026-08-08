@@ -12,6 +12,7 @@ class TestPipelineImports:
 
     def test_import_run_pipeline(self):
         from src.core.pipeline import run_pipeline
+
         assert callable(run_pipeline)
 
     def test_import_dataclasses(self):
@@ -118,14 +119,17 @@ class TestNormalizeBrutto:
 
     def test_nan(self):
         from src.core.pipeline import _normalize_brutto
+
         assert _normalize_brutto(pd.NA) is None
 
     def test_canonical(self):
         from src.core.pipeline import _normalize_brutto
+
         assert _normalize_brutto("C7H6O2") == "C7H6O2"
 
     def test_reorder(self):
         from src.core.pipeline import _normalize_brutto
+
         assert _normalize_brutto("O2C7H6") == "C7H6O2"
 
 
@@ -134,14 +138,17 @@ class TestPpmError:
 
     def test_zero_theoretical(self):
         from src.core.pipeline import _ppm_error
+
         assert _ppm_error(100.0, 0.0) == float("inf")
 
     def test_identical(self):
         from src.core.pipeline import _ppm_error
+
         assert _ppm_error(200.0, 200.0) == 0.0
 
     def test_1ppm_at_1000(self):
         from src.core.pipeline import _ppm_error
+
         result = _ppm_error(1000.001, 1000.0)
         assert abs(result - 1.0) < 0.01
 
@@ -152,16 +159,19 @@ class TestMatchRowByMass:
     @pytest.fixture
     def sample_table(self):
         """Small table with mass and assign columns."""
-        return pd.DataFrame({
-            "mass": [100.0000, 100.0010, 200.0000, 300.0000],
-            "intensity": [1e6, 5e5, 2e5, 1e5],
-            "assign": [True, False, True, True],
-            "formula": ["C5H8O2", "C5H8O2_alt", "C10H16", "C15H24"],
-        })
+        return pd.DataFrame(
+            {
+                "mass": [100.0000, 100.0010, 200.0000, 300.0000],
+                "intensity": [1e6, 5e5, 2e5, 1e5],
+                "assign": [True, False, True, True],
+                "formula": ["C5H8O2", "C5H8O2_alt", "C10H16", "C15H24"],
+            }
+        )
 
     def test_exact_match(self, sample_table):
         """Exact mass → closest row returned."""
         from src.core.pipeline import _match_row_by_mass
+
         match = _match_row_by_mass(sample_table, mass_obs=100.0000, ppm_tol=10.0)
         assert match is not None
         assert match["mass"] == 100.0000
@@ -169,6 +179,7 @@ class TestMatchRowByMass:
     def test_match_within_ppm(self, sample_table):
         """Mass within tolerance → closest row returned."""
         from src.core.pipeline import _match_row_by_mass
+
         match = _match_row_by_mass(sample_table, mass_obs=100.0005, ppm_tol=10.0)
         assert match is not None
         assert match["mass"] == 100.0000  # 100.0000 closer than 100.0010
@@ -176,24 +187,28 @@ class TestMatchRowByMass:
     def test_no_match_outside_ppm(self, sample_table):
         """Mass outside tolerance → None."""
         from src.core.pipeline import _match_row_by_mass
+
         match = _match_row_by_mass(sample_table, mass_obs=500.0, ppm_tol=1.0)
         assert match is None
 
     def test_empty_table_returns_none(self):
         """Empty DataFrame → None."""
         from src.core.pipeline import _match_row_by_mass
+
         match = _match_row_by_mass(pd.DataFrame(), mass_obs=100.0, ppm_tol=10.0)
         assert match is None
 
     def test_none_table_returns_none(self):
         """None table → None."""
         from src.core.pipeline import _match_row_by_mass
+
         match = _match_row_by_mass(None, mass_obs=100.0, ppm_tol=10.0)
         assert match is None
 
     def test_missing_mass_column_returns_none(self):
         """Table without the expected mass column → None."""
         from src.core.pipeline import _match_row_by_mass
+
         df = pd.DataFrame({"mz": [100.0]})
         match = _match_row_by_mass(df, mass_obs=100.0, ppm_tol=10.0, mass_col="mass")
         assert match is None
@@ -201,6 +216,7 @@ class TestMatchRowByMass:
     def test_require_assigned_filters_unassigned(self, sample_table):
         """require_assigned=True skips rows with assign=False."""
         from src.core.pipeline import _match_row_by_mass
+
         # mass 100.0010 has assign=False and should be skipped,
         # so the best match becomes 100.0000 (assign=True)
         match = _match_row_by_mass(
@@ -212,6 +228,7 @@ class TestMatchRowByMass:
     def test_require_assigned_no_assigned_rows(self, sample_table):
         """require_assigned=True + no assign=True rows → None."""
         from src.core.pipeline import _match_row_by_mass
+
         df = sample_table.copy()
         df["assign"] = False
         match = _match_row_by_mass(
@@ -222,6 +239,7 @@ class TestMatchRowByMass:
     def test_require_assigned_missing_assign_column(self, sample_table):
         """require_assigned=True + no 'assign' column → None."""
         from src.core.pipeline import _match_row_by_mass
+
         df = sample_table.drop(columns=["assign"])
         match = _match_row_by_mass(
             df, mass_obs=100.0000, ppm_tol=10.0, require_assigned=True
@@ -231,6 +249,7 @@ class TestMatchRowByMass:
     def test_closest_match_when_multiple_in_range(self, sample_table):
         """Multiple masses within tolerance → closest ppm wins."""
         from src.core.pipeline import _match_row_by_mass
+
         match = _match_row_by_mass(sample_table, mass_obs=100.0008, ppm_tol=50.0)
         assert match is not None
         # 100.0010 is 0.0002 away; 100.0000 is 0.0008 away → 100.0010 wins

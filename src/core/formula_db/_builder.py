@@ -15,10 +15,19 @@ from pathlib import Path
 import zstandard as zstd
 
 from ._packed import (
-    MASS_U, MASSES, MASS_SCALE, BIN_WIDTH_U, RECORD_SIZE,
-    pack_c_n_o_s_p, unpack_c_n_o_s_p,
-    ceil_div, restore_h, byte_shuffle_uint32_le,
-    formula_to_string, calculate_exact_mass, dbe_from_counts,
+    MASS_U,
+    MASSES,
+    MASS_SCALE,
+    BIN_WIDTH_U,
+    RECORD_SIZE,
+    pack_c_n_o_s_p,
+    unpack_c_n_o_s_p,
+    ceil_div,
+    restore_h,
+    byte_shuffle_uint32_le,
+    formula_to_string,
+    calculate_exact_mass,
+    dbe_from_counts,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,20 +48,25 @@ class BuildConfig:
     compression_level: int = COMPRESSION_LEVEL
 
 
-def _progress_bar(current, total, width=40, label=''):
+def _progress_bar(current, total, width=40, label=""):
     pct = current / max(total, 1)
     filled = int(width * pct)
     bar = chr(0x2588) * filled + chr(0x2591) * (width - filled)
-    label_str = f'{label}  ' if label else ''
-    sys.stderr.write(chr(13) + label_str + bar + f'  {pct*100:5.1f}%  {current:,}/{total:,}')
+    label_str = f"{label}  " if label else ""
+    sys.stderr.write(
+        chr(13) + label_str + bar + f"  {pct*100:5.1f}%  {current:,}/{total:,}"
+    )
     sys.stderr.flush()
     if current >= total:
         sys.stderr.write(chr(10))
 
 
-def _enum_valid_cnosp(max_mass_u: int, progress_cb=None, est_total=82_091_308,
-                      update_interval=0.1,
-                      ) -> tuple[list[tuple[int, int, int, int, int, int, int]], int]:
+def _enum_valid_cnosp(
+    max_mass_u: int,
+    progress_cb=None,
+    est_total=82_091_308,
+    update_interval=0.1,
+) -> tuple[list[tuple[int, int, int, int, int, int, int]], int]:
     """Enumerate all valid (c,h,n,o,s,p,mass_u) with integer arithmetic."""
     result: list[tuple[int, int, int, int, int, int, int]] = []
     count = 0
@@ -61,7 +75,8 @@ def _enum_valid_cnosp(max_mass_u: int, progress_cb=None, est_total=82_091_308,
 
     for c in range(1, c_max + 1):
         m_c = c * MASS_U["C"]
-        if m_c > max_mass_u: break
+        if m_c > max_mass_u:
+            break
         n_limit = min(127, (max_mass_u - m_c) // MASS_U["N"])
         for nv in range(n_limit + 1):
             m_cn = m_c + nv * MASS_U["N"]
@@ -74,7 +89,8 @@ def _enum_valid_cnosp(max_mass_u: int, progress_cb=None, est_total=82_091_308,
                     s_limit = min(31, (max_mass_u - m_cnop) // MASS_U["S"])
                     for sv in range(s_limit + 1):
                         base_u = m_cnop + sv * MASS_U["S"]
-                        if base_u > max_mass_u: break
+                        if base_u > max_mass_u:
+                            break
                         h_max_v = 2 * c + nv + pv + 2
                         h_max_m = (max_mass_u - base_u) // MASS_U["H"]
                         h_max = min(255, h_max_v, h_max_m)
@@ -105,7 +121,8 @@ def build_database(config: BuildConfig) -> None:
     ESTIMATED = 82_091_308
     logger.info(f"Phase 1/2: enumerating (~{ESTIMATED:,} estimated)...")
 
-    def _cb(c, t): _progress_bar(c, t, label='Phase 1/2: enum')
+    def _cb(c, t):
+        _progress_bar(c, t, label="Phase 1/2: enum")
 
     formulas, total = _enum_valid_cnosp(max_mass_u, _cb, ESTIMATED)
     logger.info(f"  {total:,} valid formulas in {time.perf_counter() - t0:.1f}s")
@@ -133,9 +150,10 @@ def build_database(config: BuildConfig) -> None:
 
     with open(fdb_path, "wb") as f:
         for bi in range(n_bins):
-            if not bins[bi]: continue
+            if not bins[bi]:
+                continue
             written += 1
-            _progress_bar(written, non_empty, label='Phase 2/2: pack')
+            _progress_bar(written, non_empty, label="Phase 2/2: pack")
 
             codes = sorted(bins[bi])
             raw = struct.pack(f"<{len(codes)}I", *codes)
@@ -150,16 +168,18 @@ def build_database(config: BuildConfig) -> None:
             mass_low_u = bi * BIN_WIDTH_U
             mass_high_u = mass_low_u + BIN_WIDTH_U
 
-            block_list.append({
-                "bin_id": bi,
-                "mass_low_u": mass_low_u,
-                "mass_high_u": mass_high_u,
-                "file_offset": offset,
-                "compressed_size": len(compressed),
-                "raw_size": raw_size,
-                "formula_count": len(codes),
-                "compressed_sha256": hashlib.sha256(compressed).hexdigest(),
-            })
+            block_list.append(
+                {
+                    "bin_id": bi,
+                    "mass_low_u": mass_low_u,
+                    "mass_high_u": mass_high_u,
+                    "file_offset": offset,
+                    "compressed_size": len(compressed),
+                    "raw_size": raw_size,
+                    "formula_count": len(codes),
+                    "compressed_sha256": hashlib.sha256(compressed).hexdigest(),
+                }
+            )
             total_f += len(codes)
 
     fdb_sha256 = fdb_hasher.hexdigest()

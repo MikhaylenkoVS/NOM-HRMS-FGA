@@ -9,14 +9,13 @@ import pytest
 rdkit_available = False
 try:
     import rdkit  # noqa: F401
+
     rdkit_available = True
 except ImportError:
     pass
 
 
-pytestmark = pytest.mark.skipif(
-    not rdkit_available, reason="RDKit not installed"
-)
+pytestmark = pytest.mark.skipif(not rdkit_available, reason="RDKit not installed")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -52,11 +51,9 @@ class TestToRdkitMol:
 
         # Build CH2-OH manually via MoleculeFragment (C-C-O backbone)
         from src.core.chemistry.fragments import MoleculeFragment
+
         frag = MoleculeFragment(
-            "test", {"C": 2, "O": 1}, 0,
-            ["C", "C", "O"],
-            [(0, 1, 1), (1, 2, 1)],
-            []
+            "test", {"C": 2, "O": 1}, 0, ["C", "C", "O"], [(0, 1, 1), (1, 2, 1)], []
         )
         mol = to_rdkit_mol(frag)
         assert mol.GetNumBonds() >= 2

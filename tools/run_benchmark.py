@@ -42,8 +42,12 @@ REPORTS_DIR = PROJECT_ROOT / ".ai" / "reports" / "benchmarks"
 BENCHMARKS: dict[str, dict] = {
     "ai-workflow-validation-smoke": {
         "cmd": [
-            sys.executable, "-m", "pytest",
-            "tests/unit/test_ai_workflow.py", "-q", "--tb=short",
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/unit/test_ai_workflow.py",
+            "-q",
+            "--tb=short",
         ],
         "kind": "validation_smoke",
     },
@@ -83,9 +87,14 @@ def run_benchmark(benchmark_id: str, task_id: str) -> int:
 
     # ----- validate-task -----
     validate_result = subprocess.run(
-        [sys.executable, str(PROJECT_ROOT / "tools" / "ai_workflow.py"),
-         "validate-task", task_id],
-        capture_output=True, text=True,
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "tools" / "ai_workflow.py"),
+            "validate-task",
+            task_id,
+        ],
+        capture_output=True,
+        text=True,
         cwd=str(PROJECT_ROOT),
     )
     if validate_result.returncode != 0:
@@ -114,7 +123,8 @@ def run_benchmark(benchmark_id: str, task_id: str) -> int:
     started_at = datetime.now(timezone.utc)
     result = subprocess.run(
         cmd,
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         cwd=str(PROJECT_ROOT),
     )
     finished_at = datetime.now(timezone.utc)
@@ -202,6 +212,7 @@ def run_benchmark(benchmark_id: str, task_id: str) -> int:
 
 def main() -> int:
     import argparse
+
     parser = argparse.ArgumentParser(
         description="Safe benchmark runner with ID allowlist",
     )

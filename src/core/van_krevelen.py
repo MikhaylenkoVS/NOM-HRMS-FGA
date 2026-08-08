@@ -57,8 +57,8 @@ GRID_COLOR: str = "#cccccc"
 # --- Параметры точек (scatter plot) ---
 SCATTER_CMAP: str = "YlOrRd"
 # Альтернативные цветовые гаммы: для COOH (тёплая) и OH (холодная)
-SCATTER_CMAP_COOH: str = "YlOrRd"   # жёлто-оранжево-красная
-SCATTER_CMAP_OH: str = "YlGnBu"     # жёлто-зелёно-синяя
+SCATTER_CMAP_COOH: str = "YlOrRd"  # жёлто-оранжево-красная
+SCATTER_CMAP_OH: str = "YlGnBu"  # жёлто-зелёно-синяя
 SCATTER_EDGECOLOR: str = "#444444"
 SCATTER_LINEWIDTH: float = 0.5
 SCATTER_ALPHA: float = 0.85
@@ -76,7 +76,7 @@ NOM_REGION_ALPHA: float = 0.22
 NOM_LABEL_FONTSIZE: float = 10
 NOM_LABEL_ALPHA: float = 0.85
 NOM_LABEL_WEIGHT: str = "bold"
-NOM_LABEL_COLOR: str = "#1a1a1a"    # почти чёрный на белом фоне
+NOM_LABEL_COLOR: str = "#1a1a1a"  # почти чёрный на белом фоне
 
 # ======================================================================
 # ОБЛАСТИ NOM НА ДИАГРАММЕ
@@ -242,7 +242,9 @@ def create_van_krevelen_plot(
         color_by = "N_COOH"
 
     cmap = SCATTER_CMAP_COOH if color_by == "N_COOH" else SCATTER_CMAP_OH
-    clabel = "Number of –COOH groups" if color_by == "N_COOH" else "Number of –OH groups"
+    clabel = (
+        "Number of –COOH groups" if color_by == "N_COOH" else "Number of –OH groups"
+    )
 
     # Если df уже содержит колонки h_c, o_c — используем как есть,
     # иначе вычисляем из сырой result-таблицы.
@@ -271,7 +273,9 @@ def create_van_krevelen_plot(
         sizes = np.full_like(intensities_arr, SCATTER_SIZE_FALLBACK, dtype=float)
     else:
         # sqrt для сглаживания: мелкие пики не исчезают на фоне одного гиганта
-        norm = np.sqrt((intensities_arr - intensity_min) / (intensity_max - intensity_min))
+        norm = np.sqrt(
+            (intensities_arr - intensity_min) / (intensity_max - intensity_min)
+        )
         sizes = SCATTER_SIZE_MIN + norm * (SCATTER_SIZE_MAX - SCATTER_SIZE_MIN)
 
     # ── Создание фигуры ───────────────────────────────────────────────
@@ -303,9 +307,7 @@ def create_van_krevelen_plot(
             color=NOM_LABEL_COLOR,
             alpha=NOM_LABEL_ALPHA,
             weight=NOM_LABEL_WEIGHT,
-            path_effects=[
-                patheffects.withStroke(linewidth=2.5, foreground="white")
-            ],
+            path_effects=[patheffects.withStroke(linewidth=2.5, foreground="white")],
         )
 
     # ── Точки ─────────────────────────────────────────────────────────

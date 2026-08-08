@@ -47,15 +47,31 @@ DECISIONS_DIR = AI_DIR / "decisions"
 TASK_SCHEMA_PATH = CONTRACTS_DIR / "task.schema.json"
 
 VALID_STATUSES = [
-    "draft", "designed", "implementation",
-    "validation", "review", "approved",
-    "merged", "completed", "archived",
+    "draft",
+    "designed",
+    "implementation",
+    "validation",
+    "review",
+    "approved",
+    "merged",
+    "completed",
+    "archived",
 ]
 
 VALID_TYPES = [
-    "bugfix", "feature", "refactor", "documentation",
-    "test", "performance", "scientific", "architecture",
-    "formula-db", "packaging", "security", "release", "maintenance",
+    "bugfix",
+    "feature",
+    "refactor",
+    "documentation",
+    "test",
+    "performance",
+    "scientific",
+    "architecture",
+    "formula-db",
+    "packaging",
+    "security",
+    "release",
+    "maintenance",
 ]
 
 VALID_RISK_LEVELS = ["low", "medium", "high", "critical"]
@@ -70,18 +86,34 @@ REQUIRED_TASK_PACKET_ARTIFACTS = [
 ]
 
 TEMPLATE_PLACEHOLDER_FILES = [
-    "task.json", "design.md", "acceptance.md", "constraints.md",
-    "risks.md", "implementation_report.md", "benchmark_report.md",
-    "rollback_plan.md", "human_decisions.md", "review_request.md",
+    "task.json",
+    "design.md",
+    "acceptance.md",
+    "constraints.md",
+    "risks.md",
+    "implementation_report.md",
+    "benchmark_report.md",
+    "rollback_plan.md",
+    "human_decisions.md",
+    "review_request.md",
 ]
 
 SECRET_PATTERNS = [
-    r".*\.env$", r".*\.pem$", r".*\.key$", r"secrets\..*",
-    r".*credentials.*", r".*private.*key.*",
+    r".*\.env$",
+    r".*\.pem$",
+    r".*\.key$",
+    r"secrets\..*",
+    r".*credentials.*",
+    r".*private.*key.*",
 ]
 
 FORBIDDEN_BINARY_EXTENSIONS = [
-    ".exe", ".dll", ".so", ".dylib", ".bin", ".dat",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".bin",
+    ".dat",
 ]
 
 ALLOWED_BINARY_DIRS = {"dist/", "build/", "data/formula_db/"}
@@ -92,6 +124,7 @@ DEFAULT_CONTEXT_COMMITS = 5
 # ----------------------------------------------------------------------
 # Utility functions
 # ----------------------------------------------------------------------
+
 
 def load_json(path: Path) -> dict:
     """Load a JSON file, returning {} if not found."""
@@ -151,6 +184,7 @@ def status_icon(status: str) -> str:
 # Schema validation (minimal, no external dependencies)
 # ----------------------------------------------------------------------
 
+
 def validate_json_schema(instance: dict, schema: dict, path: str = "$") -> list[str]:
     """Minimal JSON Schema validator. Returns list of error messages."""
     errors = []
@@ -183,7 +217,9 @@ def validate_json_schema(instance: dict, schema: dict, path: str = "$") -> list[
     for prop_name, prop_schema in schema.get("properties", {}).items():
         if prop_name in instance:
             child_path = f"{path}.{prop_name}"
-            errors.extend(validate_json_schema(instance[prop_name], prop_schema, child_path))
+            errors.extend(
+                validate_json_schema(instance[prop_name], prop_schema, child_path)
+            )
 
     # enum
     if "enum" in schema and instance not in schema["enum"]:
@@ -192,14 +228,28 @@ def validate_json_schema(instance: dict, schema: dict, path: str = "$") -> list[
     # pattern
     if "pattern" in schema and isinstance(instance, str):
         if not re.match(schema["pattern"], instance):
-            errors.append(f"{path}: '{instance}' does not match pattern '{schema['pattern']}'")
+            errors.append(
+                f"{path}: '{instance}' does not match pattern '{schema['pattern']}'"
+            )
 
     # minLength / maxLength
-    if "minLength" in schema and isinstance(instance, str) and len(instance) < schema["minLength"]:
-        errors.append(f"{path}: length {len(instance)} < minLength {schema['minLength']}")
+    if (
+        "minLength" in schema
+        and isinstance(instance, str)
+        and len(instance) < schema["minLength"]
+    ):
+        errors.append(
+            f"{path}: length {len(instance)} < minLength {schema['minLength']}"
+        )
 
-    if "maxLength" in schema and isinstance(instance, str) and len(instance) > schema["maxLength"]:
-        errors.append(f"{path}: length {len(instance)} > maxLength {schema['maxLength']}")
+    if (
+        "maxLength" in schema
+        and isinstance(instance, str)
+        and len(instance) > schema["maxLength"]
+    ):
+        errors.append(
+            f"{path}: length {len(instance)} > maxLength {schema['maxLength']}"
+        )
 
     # minimum
     if "minimum" in schema and isinstance(instance, (int, float)):
@@ -239,6 +289,7 @@ def validate_json_schema(instance: dict, schema: dict, path: str = "$") -> list[
 # Task-id validation
 # ----------------------------------------------------------------------
 
+
 def validate_task_id(task_id: str) -> list[str]:
     """Validate task-id format. Returns list of errors."""
     errors = []
@@ -246,7 +297,9 @@ def validate_task_id(task_id: str) -> list[str]:
         errors.append("task-id cannot be empty")
         return errors
     if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$", task_id):
-        errors.append(f"Invalid task-id '{task_id}': must match [a-zA-Z0-9][a-zA-Z0-9._-]*")
+        errors.append(
+            f"Invalid task-id '{task_id}': must match [a-zA-Z0-9][a-zA-Z0-9._-]*"
+        )
     if len(task_id) > 128:
         errors.append(f"task-id too long: {len(task_id)} > 128 characters")
     return errors
@@ -255,6 +308,7 @@ def validate_task_id(task_id: str) -> list[str]:
 # ----------------------------------------------------------------------
 # Command: new-task
 # ----------------------------------------------------------------------
+
 
 def cmd_new_task(args) -> int:
     """Create a new task packet."""
@@ -270,7 +324,10 @@ def cmd_new_task(args) -> int:
     task_dir = TASKS_ACTIVE / task_id
 
     if task_dir.exists() and not args.force:
-        print(f"ERROR: Task '{task_id}' already exists. Use --force to overwrite.", file=sys.stderr)
+        print(
+            f"ERROR: Task '{task_id}' already exists. Use --force to overwrite.",
+            file=sys.stderr,
+        )
         return 1
 
     if task_dir.exists() and args.force:
@@ -279,11 +336,17 @@ def cmd_new_task(args) -> int:
 
     # Validate type and risk
     if args.type not in VALID_TYPES:
-        print(f"ERROR: Invalid task type '{args.type}'. Valid: {', '.join(VALID_TYPES)}", file=sys.stderr)
+        print(
+            f"ERROR: Invalid task type '{args.type}'. Valid: {', '.join(VALID_TYPES)}",
+            file=sys.stderr,
+        )
         return 1
 
     if args.risk not in VALID_RISK_LEVELS:
-        print(f"ERROR: Invalid risk level '{args.risk}'. Valid: {', '.join(VALID_RISK_LEVELS)}", file=sys.stderr)
+        print(
+            f"ERROR: Invalid risk level '{args.risk}'. Valid: {', '.join(VALID_RISK_LEVELS)}",
+            file=sys.stderr,
+        )
         return 1
 
     # Create task directory
@@ -330,7 +393,9 @@ def cmd_new_task(args) -> int:
             "design": "design.md",
             "acceptance": "acceptance.md",
             "implementation_report": "implementation_report.md",
-            "benchmark_report": "benchmark_report.md" if args.type == "performance" else None,
+            "benchmark_report": (
+                "benchmark_report.md" if args.type == "performance" else None
+            ),
             "rollback_plan": "rollback_plan.md",
         },
         "links": {
@@ -343,8 +408,13 @@ def cmd_new_task(args) -> int:
 
     # Copy template artifacts
     template_files = [
-        "design.md", "acceptance.md", "constraints.md", "risks.md",
-        "implementation_report.md", "human_decisions.md", "rollback_plan.md",
+        "design.md",
+        "acceptance.md",
+        "constraints.md",
+        "risks.md",
+        "implementation_report.md",
+        "human_decisions.md",
+        "rollback_plan.md",
     ]
     if args.type == "performance":
         template_files.append("benchmark_report.md")
@@ -356,7 +426,10 @@ def cmd_new_task(args) -> int:
             content = content.replace("{{TASK_ID}}", task_id)
             (task_dir / tf).write_text(content, encoding="utf-8")
         else:
-            (task_dir / tf).write_text(f"# {tf.replace('.md', '').replace('_', ' ').title()}\n", encoding="utf-8")
+            (task_dir / tf).write_text(
+                f"# {tf.replace('.md', '').replace('_', ' ').title()}\n",
+                encoding="utf-8",
+            )
 
     # Create context.md with placeholder
     context_md = TEMPLATES_DIR / "context.md"
@@ -388,7 +461,9 @@ def cmd_new_task(args) -> int:
             task_json["git"]["working_branch"] = branch_name
             save_json(task_dir / "task.json", task_json)
         else:
-            print(f"WARNING: Could not create git branch '{branch_name}'", file=sys.stderr)
+            print(
+                f"WARNING: Could not create git branch '{branch_name}'", file=sys.stderr
+            )
 
     # Print summary
     print(f"\n{'='*60}")
@@ -396,17 +471,17 @@ def cmd_new_task(args) -> int:
     print(f"{'='*60}")
     print(f"  Type:     {args.type}")
     print(f"  Risk:     {args.risk}")
-    print(f"  Status:   draft")
+    print("  Status:   draft")
     print(f"  Location: {task_dir}")
     if branch_created:
         print(f"  Branch:   {args.branch or f'feature/{task_id}'}")
-    print(f"\nNext steps:")
-    print(f"  1. Perplexity: fill in design.md, acceptance.md, constraints.md, risks.md")
-    print(f"  2. Update task.json -> status: designed")
+    print("\nNext steps:")
+    print("  1. Perplexity: fill in design.md, acceptance.md, constraints.md, risks.md")
+    print("  2. Update task.json -> status: designed")
     print(f"  3. Run: python tools/ai_workflow.py render-handoff {task_id}")
-    print(f"  4. DeepCode: implement, run tests, fill implementation_report.md")
+    print("  4. DeepCode: implement, run tests, fill implementation_report.md")
     print(f"  5. Run: python tools/ai_workflow.py validate-task {task_id}")
-    print(f"  6. Send for review -> approved by human -> merge")
+    print("  6. Send for review -> approved by human -> merge")
     print(f"  7. Run: python tools/ai_workflow.py complete-task {task_id}")
     print()
 
@@ -416,6 +491,7 @@ def cmd_new_task(args) -> int:
 # ----------------------------------------------------------------------
 # Command: validate-task
 # ----------------------------------------------------------------------
+
 
 def _check_unfinished_markers(file_path: Path) -> list[str]:
     """Check for template placeholders (TODO, TBD, <...>, {{...}})."""
@@ -427,15 +503,15 @@ def _check_unfinished_markers(file_path: Path) -> list[str]:
     except Exception:
         return errors
     # Check for TODO/TBD
-    if re.search(r'\bTODO\b', content, re.IGNORECASE):
+    if re.search(r"\bTODO\b", content, re.IGNORECASE):
         errors.append(f"{file_path.name}: contains 'TODO' marker")
-    if re.search(r'\bTBD\b', content, re.IGNORECASE):
+    if re.search(r"\bTBD\b", content, re.IGNORECASE):
         errors.append(f"{file_path.name}: contains 'TBD' marker")
     # Check for angle-bracket placeholders like <task-id>, <title>
-    if re.search(r'<\w[\w\s-]*>', content):
+    if re.search(r"<\w[\w\s-]*>", content):
         errors.append(f"{file_path.name}: contains angle-bracket placeholder '<...>'")
     # Check for {{PLACEHOLDER}} markers
-    if re.search(r'\{\{[A-Z_]+\}\}', content):
+    if re.search(r"\{\{[A-Z_]+\}\}", content):
         errors.append(f"{file_path.name}: contains template placeholder '{{{{...}}}}'")
     return errors
 
@@ -455,7 +531,10 @@ def cmd_validate_task(args) -> int:
         task_dir = TASKS_ARCHIVED / task_id
         location = "archived"
     if not task_dir.exists():
-        print(f"ERROR: Task '{task_id}' not found in active/, completed/, or archived/", file=sys.stderr)
+        print(
+            f"ERROR: Task '{task_id}' not found in active/, completed/, or archived/",
+            file=sys.stderr,
+        )
         return 1
 
     errors = []
@@ -501,18 +580,24 @@ def cmd_validate_task(args) -> int:
     if task_data.get("validation", {}).get("requires_benchmark"):
         bench_val = task_data.get("artifacts", {}).get("benchmark_report")
         if not bench_val:
-            errors.append("requires_benchmark=true but benchmark_report artifact is null or missing")
+            errors.append(
+                "requires_benchmark=true but benchmark_report artifact is null or missing"
+            )
         elif not isinstance(bench_val, str) or not bench_val.strip():
             errors.append("requires_benchmark=true but benchmark_report path is empty")
         else:
             if not _check_path_safe(task_dir, bench_val):
-                errors.append(f"benchmark_report path escapes task directory: {bench_val}")
+                errors.append(
+                    f"benchmark_report path escapes task directory: {bench_val}"
+                )
             else:
                 bench_path = task_dir / bench_val
                 if not bench_path.is_file():
                     errors.append(f"benchmark_report '{bench_val}' not found")
                 elif bench_path.stat().st_size < 50:
-                    errors.append(f"benchmark_report '{bench_val}' is empty or too short")
+                    errors.append(
+                        f"benchmark_report '{bench_val}' is empty or too short"
+                    )
 
     # Consistency: requires_adr -> adr links
     if task_data.get("validation", {}).get("requires_adr"):
@@ -535,12 +620,18 @@ def cmd_validate_task(args) -> int:
     if task_data.get("validation", {}).get("requires_reference_equivalence"):
         ref_val = task_data.get("artifacts", {}).get("reference_validation")
         if not ref_val:
-            errors.append("requires_reference_equivalence=true but reference_validation artifact is null or missing")
+            errors.append(
+                "requires_reference_equivalence=true but reference_validation artifact is null or missing"
+            )
         elif not isinstance(ref_val, str) or not ref_val.strip():
-            errors.append("requires_reference_equivalence=true but reference_validation path is empty")
+            errors.append(
+                "requires_reference_equivalence=true but reference_validation path is empty"
+            )
         else:
             if not _check_path_safe(task_dir, ref_val):
-                errors.append(f"reference_validation path escapes task directory: {ref_val}")
+                errors.append(
+                    f"reference_validation path escapes task directory: {ref_val}"
+                )
             else:
                 ref_path = task_dir / ref_val
                 if not ref_path.is_file():
@@ -553,7 +644,9 @@ def cmd_validate_task(args) -> int:
         artifact_val = task_data.get("artifacts", {}).get(artifact_key)
         if artifact_val:
             if not _check_path_safe(task_dir, artifact_val):
-                errors.append(f"Artifact '{artifact_key}' path escapes task directory: {artifact_val}")
+                errors.append(
+                    f"Artifact '{artifact_key}' path escapes task directory: {artifact_val}"
+                )
                 continue
             art_path = task_dir / artifact_val
             if not art_path.is_file():
@@ -565,7 +658,9 @@ def cmd_validate_task(args) -> int:
         if rp:
             rp_path = task_dir / rp
             if not rp_path.is_file():
-                errors.append(f"rollback_plan required for {risk_level} risk but '{rp}' not found")
+                errors.append(
+                    f"rollback_plan required for {risk_level} risk but '{rp}' not found"
+                )
 
     # Unfinished markers check for non-draft statuses
     if status not in ("draft", "designed", "implementation"):
@@ -612,7 +707,9 @@ def cmd_validate_task(args) -> int:
 
     # Active tasks must not have final status
     if location == "active" and status in FINAL_STATUSES:
-        errors.append(f"Task in active/ has final status '{status}'. Move to completed/.")
+        errors.append(
+            f"Task in active/ has final status '{status}'. Move to completed/."
+        )
 
     # Completed tasks must have final status
     if location == "completed" and status not in FINAL_STATUSES:
@@ -622,7 +719,9 @@ def cmd_validate_task(args) -> int:
     _print_validation_table(errors, warnings)
 
     if errors:
-        print(f"\n{len(errors)} error(s), {len(warnings)} warning(s) -- VALIDATION FAILED")
+        print(
+            f"\n{len(errors)} error(s), {len(warnings)} warning(s) -- VALIDATION FAILED"
+        )
         return 1
     else:
         print(f"\n{len(warnings)} warning(s) -- VALIDATION PASSED")
@@ -647,6 +746,7 @@ def _print_validation_table(errors: list[str], warnings: list[str]) -> None:
 # Command: collect-context
 # ----------------------------------------------------------------------
 
+
 def cmd_collect_context(args) -> int:
     """Collect read-only context snapshot."""
     task_id = args.task_id
@@ -655,7 +755,10 @@ def cmd_collect_context(args) -> int:
     if not task_dir.exists():
         task_dir = TASKS_COMPLETED / task_id
     if not task_dir.exists():
-        print(f"ERROR: Task '{task_id}' not found in active/ or completed/", file=sys.stderr)
+        print(
+            f"ERROR: Task '{task_id}' not found in active/ or completed/",
+            file=sys.stderr,
+        )
         return 1
 
     # Collect context
@@ -705,7 +808,9 @@ def cmd_collect_context(args) -> int:
 
     # Venv path (sanitized -- only if relative or generic)
     venv = os.environ.get("VIRTUAL_ENV", "")
-    if venv and not any(p in venv.lower() for p in ["users/", "home/", "mvs", "documents"]):
+    if venv and not any(
+        p in venv.lower() for p in ["users/", "home/", "mvs", "documents"]
+    ):
         lines.append(f"- **Virtual env:** {venv}")
     lines.append("")
 
@@ -764,7 +869,9 @@ def cmd_collect_context(args) -> int:
     return 0
 
 
-def _dir_tree(path: Path, prefix: str = "", max_depth: int = 3, _depth: int = 0) -> list[str]:
+def _dir_tree(
+    path: Path, prefix: str = "", max_depth: int = 3, _depth: int = 0
+) -> list[str]:
     """Generate a simple directory tree."""
     if _depth > max_depth:
         return [f"{prefix}..."]
@@ -774,8 +881,19 @@ def _dir_tree(path: Path, prefix: str = "", max_depth: int = 3, _depth: int = 0)
     except PermissionError:
         return [f"{prefix}(permission denied)"]
     # Filter out some noisy dirs
-    skip_dirs = {".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".venv", "venv",
-                 "node_modules", "build", "dist", ".idea", "nom_hrms_fga.egg-info"}
+    skip_dirs = {
+        ".git",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".venv",
+        "venv",
+        "node_modules",
+        "build",
+        "dist",
+        ".idea",
+        "nom_hrms_fga.egg-info",
+    }
     entries = [e for e in entries if e.name not in skip_dirs]
 
     for i, entry in enumerate(entries):
@@ -792,6 +910,7 @@ def _dir_tree(path: Path, prefix: str = "", max_depth: int = 3, _depth: int = 0)
 # Command: render-handoff
 # ----------------------------------------------------------------------
 
+
 def cmd_render_handoff(args) -> int:
     """Generate deepcode_handoff.md from task packet."""
     task_id = args.task_id
@@ -803,7 +922,7 @@ def cmd_render_handoff(args) -> int:
 
     task_data = load_json(task_dir / "task.json")
     if not task_data:
-        print(f"ERROR: task.json not found or empty", file=sys.stderr)
+        print("ERROR: task.json not found or empty", file=sys.stderr)
         return 1
 
     lines = []
@@ -927,13 +1046,18 @@ def cmd_render_handoff(args) -> int:
 # Command: task-status
 # ----------------------------------------------------------------------
 
+
 def cmd_task_status(args) -> int:
     """Show task status."""
     task_id = args.task_id
     task_dir = None
     location = "unknown"
 
-    for loc, base in [("active", TASKS_ACTIVE), ("completed", TASKS_COMPLETED), ("archived", TASKS_ARCHIVED)]:
+    for loc, base in [
+        ("active", TASKS_ACTIVE),
+        ("completed", TASKS_COMPLETED),
+        ("archived", TASKS_ARCHIVED),
+    ]:
         candidate = base / task_id
         if candidate.exists():
             task_dir = candidate
@@ -989,6 +1113,7 @@ def _format_size(size: int) -> str:
 # Command: complete-task
 # ----------------------------------------------------------------------
 
+
 def cmd_complete_task(args) -> int:
     """Move task from active/ to completed/."""
     task_id = args.task_id
@@ -1000,30 +1125,38 @@ def cmd_complete_task(args) -> int:
 
     task_data = load_json(src_dir / "task.json")
     if not task_data:
-        print(f"ERROR: No task.json found", file=sys.stderr)
+        print("ERROR: No task.json found", file=sys.stderr)
         return 1
 
     status = task_data.get("status", "")
 
     # Check status is a final pre-merge status
     if status not in FINAL_STATUSES:
-        print(f"ERROR: Task status '{status}' is not a final pre-merge status. "
-              f"Required: {', '.join(sorted(FINAL_STATUSES))}", file=sys.stderr)
+        print(
+            f"ERROR: Task status '{status}' is not a final pre-merge status. "
+            f"Required: {', '.join(sorted(FINAL_STATUSES))}",
+            file=sys.stderr,
+        )
         return 1
 
     # Validate first
     print("Running validation...")
     from argparse import Namespace
+
     val_args = Namespace(task_id=task_id)
     val_result = cmd_validate_task(val_args)
     if val_result != 0:
-        print("ERROR: Validation failed. Fix issues before completing.", file=sys.stderr)
+        print(
+            "ERROR: Validation failed. Fix issues before completing.", file=sys.stderr
+        )
         return 1
 
     # Check implementation report
     impl_report = src_dir / "implementation_report.md"
     if not impl_report.is_file() or impl_report.stat().st_size < 50:
-        print("ERROR: implementation_report.md is missing or too short", file=sys.stderr)
+        print(
+            "ERROR: implementation_report.md is missing or too short", file=sys.stderr
+        )
         return 1
 
     # Check benchmark if required
@@ -1032,10 +1165,13 @@ def cmd_complete_task(args) -> int:
         if bench_val:
             bench_path = src_dir / bench_val
             if not bench_path.is_file() or bench_path.stat().st_size < 50:
-                print("ERROR: benchmark_report required but missing or empty", file=sys.stderr)
+                print(
+                    "ERROR: benchmark_report required but missing or empty",
+                    file=sys.stderr,
+                )
                 return 1
     else:
-        warnings_text = ""
+        pass
 
     # Check ADR if required
     if task_data.get("validation", {}).get("requires_adr"):
@@ -1050,7 +1186,10 @@ def cmd_complete_task(args) -> int:
         if args.force:
             shutil.rmtree(str(dst_dir))
         else:
-            print(f"ERROR: Task already exists in completed/. Use --force to overwrite.", file=sys.stderr)
+            print(
+                "ERROR: Task already exists in completed/. Use --force to overwrite.",
+                file=sys.stderr,
+            )
             return 1
 
     shutil.move(str(src_dir), str(dst_dir))
@@ -1066,7 +1205,9 @@ def cmd_complete_task(args) -> int:
     summary.append(f"**Completed:** {utc_now()}")
     summary.append(f"**Type:** {task_data.get('type')}")
     summary.append(f"**Risk:** {task_data.get('risk_level')}")
-    summary.append(f"**Working branch:** {task_data.get('git', {}).get('working_branch', 'N/A')}")
+    summary.append(
+        f"**Working branch:** {task_data.get('git', {}).get('working_branch', 'N/A')}"
+    )
     summary.append(f"**PR:** {task_data.get('links', {}).get('pull_request', 'none')}")
     summary.append("")
     summary.append("## Artifacts")
@@ -1085,6 +1226,7 @@ def cmd_complete_task(args) -> int:
 # Command: archive-task
 # ----------------------------------------------------------------------
 
+
 def cmd_archive_task(args) -> int:
     """Move task from completed/ to archived/."""
     task_id = args.task_id
@@ -1093,7 +1235,10 @@ def cmd_archive_task(args) -> int:
     if not src_dir.exists():
         src_dir = TASKS_ACTIVE / task_id
         if src_dir.exists():
-            print(f"ERROR: Task '{task_id}' is still in active/. Complete it first.", file=sys.stderr)
+            print(
+                f"ERROR: Task '{task_id}' is still in active/. Complete it first.",
+                file=sys.stderr,
+            )
             return 1
         print(f"ERROR: Task '{task_id}' not found in completed/", file=sys.stderr)
         return 1
@@ -1102,7 +1247,10 @@ def cmd_archive_task(args) -> int:
     status = task_data.get("status", "")
 
     if status not in ("completed", "merged", "archived"):
-        print(f"ERROR: Cannot archive task with status '{status}'. Must be completed or merged.", file=sys.stderr)
+        print(
+            f"ERROR: Cannot archive task with status '{status}'. Must be completed or merged.",
+            file=sys.stderr,
+        )
         return 1
 
     dst_dir = TASKS_ARCHIVED / task_id
@@ -1110,7 +1258,7 @@ def cmd_archive_task(args) -> int:
         if args.force:
             shutil.rmtree(str(dst_dir))
         else:
-            print(f"ERROR: Task already in archived/. Use --force.", file=sys.stderr)
+            print("ERROR: Task already in archived/. Use --force.", file=sys.stderr)
             return 1
 
     shutil.move(str(src_dir), str(dst_dir))
@@ -1128,6 +1276,7 @@ def cmd_archive_task(args) -> int:
 # Command: check-repo
 # ----------------------------------------------------------------------
 
+
 def cmd_check_repo(args) -> int:
     """Run repository health checks."""
     errors = []
@@ -1143,9 +1292,16 @@ def cmd_check_repo(args) -> int:
 
     # 3. Templates exist
     expected_templates = [
-        "task.json", "context.md", "design.md", "acceptance.md",
-        "constraints.md", "risks.md", "implementation_report.md",
-        "benchmark_report.md", "review_request.md", "human_decisions.md",
+        "task.json",
+        "context.md",
+        "design.md",
+        "acceptance.md",
+        "constraints.md",
+        "risks.md",
+        "implementation_report.md",
+        "benchmark_report.md",
+        "review_request.md",
+        "human_decisions.md",
         "rollback_plan.md",
     ]
     for t in expected_templates:
@@ -1153,7 +1309,11 @@ def cmd_check_repo(args) -> int:
             errors.append(f"Template missing: {t}")
 
     # 4. JSON schemas exist
-    expected_schemas = ["task.schema.json", "implementation_report.schema.json", "benchmark_report.schema.json"]
+    expected_schemas = [
+        "task.schema.json",
+        "implementation_report.schema.json",
+        "benchmark_report.schema.json",
+    ]
     for s in expected_schemas:
         if not (CONTRACTS_DIR / s).is_file():
             errors.append(f"Contract missing: {s}")
@@ -1170,21 +1330,36 @@ def cmd_check_repo(args) -> int:
         warnings.append("ci.yml workflow not found (standard CI)")
 
     # 7. Check for accidentally tracked secrets
-    SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", ".pytest_cache",
-                 ".mypy_cache", ".idea", "build", "dist", "node_modules"}
+    SKIP_DIRS = {
+        ".git",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".idea",
+        "build",
+        "dist",
+        "node_modules",
+    }
     for root, dirs, files in os.walk(str(PROJECT_ROOT)):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for fname in files:
             for pattern in SECRET_PATTERNS:
                 if re.match(pattern, fname):
-                    errors.append(f"Secret-like file detected: {os.path.relpath(os.path.join(root, fname), PROJECT_ROOT)}")
+                    errors.append(
+                        f"Secret-like file detected: {os.path.relpath(os.path.join(root, fname), PROJECT_ROOT)}"
+                    )
 
     # 8. Large binary files outside allowed dirs (heuristic: > 5MB)
     for root, dirs, files in os.walk(str(PROJECT_ROOT)):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         rel_root = os.path.relpath(root, PROJECT_ROOT).replace("\\", "/")
         # Skip if inside an allowed binary directory
-        if any(rel_root == ad.rstrip("/") or rel_root.startswith(ad) for ad in ALLOWED_BINARY_DIRS):
+        if any(
+            rel_root == ad.rstrip("/") or rel_root.startswith(ad)
+            for ad in ALLOWED_BINARY_DIRS
+        ):
             continue
         for fname in files:
             fpath = os.path.join(root, fname)
@@ -1193,7 +1368,9 @@ def cmd_check_repo(args) -> int:
             except OSError:
                 continue
             if size > 5 * 1024 * 1024:
-                warnings.append(f"Large binary file ({_format_size(size)}): {rel_root}/{fname}")
+                warnings.append(
+                    f"Large binary file ({_format_size(size)}): {rel_root}/{fname}"
+                )
 
     # 9. Unfinished tasks in completed/
     if TASKS_COMPLETED.is_dir():
@@ -1202,14 +1379,16 @@ def cmd_check_repo(args) -> int:
                 task_data = load_json(task_dir / "task.json")
                 status = task_data.get("status", "")
                 if status not in ("completed", "merged", "archived"):
-                    errors.append(f"Task in completed/ has non-final status: {task_dir.name} -> {status}")
+                    errors.append(
+                        f"Task in completed/ has non-final status: {task_dir.name} -> {status}"
+                    )
 
     # 10. ADR index consistency
     index_path = DECISIONS_DIR / "index.md"
     if index_path.is_file():
         index_content = index_path.read_text(encoding="utf-8")
         # Find ADR references like [NNNN](NNNN-title.md)
-        adr_refs = re.findall(r'\[(\d{4})\]\((\d{4}[^)]+\.md)\)', index_content)
+        adr_refs = re.findall(r"\[(\d{4})\]\((\d{4}[^)]+\.md)\)", index_content)
         for num, filename in adr_refs:
             adr_path = DECISIONS_DIR / filename
             if not adr_path.is_file():
@@ -1227,7 +1406,9 @@ def cmd_check_repo(args) -> int:
                 task_data = load_json(task_dir / "task.json")
                 status = task_data.get("status", "")
                 if status in FINAL_STATUSES:
-                    errors.append(f"Task in active/ has final status: {task_dir.name} -> {status}")
+                    errors.append(
+                        f"Task in active/ has final status: {task_dir.name} -> {status}"
+                    )
 
     # 12. Workflow safety scan
     wf_dir = PROJECT_ROOT / ".github" / "workflows"
@@ -1239,7 +1420,9 @@ def cmd_check_repo(args) -> int:
     _print_validation_table(errors, warnings)
 
     if errors:
-        print(f"\n{len(errors)} error(s), {len(warnings)} warning(s) -- REPO CHECK FAILED")
+        print(
+            f"\n{len(errors)} error(s), {len(warnings)} warning(s) -- REPO CHECK FAILED"
+        )
         return 1
     else:
         print(f"\n{len(warnings)} warning(s) -- REPO CHECK PASSED")
@@ -1250,14 +1433,14 @@ def _check_path_safe(task_dir: Path, artifact_path: str) -> bool:
     """Check that artifact_path does not escape task_dir via path traversal."""
     if os.path.isabs(artifact_path):
         return False
-    if re.match(r'^[A-Za-z]:', artifact_path) or artifact_path.startswith('\\\\'):
+    if re.match(r"^[A-Za-z]:", artifact_path) or artifact_path.startswith("\\\\"):
         return False
-    if '..' in Path(artifact_path).parts:
+    if ".." in Path(artifact_path).parts:
         return False
     try:
         resolved = (task_dir / artifact_path).resolve()
         task_root = task_dir.resolve()
-        if hasattr(resolved, 'is_relative_to'):
+        if hasattr(resolved, "is_relative_to"):
             return resolved.is_relative_to(task_root)
         return str(resolved).startswith(str(task_root) + os.sep)
     except (ValueError, OSError):
@@ -1275,7 +1458,7 @@ def _check_workflow_safety(wf_file: Path, errors: list, warnings: list) -> None:
 
     # Detect shell injection: unsafe input names used in ${{ inputs.X }}
     unsafe_input_patterns = [
-        r'\$\{\{\s*inputs\.\w*(?:command|script|shell|args|module|expression)\w*\s*\}\}',
+        r"\$\{\{\s*inputs\.\w*(?:command|script|shell|args|module|expression)\w*\s*\}\}",
     ]
     for pattern in unsafe_input_patterns:
         if re.search(pattern, content):
@@ -1285,27 +1468,38 @@ def _check_workflow_safety(wf_file: Path, errors: list, warnings: list) -> None:
             )
 
     # Detect shell=True in run steps
-    if re.search(r'shell\s*:\s*True', content):
-        warnings.append(f"Workflow safety: {wf_name} uses shell:true in a subprocess call.")
+    if re.search(r"shell\s*:\s*True", content):
+        warnings.append(
+            f"Workflow safety: {wf_name} uses shell:true in a subprocess call."
+        )
 
     # Detect failure swallowing
     if wf_name == "benchmark.yml":
-        if re.search(r'\|\|\s*true', content) or re.search(r'\|\|\s*echo', content):
-            errors.append("Workflow safety: benchmark.yml must not swallow failures with || true or || echo.")
-        if re.search(r'set\s+\+e', content):
+        if re.search(r"\|\|\s*true", content) or re.search(r"\|\|\s*echo", content):
+            errors.append(
+                "Workflow safety: benchmark.yml must not swallow failures with || true or || echo."
+            )
+        if re.search(r"set\s+\+e", content):
             errors.append("Workflow safety: benchmark.yml must not use set +e.")
-        if re.search(r'if-no-files-found:\s*ignore', content):
-            errors.append("Workflow safety: benchmark.yml must not ignore missing artifacts.")
+        if re.search(r"if-no-files-found:\s*ignore", content):
+            errors.append(
+                "Workflow safety: benchmark.yml must not ignore missing artifacts."
+            )
 
     # Strict benchmark.yml policy
     if wf_name == "benchmark.yml":
         # Must NOT contain unsafe input names as workflow_dispatch inputs
         forbidden_inputs = [
-            "benchmark_command", "shell_command", "script", "command",
-            "args", "module", "expression",
+            "benchmark_command",
+            "shell_command",
+            "script",
+            "command",
+            "args",
+            "module",
+            "expression",
         ]
         # Find input keys in workflow_dispatch section
-        input_keys = re.findall(r'^\s{6}(\w+):\s*$', content, re.MULTILINE)
+        input_keys = re.findall(r"^\s{6}(\w+):\s*$", content, re.MULTILINE)
         for ik in input_keys:
             if ik in forbidden_inputs:
                 errors.append(
@@ -1320,16 +1514,21 @@ def _check_workflow_safety(wf_file: Path, errors: list, warnings: list) -> None:
         # Must have non-empty options
         if "type: choice" in content:
             if "options:" not in content:
-                errors.append("Workflow safety: benchmark.yml choice input has no options.")
+                errors.append(
+                    "Workflow safety: benchmark.yml choice input has no options."
+                )
         # Must launch via run_benchmark.py
         if "run:" in content and "run_benchmark.py" not in content:
             if wf_name == "benchmark.yml":
-                warnings.append("Workflow safety: benchmark.yml run step should use tools/run_benchmark.py.")
+                warnings.append(
+                    "Workflow safety: benchmark.yml run step should use tools/run_benchmark.py."
+                )
 
 
 # ----------------------------------------------------------------------
 # CLI entry point
 # ----------------------------------------------------------------------
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -1342,8 +1541,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_new = sub.add_parser("new-task", help="Create a new task packet")
     p_new.add_argument("task_id", help="Task identifier (e.g., 2026-08-08-fix-denoise)")
     p_new.add_argument("--title", default="", help="Task title")
-    p_new.add_argument("--type", default="feature", choices=VALID_TYPES, help="Task type")
-    p_new.add_argument("--risk", default="medium", choices=VALID_RISK_LEVELS, help="Risk level")
+    p_new.add_argument(
+        "--type", default="feature", choices=VALID_TYPES, help="Task type"
+    )
+    p_new.add_argument(
+        "--risk", default="medium", choices=VALID_RISK_LEVELS, help="Risk level"
+    )
     p_new.add_argument("--branch", default="", help="Working branch name")
     p_new.add_argument("--create-branch", action="store_true", help="Create git branch")
     p_new.add_argument("--force", action="store_true", help="Overwrite existing task")
@@ -1357,8 +1560,15 @@ def build_parser() -> argparse.ArgumentParser:
     # collect-context
     p_ctx = sub.add_parser("collect-context", help="Collect read-only context snapshot")
     p_ctx.add_argument("task_id", help="Task identifier")
-    p_ctx.add_argument("--depth", type=int, default=DEFAULT_MAX_DEPTH, help="Directory tree depth")
-    p_ctx.add_argument("--commits", type=int, default=DEFAULT_CONTEXT_COMMITS, help="Number of recent commits")
+    p_ctx.add_argument(
+        "--depth", type=int, default=DEFAULT_MAX_DEPTH, help="Directory tree depth"
+    )
+    p_ctx.add_argument(
+        "--commits",
+        type=int,
+        default=DEFAULT_CONTEXT_COMMITS,
+        help="Number of recent commits",
+    )
     p_ctx.set_defaults(func=cmd_collect_context)
 
     # render-handoff
@@ -1374,13 +1584,17 @@ def build_parser() -> argparse.ArgumentParser:
     # complete-task
     p_comp = sub.add_parser("complete-task", help="Move task to completed/")
     p_comp.add_argument("task_id", help="Task identifier")
-    p_comp.add_argument("--force", action="store_true", help="Overwrite if exists in completed/")
+    p_comp.add_argument(
+        "--force", action="store_true", help="Overwrite if exists in completed/"
+    )
     p_comp.set_defaults(func=cmd_complete_task)
 
     # archive-task
     p_arch = sub.add_parser("archive-task", help="Move task to archived/")
     p_arch.add_argument("task_id", help="Task identifier")
-    p_arch.add_argument("--force", action="store_true", help="Overwrite if exists in archived/")
+    p_arch.add_argument(
+        "--force", action="store_true", help="Overwrite if exists in archived/"
+    )
     p_arch.set_defaults(func=cmd_archive_task)
 
     # check-repo

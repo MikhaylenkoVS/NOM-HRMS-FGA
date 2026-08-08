@@ -1,7 +1,10 @@
 """Pipeline cache and progress tracking."""
+
 import logging
 from typing import Optional
+
 logger = logging.getLogger(__name__)
+
 
 class PipelineCache:
     """Кэш промежуточных результатов между запусками пайплайна.
@@ -11,10 +14,10 @@ class PipelineCache:
     """
 
     def __init__(self):
-        self._loaded: dict[str, object] = {}        # path → Spectrum
-        self._denoised: dict[str, object] = {}      # key → Spectrum
-        self._assigned: dict[str, object] = {}      # key → Spectrum
-        self._series: dict[str, object] = {}        # key → DataFrame
+        self._loaded: dict[str, object] = {}  # path → Spectrum
+        self._denoised: dict[str, object] = {}  # key → Spectrum
+        self._assigned: dict[str, object] = {}  # key → Spectrum
+        self._series: dict[str, object] = {}  # key → DataFrame
 
     def _hash(self, *args) -> str:
         return str(hash(args))
@@ -28,23 +31,44 @@ class PipelineCache:
     def denoise(self, spec, force, intensity, quantile, denoiser):
         key = self._hash(id(spec), force, intensity, quantile)
         if key not in self._denoised:
-            self._denoised[key] = denoiser(spec, force=force, intensity=intensity, quantile=quantile)
+            self._denoised[key] = denoiser(
+                spec, force=force, intensity=intensity, quantile=quantile
+            )
         return self._denoised[key]
 
-    def assign(self, spec, rel_error_ppm, mass_min, mass_max, search_config, ion_mode, assigner):
-        key = self._hash(id(spec), rel_error_ppm, mass_min, mass_max,
-                          str(search_config.ranges) if search_config else "", ion_mode)
+    def assign(
+        self, spec, rel_error_ppm, mass_min, mass_max, search_config, ion_mode, assigner
+    ):
+        key = self._hash(
+            id(spec),
+            rel_error_ppm,
+            mass_min,
+            mass_max,
+            str(search_config.ranges) if search_config else "",
+            ion_mode,
+        )
         if key not in self._assigned:
-            self._assigned[key] = assigner(spec, rel_error_ppm=rel_error_ppm,
-                                           mass_min=mass_min, mass_max=mass_max,
-                                           search_config=search_config, ion_mode=ion_mode)
+            self._assigned[key] = assigner(
+                spec,
+                rel_error_ppm=rel_error_ppm,
+                mass_min=mass_min,
+                mass_max=mass_max,
+                search_config=search_config,
+                ion_mode=ion_mode,
+            )
         return self._assigned[key]
 
     def series(self, src, deriv, delta, ppm_tol, max_groups, allow_gaps, finder):
         key = self._hash(id(src), id(deriv), delta, ppm_tol, max_groups, allow_gaps)
         if key not in self._series:
-            self._series[key] = finder(src, deriv, delta, ppm_tol=ppm_tol,
-                                       max_groups=max_groups, allow_gaps=allow_gaps)
+            self._series[key] = finder(
+                src,
+                deriv,
+                delta,
+                ppm_tol=ppm_tol,
+                max_groups=max_groups,
+                allow_gaps=allow_gaps,
+            )
         return self._series[key]
 
     def clear(self):
@@ -93,4 +117,3 @@ class PipelineProgress:
         if self._cb:
             pct = self._pct(step, total)
             self._cb(f"  {name}", pct)
-

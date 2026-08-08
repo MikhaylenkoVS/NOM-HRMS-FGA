@@ -21,7 +21,6 @@ import random
 
 from src.configs import CHEM, PATHS
 
-
 # Корень подпроекта генератора: AnalyticsSpectra/Генерация тестовых спектров
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

@@ -116,7 +116,9 @@ class Spectrum:
         """
         cols = df.columns
         masses = df["mass"]
-        intensities = df["intensity"] if "intensity" in cols else pd.Series(0.0, index=df.index)
+        intensities = (
+            df["intensity"] if "intensity" in cols else pd.Series(0.0, index=df.index)
+        )
         # optional — use None when column is missing
         resolution = df["resolution"] if "resolution" in cols else None
         baseline = df["baseline"] if "baseline" in cols else None
@@ -131,12 +133,16 @@ class Spectrum:
                 Peak(
                     mass=float(masses.iloc[i]),
                     intensity=float(intensities.iloc[i]),
-                    resolution=float(resolution.iloc[i]) if resolution is not None else None,
+                    resolution=(
+                        float(resolution.iloc[i]) if resolution is not None else None
+                    ),
                     baseline=float(baseline.iloc[i]) if baseline is not None else None,
                     noise=float(noise.iloc[i]) if noise is not None else None,
                     charge=int(charge.iloc[i]) if charge is not None else None,
                     rt=float(rt.iloc[i]) if rt is not None else None,
-                    scan_number=int(scan_number.iloc[i]) if scan_number is not None else None,
+                    scan_number=(
+                        int(scan_number.iloc[i]) if scan_number is not None else None
+                    ),
                 )
             )
         return tuple(peaks)
@@ -149,13 +155,16 @@ class Spectrum:
         metadata: dict | SpectrumMetadata | None = None,
     ):
         if table is not None and peaks is not None:
-            raise ValueError("Only one of 'table' or 'peaks' may be provided, not both.")
+            raise ValueError(
+                "Only one of 'table' or 'peaks' may be provided, not both."
+            )
 
         # ── metadata ──────────────────────────────────────────────────
         if metadata is None:
             self.metadata = SpectrumMetadata()
         elif isinstance(metadata, dict):
             from dataclasses import fields as _fields
+
             known = {f.name for f in _fields(SpectrumMetadata)}
             # map legacy key 'name' → 'sample_name' if the latter not set
             meta = dict(metadata)
@@ -166,7 +175,9 @@ class Spectrum:
         elif isinstance(metadata, SpectrumMetadata):
             self.metadata = metadata
         else:
-            raise TypeError(f"metadata must be dict or SpectrumMetadata, got {type(metadata)}")
+            raise TypeError(
+                f"metadata must be dict or SpectrumMetadata, got {type(metadata)}"
+            )
 
         # ── peaks / table ─────────────────────────────────────────────
         if peaks is not None:
@@ -246,7 +257,9 @@ class Spectrum:
             file_format=self.metadata.file_format,
             scan_count=self.metadata.scan_count,
         )
-        new._table_cache = self._table_cache.copy() if self._table_cache is not None else None
+        new._table_cache = (
+            self._table_cache.copy() if self._table_cache is not None else None
+        )
         return new
 
     def __len__(self) -> int:

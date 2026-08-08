@@ -16,7 +16,6 @@ import pytest
 import pandas as pd
 import numpy as np
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
@@ -25,7 +24,9 @@ import numpy as np
 def _make_csv(masses_and_intensities: list[tuple[float, float]]) -> str:
     """Write a temporary CSV with mass,intensity columns and return its path."""
     df = pd.DataFrame(masses_and_intensities, columns=["mass", "intensity"])
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, encoding="utf-8")
+    f = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".csv", delete=False, encoding="utf-8"
+    )
     df.to_csv(f, index=False)
     f.close()
     return f.name
@@ -34,7 +35,9 @@ def _make_csv(masses_and_intensities: list[tuple[float, float]]) -> str:
 def _make_csv_with_columns(columns: list[str], rows: list[list]) -> str:
     """Write a temporary CSV with custom columns."""
     df = pd.DataFrame(rows, columns=columns)
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, encoding="utf-8")
+    f = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".csv", delete=False, encoding="utf-8"
+    )
     df.to_csv(f, index=False)
     f.close()
     return f.name
@@ -43,6 +46,7 @@ def _make_csv_with_columns(columns: list[str], rows: list[list]) -> str:
 def _make_spectrum(masses_and_intensities: list[tuple[float, float]]):
     """Create a Spectrum from mass/intensity pairs."""
     from src.core.domain.spectrum import Spectrum
+
     df = pd.DataFrame(masses_and_intensities, columns=["mass", "intensity"])
     return Spectrum(table=df)
 
@@ -124,7 +128,8 @@ class TestLoadSpectrum:
             sp = load_spectrum(
                 path,
                 mapper={"mz_val": "mass", "int_val": "intensity"},
-                mass_min=0, mass_max=9999,
+                mass_min=0,
+                mass_max=9999,
             )
             assert len(sp.table) == 1
         finally:
@@ -263,7 +268,9 @@ class TestAssignFormulasSmoke:
         result = assign_formulas(sp, rel_error_ppm=5.0, sign="-")
         assert result.table["assign"].dtype == bool
 
-    @pytest.mark.xfail(reason="Known: empty spectrum raises ValueError (NaN→int in formula range calc)")
+    @pytest.mark.xfail(
+        reason="Known: empty spectrum raises ValueError (NaN→int in formula range calc)"
+    )
     def test_empty_spectrum_no_crash(self):
         from src.core.spectrum import assign_formulas
 
@@ -276,8 +283,9 @@ class TestAssignFormulasSmoke:
 
         # Peak at 50 Da — too low for any reasonable CHON formula
         sp = _make_spectrum([(50.0, 1000.0)])
-        result = assign_formulas(sp, rel_error_ppm=5.0, sign="-",
-                                 mass_min=200, mass_max=700)
+        result = assign_formulas(
+            sp, rel_error_ppm=5.0, sign="-", mass_min=200, mass_max=700
+        )
         # The peak may be filtered or unassigned
         assert "assign" in result.table.columns
 
@@ -296,12 +304,15 @@ class TestFindSeriesSmoke:
     def _assigned_src_with_brutto(self, masses, brutto="C7H6O2"):
         """Return a Spectrum with assigned peaks at given masses."""
         from src.core.domain.spectrum import Spectrum
-        df = pd.DataFrame({
-            "mass": masses,
-            "intensity": [1000.0] * len(masses),
-            "assign": [True] * len(masses),
-            "brutto": [brutto] * len(masses),
-        })
+
+        df = pd.DataFrame(
+            {
+                "mass": masses,
+                "intensity": [1000.0] * len(masses),
+                "assign": [True] * len(masses),
+                "brutto": [brutto] * len(masses),
+            }
+        )
         return Spectrum(table=df)
 
     def test_find_series_cd3_empty_on_no_match(self):
@@ -310,8 +321,9 @@ class TestFindSeriesSmoke:
         src = self._assigned_src_with_brutto([200.0])
         deriv = _make_spectrum([(250.0, 500.0)])  # no CD3 spacing
 
-        result = find_series(src, deriv, delta=self.DELTA_CD3,
-                             ppm_tol=5.0, max_groups=5)
+        result = find_series(
+            src, deriv, delta=self.DELTA_CD3, ppm_tol=5.0, max_groups=5
+        )
         # Result is a DataFrame (possibly empty)
         assert isinstance(result, pd.DataFrame)
 
@@ -321,8 +333,9 @@ class TestFindSeriesSmoke:
         src = self._assigned_src_with_brutto([200.0])
         deriv = _make_spectrum([(200.0 + self.DELTA_CD3, 500.0)])
 
-        result = find_series(src, deriv, delta=self.DELTA_CD3,
-                             ppm_tol=10.0, max_groups=5)
+        result = find_series(
+            src, deriv, delta=self.DELTA_CD3, ppm_tol=10.0, max_groups=5
+        )
         assert isinstance(result, pd.DataFrame)
 
     def test_find_series_respects_max_groups(self):
@@ -334,8 +347,9 @@ class TestFindSeriesSmoke:
         src = self._assigned_src_with_brutto([src_mass])
         deriv = _make_spectrum([(m, 500.0) for m in deriv_masses])
 
-        result = find_series(src, deriv, delta=self.DELTA_CD3,
-                             ppm_tol=10.0, max_groups=5)
+        result = find_series(
+            src, deriv, delta=self.DELTA_CD3, ppm_tol=10.0, max_groups=5
+        )
         # With max_groups=5, should find at most 5 groups per series
         if not result.empty and "n_groups" in result.columns:
             assert (result["n_groups"] <= 5).all()
@@ -351,15 +365,18 @@ class TestBuildResultTable:
 
     def _assigned_src(self, masses, formulas=None):
         from src.core.domain.spectrum import Spectrum
+
         if formulas is None:
             formulas = ["C7H6O2"] * len(masses)
-        df = pd.DataFrame({
-            "mass": masses,
-            "intensity": [1000.0] * len(masses),
-            "assign": [True] * len(masses),
-            "brutto": formulas,
-            "all_candidates": [[f] for f in formulas],
-        })
+        df = pd.DataFrame(
+            {
+                "mass": masses,
+                "intensity": [1000.0] * len(masses),
+                "assign": [True] * len(masses),
+                "brutto": formulas,
+                "all_candidates": [[f] for f in formulas],
+            }
+        )
         return Spectrum(table=df)
 
     def test_empty_series_returns_base_table(self):

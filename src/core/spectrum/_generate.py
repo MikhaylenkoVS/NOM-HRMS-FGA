@@ -1,4 +1,5 @@
 """Auto-generated."""
+
 import logging
 import math
 import numpy as np
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_BRUTTO_DICT = {
     el: tuple(rng) for el, rng in PIPELINE.default_brutto_dict.items()
 }
+
 
 def _generate_candidate_formulas(
     mass_min: float,
@@ -110,6 +112,7 @@ def _generate_candidate_formulas(
 
     return result
 
+
 def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     """Convert a neutral mass to observed m/z for a given ion type.
 
@@ -184,4 +187,3 @@ _NOM_REGION_CENTERS: list[tuple[float, float]] = [
 # ── Изотопный фильтр ¹³C (опциональный, формула Бейнона) ──────────────────
 
 # Относительные распространённости тяжёлых изотопов (в %):
-
