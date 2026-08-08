@@ -24,36 +24,56 @@ jobs:
       - name: Check repo health
         run: python tools/ai_workflow.py check-repo
 
-      - name: Validate active task packets
+      - name: Validate active task packets (blocking)
         run: |
           echo "=== Validating active tasks ==="
           found=0
+          failed=0
           for task_dir in .ai/tasks/active/*/; do
             if [ -d "$task_dir" ]; then
               task_id=$(basename "$task_dir")
               echo "--- Validating: $task_id ---"
-              python tools/ai_workflow.py validate-task "$task_id" || true
+              if python tools/ai_workflow.py validate-task "$task_id"; then
+                echo "  PASS: $task_id"
+              else
+                echo "  FAIL: $task_id"
+                failed=$((failed + 1))
+              fi
               found=1
             fi
           done
           if [ "$found" -eq 0 ]; then
             echo "No active tasks found."
           fi
+          if [ "$failed" -ne 0 ]; then
+            echo "ERROR: $failed task(s) failed validation."
+            exit 1
+          fi
 
-      - name: Validate completed task packets
+      - name: Validate completed task packets (blocking)
         run: |
           echo "=== Validating completed tasks ==="
           found=0
+          failed=0
           for task_dir in .ai/tasks/completed/*/; do
             if [ -d "$task_dir" ]; then
               task_id=$(basename "$task_dir")
               echo "--- Validating: $task_id ---"
-              python tools/ai_workflow.py validate-task "$task_id" || true
+              if python tools/ai_workflow.py validate-task "$task_id"; then
+                echo "  PASS: $task_id"
+              else
+                echo "  FAIL: $task_id"
+                failed=$((failed + 1))
+              fi
               found=1
             fi
           done
           if [ "$found" -eq 0 ]; then
             echo "No completed tasks found."
+          fi
+          if [ "$failed" -ne 0 ]; then
+            echo "ERROR: $failed task(s) failed validation."
+            exit 1
           fi
 
       - name: Check ADR index consistency

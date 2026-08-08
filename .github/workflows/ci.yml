@@ -14,10 +14,14 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint (flake8 + black check)
+  # ── Advisory: pre-existing style violations (62+ files) ──────────────
+  # TODO(#tech-debt): Enable blocking lint after fixing all violations.
+  # Migration plan: run `black src/ tests/ tools/` and commit in a
+  # dedicated `tech-debt/enable-blocking-lint` task.
+  lint-advisory:
+    name: Lint advisory (flake8 + black check)
     runs-on: ubuntu-latest
-    continue-on-error: true  # pre-existing style issues, not blockers
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
