@@ -253,12 +253,15 @@ class TestBenchmarkRunner(unittest.TestCase):
                         self.assertNotIn("\\Users\\", str(v))
 
     def test_report_has_safe_paths(self):
-        from tools.run_benchmark import _safe_run_id, PROJECT_ROOT, run_benchmark
+        from tools.run_benchmark import _safe_run_id
 
-        rid = _safe_run_id()
+        rid = _safe_run_id("test-bench")
         self.assertNotIn(":", rid)
         self.assertNotIn("\\", rid)
         self.assertNotIn(" ", rid)
+        # Check no collision: two consecutive calls produce different IDs
+        rid2 = _safe_run_id("test-bench")
+        self.assertNotEqual(rid, rid2)
 
 
 class TestTaskPacketLifecycle(unittest.TestCase):
