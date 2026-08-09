@@ -2,11 +2,11 @@
   "schema_version": 1,
   "id": "fix-ai-workflow-artifact-contracts",
   "title": "Fix AI workflow artifact contracts and semantic validation",
-  "status": "review",
+  "status": "archived",
   "type": "security",
   "risk_level": "high",
   "created_at": "2026-08-08T20:03:44Z",
-  "updated_at": "2026-08-08T20:30:00Z",
+  "updated_at": "2026-08-09T10:44:35Z",
   "owners": {
     "planner": "perplexity",
     "implementer": "deepcode",

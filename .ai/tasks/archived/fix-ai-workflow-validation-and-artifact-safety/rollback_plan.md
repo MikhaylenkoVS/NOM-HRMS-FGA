@@ -11,7 +11,7 @@
 ### Code rollback
 
 ```bash
-git revert <commit>
+git revert COMMIT
 git push origin
 ```
 

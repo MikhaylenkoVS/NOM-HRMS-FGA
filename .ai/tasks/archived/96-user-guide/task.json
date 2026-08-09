@@ -2,11 +2,11 @@
   "schema_version": 1,
   "id": "96-user-guide",
   "title": "User guide — черновик и интеграция в документацию",
-  "status": "review",
+  "status": "archived",
   "type": "documentation",
   "risk_level": "low",
   "created_at": "2026-08-09T10:05:12Z",
-  "updated_at": "2026-08-09T10:30:00Z",
+  "updated_at": "2026-08-09T10:46:33Z",
   "owners": {
     "planner": "perplexity",
     "implementer": "deepcode",
