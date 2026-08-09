@@ -113,9 +113,7 @@ def run_benchmark(benchmark_id: str, task_id: str) -> int:
 
     # ----- run benchmark -----
     started_at = datetime.now(timezone.utc)
-    result = subprocess.run(
-        cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT)
-    )
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
     finished_at = datetime.now(timezone.utc)
     duration = (finished_at - started_at).total_seconds()
 
