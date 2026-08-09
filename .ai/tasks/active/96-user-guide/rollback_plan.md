@@ -1,30 +1,28 @@
-# Rollback Plan: DOC-01 — Черновик user guide
+# Rollback Plan
 
-## Признаки проблемы
-- Инструкции не соответствуют UI.
-- Пользователь не может пройти первый сценарий.
-- CSV format описан неверно.
-- Есть неподтверждённые scientific claims.
-- README ссылается на отсутствующий или устаревший guide.
+**Task:** 96-user-guide
 
-## Быстрый откат
+## How to detect failure
+
+[Monitoring, test failures, user reports]
+
+## How to rollback
+
+### Code rollback
+
 ```bash
-git revert <documentation-commit-sha>
+git revert <commit>
+git push origin
 ```
 
-Для выборочного восстановления:
-```bash
-git checkout <known-good-commit> -- docs/user_guide.md
-```
+### Data rollback (if applicable)
 
-Если добавлялась навигационная ссылка, восстановить также `README.md` или `docs/README.md`.
+[Steps to restore data]
 
-## После отката
-1. Проверить Markdown links.
-2. Создать follow-up GitHub Issue.
-3. Исправить guide в отдельной ветке.
-4. Повторить manual walkthrough.
-5. При необходимости добавить lesson в `.ai/lessons/`.
+## Recovery time estimate
 
-## Полномочия
-Rollback и повторная публикация выполняются человеком после review. DeepCode может подготовить исправление в отдельной ветке, но не меняет main самостоятельно.
+[Minutes/hours]
+
+## Who can rollback
+
+[Human only / DeepCode with approval]

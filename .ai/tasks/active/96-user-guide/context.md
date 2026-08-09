@@ -1,40 +1,23 @@
-# Context: DOC-01 — Черновик user guide
+# Task Context
 
-## Цель
-Создать `docs/user_guide.md` — пошаговое руководство для химика-пользователя NOM-HRMS-FGA. Руководство должно позволять установить или запустить приложение, подготовить CSV, загрузить три спектра, выбрать параметры, интерпретировать результаты и устранить распространённые ошибки.
+## Background
 
-## Источник
-GitHub Issue: #96 — DOC-01: Черновик user guide. Milestone: `v0.6.0 — Доступность`.
+[Describe problem, motivation, and constraints]
 
-## Текущее состояние
-- Проект: NOM-HRMS-FGA, desktop-приложение для анализа NOM mass spectra.
-- Стек: Python, tkinter, pandas, matplotlib, RDKit.
-- Базовый commit: `063495979736570e3e99e6139fc8ba21ebe16f98`.
-- Основная ветка: `main`.
-- В проекте есть presets `coal`, `peat`, `soil`, `water` и тестовые наборы в `data/test_sets/`.
-- Отдельного пользовательского руководства пока нет.
+## Current state
 
-## Аудитория
-Химики, аналитики и исследователи NOM/HRMS с базовым пониманием m/z, интенсивности и CSV, но без требования знания Python, Git или исходного кода.
+[Relevant code paths, data flows, configuration]
 
-## Scope
-Создать `docs/user_guide.md` со следующими разделами:
-1. Установка и запуск: Windows executable, а pip-вариант — только после проверки актуального packaging path.
-2. Подготовка CSV: обязательные колонки, значения, разделители, кодировка и типовые ошибки.
-3. Первый анализ: загрузка трёх спектров, параметры, запуск и проверка результата.
-4. Интерпретация: таблица, Van Krevelen plot, гистограммы и ограничения.
-5. Presets: `coal`, `peat`, `soil`, `water`.
-6. Troubleshooting.
+## Desired state
 
-## Out of scope
-Не менять GUI, scientific logic, алгоритмы, presets, входные форматы, installer или Python API. Не обещать неподтверждённую функциональность и не создавать учебник по Python или полной теории HRMS.
+[What should change]
 
-## Перед финализацией проверить
-- Фактические названия кнопок, вкладок и параметров UI.
-- Реальный порядок загрузки трёх спектров.
-- CSV schema по reader-коду и тестовым файлам.
-- Назначение presets по JSON-конфигурации и реальному запуску.
-- Актуальные installation paths.
-- Поведение таблицы, VK-графика и гистограмм.
+## Dependencies
 
-Неясности фиксировать в `human_decisions.md`, а не угадывать.
+- [ ] Dependency 1
+- [ ] Dependency 2
+
+## References
+
+- [ADR-0001](../decisions/0001-ai-assisted-development-workflow.md)
+- [Link 2]

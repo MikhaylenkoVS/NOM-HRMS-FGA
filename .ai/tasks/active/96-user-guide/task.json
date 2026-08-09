@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "96-user-guide",
+  "title": "User guide — черновик и интеграция в документацию",
+  "status": "draft",
+  "type": "documentation",
+  "risk_level": "low",
+  "created_at": "2026-08-09T10:05:12Z",
+  "updated_at": "2026-08-09T10:05:12Z",
+  "owners": {
+    "planner": "perplexity",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "docs/96-user-guide",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": ["docs/user-guide/", "docs/", "README.md"],
+    "forbidden_paths": ["src/", "tools/", "tests/"],
+    "max_changed_files": null
+  },
+  "requirements": {
+    "must_have": [
+      "Черновик user guide в docs/user-guide/",
+      "Быстрый старт, установка, интерфейс, анализ данных",
+      "Экспорт и CLI-режим",
+      "FAQ и troubleshooting"
+    ],
+    "must_not": [
+      "Изменять код приложения",
+      "Добавлять secrets или credentials"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task 96-user-guide",
+      "python tools/ai_workflow.py render-handoff 96-user-guide"
+    ],
+    "required_test_commands": [],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": false,
+    "requires_adr": false,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md"
+  },
+  "links": {
+    "issue": "#96",
+    "pull_request": null,
+    "adr": []
+  }
+}
