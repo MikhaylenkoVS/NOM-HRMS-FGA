@@ -1,37 +1,29 @@
-# Constraints: DOC-01 — Черновик user guide
+# Constraints
 
 ## Functional constraints
-- Основной результат: `docs/user_guide.md`.
-- Руководство отражает только подтверждённую функциональность release target.
-- Все утверждения о UI, CSV, параметрах и presets проверяются по коду, конфигурации и ручному запуску.
-- Неясности фиксируются в `human_decisions.md`.
+
+- [Constraint 1]
+- [Constraint 2]
 
 ## Technical constraints
-- Не менять source code, scientific algorithms, JSON presets, тестовые данные или зависимости.
-- Не добавлять secrets, credentials, персональные пути или большие бинарные screenshots.
-- Использовать GitHub-compatible Markdown и относительные ссылки.
 
-## Allowed paths
-```text
-docs/user_guide.md
-docs/README.md
-README.md
-.ai/tasks/active/96-user-guide/
-```
+- Python ≥ 3.10
+- Only standard library for tools/*
+- No new dependencies without justification
+- Must pass existing test suite
+
+## Non-constraints (explicitly out of scope)
+
+- [Out-of-scope 1]
+- [Out-of-scope 2]
 
 ## Forbidden paths
-```text
-src/
-tests/
-data/
-tools/
-external/
-thermo/
-.github/
-pyproject.toml
-requirements.txt
-src/configs/presets/
-```
 
-## Non-goals
-Полная API-документация, учебник по Python/Git/RDKit, полная теория NOM/HRMS, изменение UI ради документации, новый installer или поддержка неподтверждённых форматов.
+Paths that MUST NOT be modified:
+
+- `[path/to/protected/dir]`
+- `[path/to/protected/file.py]`
+
+## Max files to change
+
+[N or null for unlimited]
