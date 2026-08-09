@@ -2,11 +2,11 @@
   "schema_version": 1,
   "id": "fix-ai-workflow-validation-and-artifact-safety",
   "title": "Harden benchmark artifact upload and AI-workflow validation tests",
-  "status": "draft",
+  "status": "archived",
   "type": "security",
   "risk_level": "high",
   "created_at": "2026-08-08T20:52:55Z",
-  "updated_at": "2026-08-08T20:52:55Z",
+  "updated_at": "2026-08-09T10:44:35Z",
   "owners": {
     "planner": "perplexity",
     "implementer": "deepcode",

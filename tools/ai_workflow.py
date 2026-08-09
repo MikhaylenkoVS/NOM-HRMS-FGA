@@ -705,8 +705,9 @@ def cmd_validate_task(args) -> int:
             if not rp.is_file():
                 errors.append(f"reference_validation '{ref_artifact}' not found")
 
-    # Active tasks must not have final status
-    if location == "active" and status in FINAL_STATUSES:
+    # Active tasks must not have post-merge status (approved is pre-merge)
+    FINAL_ACTIVE_BLOCKED = {"completed", "merged", "archived"}
+    if location == "active" and status in FINAL_ACTIVE_BLOCKED:
         errors.append(
             f"Task in active/ has final status '{status}'. Move to completed/."
         )
@@ -1405,7 +1406,7 @@ def cmd_check_repo(args) -> int:
             if task_dir.is_dir():
                 task_data = load_json(task_dir / "task.json")
                 status = task_data.get("status", "")
-                if status in FINAL_STATUSES:
+                if status in ("completed", "merged", "archived"):
                     errors.append(
                         f"Task in active/ has final status: {task_dir.name} -> {status}"
                     )
