@@ -3,23 +3,17 @@
 **Task:** 96-user-guide
 **Reviewer:** Human
 **Date:** 2026-08-09
+**Status:** Awaiting human review before completion.
 
 ## What was implemented
-
-User guide draft in `docs/user-guide/`:
-- quickstart.md: быстрый старт, установка
-- interface.md: обзор GUI
-- analysis.md: анализ данных
-- export.md: экспорт и CLI
-- faq.md: частые вопросы
+User guide draft in `docs/user_guide.md` — 6 sections:
+installation, data prep, analysis, results, presets, FAQ.
 
 ## Files to review
-
-- docs/user-guide/README.md
-- docs/user-guide/*.md
+- docs/user_guide.md
+- README.md (link added)
 
 ## Special attention needed
-
-- Точность формулировок (проверить научные термины)
-- Актуальность скриншотов интерфейса
-- Соответствие текущей версии v0.6+
+- Scientific accuracy of VK region descriptions
+- Preset descriptions match actual configs
+- CLI section completeness (headless mode)

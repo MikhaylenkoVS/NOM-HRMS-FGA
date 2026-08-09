@@ -5,24 +5,26 @@
 **Implemented by:** DeepCode
 
 ## Summary
+Created user guide draft: installation, data prep, analysis,
+results interpretation, presets, FAQ and troubleshooting.
 
-Created user guide draft covering installation, interface, data analysis,
-export, CLI mode, FAQ and troubleshooting.
+## Changes made
 
-## Files created
+| File | Change type | Description |
+|------|-------------|-------------|
+| docs/user_guide.md | add | Full user guide (184 lines, 6 sections) |
+| README.md | modify | Added link to user guide |
 
-| File | Description |
-|------|-------------|
-| docs/user-guide/README.md | User guide index and structure |
-| docs/user-guide/quickstart.md | Quick start — install, load, run |
-| docs/user-guide/interface.md | GUI overview — tabs and controls |
-| docs/user-guide/analysis.md | Data analysis — spectra, series, VK |
-| docs/user-guide/export.md | Export results and CLI mode |
-| docs/user-guide/faq.md | FAQ and troubleshooting |
+## Structure
+1. Установка — .exe, pip, разработчики
+2. Подготовка данных — CSV формат, колонки, ThermoRAW
+3. Запуск анализа — загрузка, параметры, пресеты
+4. Интерпретация результатов — таблица, VK, серии
+5. Пресеты — soil, peat, coal, water
+6. Частые ошибки — Python PATH, CSV формат, RawFileReader, Linux
 
 ## Validation
 
 ```bash
-python tools/ai_workflow.py validate-task 96-user-guide   # PASSED
-python tools/ai_workflow.py render-handoff 96-user-guide  # PASSED
+python tools/ai_workflow.py validate-task 96-user-guide  # PASSED
 ```
