@@ -1,5 +1,5 @@
 # DeepCode Handoff: 96-user-guide
-**Generated:** 2026-08-09T10:06:00Z
+**Generated:** 2026-08-09T10:22:17Z
 
 ## Goal
 User guide — черновик и интеграция в документацию

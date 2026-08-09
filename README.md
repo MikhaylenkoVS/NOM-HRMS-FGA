@@ -117,6 +117,8 @@ pip install ".[raw]"
 
 ## 📖 Типичные сценарии использования
 
+> Подробное руководство: [docs/user_guide.md](docs/user_guide.md)
+
 ### Сценарий 1 — GUI-анализ de novo (рекомендуемый)
 
 1. Запустите `NOM_HRMS_FGA.exe` (Windows) или `nom-hrms-fga` (macOS/Linux)

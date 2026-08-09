@@ -2,11 +2,11 @@
   "schema_version": 1,
   "id": "96-user-guide",
   "title": "User guide — черновик и интеграция в документацию",
-  "status": "draft",
+  "status": "review",
   "type": "documentation",
   "risk_level": "low",
   "created_at": "2026-08-09T10:05:12Z",
-  "updated_at": "2026-08-09T10:05:12Z",
+  "updated_at": "2026-08-09T10:30:00Z",
   "owners": {
     "planner": "perplexity",
     "implementer": "deepcode",
@@ -18,8 +18,16 @@
     "pull_request": null
   },
   "scope": {
-    "allowed_paths": ["docs/user-guide/", "docs/", "README.md"],
-    "forbidden_paths": ["src/", "tools/", "tests/"],
+    "allowed_paths": [
+      "docs/user-guide/",
+      "docs/",
+      "README.md"
+    ],
+    "forbidden_paths": [
+      "src/",
+      "tools/",
+      "tests/"
+    ],
     "max_changed_files": null
   },
   "requirements": {
@@ -53,7 +61,7 @@
     "rollback_plan": "rollback_plan.md"
   },
   "links": {
-    "issue": "#96",
+    "issue": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/issues/96",
     "pull_request": null,
     "adr": []
   }
