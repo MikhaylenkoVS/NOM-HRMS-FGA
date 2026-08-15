@@ -19,7 +19,7 @@ authors:
     given-names: "Vladimir S."
     orcid: "0000-0000-0000-0000"
     affiliation: "Department of Chemistry, Lomonosov Moscow State University"
-license: "GPL-3.0-or-later"
+license: "MPL-2.0"
 doi: "10.XXXX/zenodo.YYYYY"
 repository-code: "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA"
 url: "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA"

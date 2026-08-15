@@ -28,7 +28,7 @@ body:
   - type: input
     attributes:
       label: Версия приложения
-      placeholder: e.g., v0.6.0
+      placeholder: e.g., v0.6.1
   - type: textarea
     attributes:
       label: Окружение

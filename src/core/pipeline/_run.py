@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Optional
 from src.configs import CHEM, PIPELINE, PATHS
 from ._cache import _pipeline_cache, _result_cache, PipelineProgress
-from ._helpers import _debug, _normalize_brutto, _ppm_error
+from ._helpers import _debug, _normalize_brutto, _ppm_error, _make_sub_progress
 from ._stats import PipelineStats, PipelineRunResult, SeriesStats
 from ._test import _run_test_mode
+from ._stages import _load_triple, _denoise_triple, _find_series_stage
 from src.core.timer import PipelineTimings
 
 # ---------------------------------------------------------------------------
@@ -32,30 +33,6 @@ except Exception as _e:
         f"[PIPELINE] CRITICAL: не удалось импортировать spectrum_ops: {_e}",
     )
 logger = logging.getLogger(__name__)
-
-
-def _make_sub_progress(progress_callback, base_pct, range_pct, label_tpl):
-    """Create a per-step callback that maps ``(step, total)`` → absolute %.
-
-    Parameters
-    ----------
-    progress_callback : callable or None
-        Outer callback ``(label, pct) → None``.
-    base_pct : int
-        Starting percentage for this sub-stage.
-    range_pct : int
-        Width of the percentage range allocated to this sub-stage.
-    label_tpl : str
-        Template string with ``{0}`` = step, ``{1}`` = total.
-    """
-    if not progress_callback:
-        return None
-
-    def cb(step, total):
-        pct = base_pct + int(step / max(total, 1) * range_pct)
-        progress_callback(label_tpl.format(step, total), pct)
-
-    return cb
 
 
 def run_pipeline(
@@ -236,66 +213,21 @@ def run_pipeline(
     _debug(f"dacet_path= {dacet_path}")
     _debug(f"load_mass_min={load_mass_min}, load_mass_max={load_mass_max}")
 
-    if progress_callback:
-        progress_callback("Загрузка src…", 2)
-    _mapper = {"mass": "mass", "intensity": "intensity"}
-    try:
-        src = load_spectrum(
-            src_path,
-            mapper=_mapper,
-            sep=sep,
-            mass_min=load_mass_min,
-            mass_max=load_mass_max,
-            metadata={"name": "src"},
-        )
-        stats.src_loaded = len(src.table) if hasattr(src, "table") else 0
-        _debug(f"src загружен: {stats.src_loaded} пиков")
-        if progress_callback:
-            progress_callback("Загрузка dmet…", 5)
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА загрузки src: {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        return PipelineRunResult(table=pd.DataFrame(), stats=stats, messages=[msg])
-
-    try:
-        dmet = load_spectrum(
-            dmet_path,
-            mapper=_mapper,
-            sep=sep,
-            mass_min=load_mass_min,
-            mass_max=load_mass_max,
-            metadata={"name": "dmet"},
-        )
-        stats.dmet_loaded = len(dmet.table) if hasattr(dmet, "table") else 0
-        _debug(f"dmet загружен: {stats.dmet_loaded} пиков")
-        if progress_callback:
-            progress_callback("Загрузка dacet…", 8)
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА загрузки dmet: {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        return PipelineRunResult(table=pd.DataFrame(), stats=stats, messages=[msg])
-
-    try:
-        dacet = load_spectrum(
-            dacet_path,
-            mapper=_mapper,
-            sep=sep,
-            mass_min=load_mass_min,
-            mass_max=load_mass_max,
-            metadata={"name": "dacet"},
-        )
-        stats.dacet_loaded = len(dacet.table) if hasattr(dacet, "table") else 0
-        _debug(f"dacet загружен: {stats.dacet_loaded} пиков")
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА загрузки dacet: {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        return PipelineRunResult(table=pd.DataFrame(), stats=stats, messages=[msg])
-
-    print(
-        f"  Загружено пиков:  src={stats.src_loaded},  dmet={stats.dmet_loaded},  dacet={stats.dacet_loaded}"
+    src, dmet, dacet, _load_err = _load_triple(
+        src_path,
+        dmet_path,
+        dacet_path,
+        sep,
+        load_mass_min,
+        load_mass_max,
+        stats,
+        progress_callback,
     )
-    if progress_callback:
-        progress_callback("Загрузка завершена", 10)
+    if _load_err:
+        logger.error(_load_err)
+        return PipelineRunResult(
+            table=pd.DataFrame(), stats=stats, messages=[_load_err]
+        )
 
     # -----------------------------------------------------------------------
     # ШАГ 2a: Шумоподавление
@@ -308,52 +240,18 @@ def run_pipeline(
         f"noise_force={noise_force}, noise_intensity={noise_intensity}, noise_quantile={noise_quantile}"
     )
 
-    try:
-        # Сохранить копию до денойза для изотопного фильтра
-        src_original = src.copy() if isotope_filter else None
-        if progress_callback:
-            progress_callback("Шумоподавление src…", 12)
-        src = denoise(
-            src, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
-        )
-        stats.src_denoised = len(src.table) if hasattr(src, "table") else 0
-        _debug(f"src после денойса: {stats.src_denoised} пиков")
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА денойса src: {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        messages.append(msg)
-
-    try:
-        if progress_callback:
-            progress_callback("Шумоподавление dmet…", 15)
-        dmet = denoise(
-            dmet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
-        )
-        stats.dmet_denoised = len(dmet.table) if hasattr(dmet, "table") else 0
-        _debug(f"dmet после денойса: {stats.dmet_denoised} пиков")
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА денойса dmet: {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        messages.append(msg)
-
-    try:
-        if progress_callback:
-            progress_callback("Шумоподавление dacet…", 18)
-        dacet = denoise(
-            dacet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
-        )
-        stats.dacet_denoised = len(dacet.table) if hasattr(dacet, "table") else 0
-        _debug(f"dacet после денойса: {stats.dacet_denoised} пиков")
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА денойса dacet: {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        messages.append(msg)
-
-    print(
-        f"  После шумоподавления: src={stats.src_denoised},  dmet={stats.dmet_denoised},  dacet={stats.dacet_denoised}"
+    src, dmet, dacet, src_original = _denoise_triple(
+        src,
+        dmet,
+        dacet,
+        noise_force,
+        noise_intensity,
+        noise_quantile,
+        isotope_filter,
+        stats,
+        messages,
+        progress_callback,
     )
-    if progress_callback:
-        progress_callback("Шумоподавление завершено", 20)
 
     # -----------------------------------------------------------------------
     # ШАГ 2b: Назначение брутто-формул
@@ -438,47 +336,23 @@ def run_pipeline(
         f"find_series: delta={DELTA_CD3:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}"
     )
 
-    df_dmet = pd.DataFrame()
-    try:
-        _cd3_cb = _make_sub_progress(progress_callback, 53, 13, "Серия CD3 {0}/{1}…")
-        df_dmet = find_series(
-            src,
-            dmet,
-            delta=DELTA_CD3,
-            ppm_tol=ppm_tol,
-            max_groups=max_groups,
-            allow_gaps=allow_gaps,
-            progress_callback=_cd3_cb,
-        )
-        stats.dmet.rows = len(df_dmet)
-        if not df_dmet.empty:
-            stats.dmet.max_groups = (
-                int(df_dmet["n_groups"].max()) if "n_groups" in df_dmet.columns else 0
-            )
-            if "missing" in df_dmet.columns:
-                stats.dmet.missing_total = int(df_dmet["missing"].apply(len).sum())
-        _debug(
-            f"find_series(dmet): {len(df_dmet)} строк, колонки={list(df_dmet.columns) if not df_dmet.empty else '[]'}"
-        )
-        if not df_dmet.empty:
-            _debug(
-                f"  max_groups={stats.dmet.max_groups}, missing_total={stats.dmet.missing_total}"
-            )
-            _debug(f"Превью df_dmet:\n{df_dmet.head(3).to_string(index=False)}")
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА find_series(dmet): {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        messages.append(msg)
-
-    print(f"  Соединений с сериями CD3: {len(df_dmet)}")
-    if not df_dmet.empty:
-        print(f"  Макс. N_COOH = {stats.dmet.max_groups}")
-        if stats.dmet.missing_total:
-            print(
-                f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dmet.missing_total}"
-            )
-    if progress_callback:
-        progress_callback("Поиск серий CD3 завершён", 67)
+    df_dmet = _find_series_stage(
+        src,
+        dmet,
+        DELTA_CD3,
+        ppm_tol,
+        max_groups,
+        allow_gaps,
+        stats.dmet,
+        "dmet",
+        "CD3",
+        "N_COOH",
+        53,
+        13,
+        67,
+        messages,
+        progress_callback,
+    )
 
     # -----------------------------------------------------------------------
     # ШАГ 4: Серии CD3CO (N_OH)
@@ -491,46 +365,23 @@ def run_pipeline(
         f"find_series: delta={DELTA_CD3CO:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}"
     )
 
-    df_dacet = pd.DataFrame()
-    try:
-        _cd3co_cb = _make_sub_progress(
-            progress_callback, 68, 13, "Серия CD3CO {0}/{1}…"
-        )
-        df_dacet = find_series(
-            src,
-            dacet,
-            delta=DELTA_CD3CO,
-            ppm_tol=ppm_tol,
-            max_groups=max_groups,
-            allow_gaps=allow_gaps,
-            progress_callback=_cd3co_cb,
-        )
-        stats.dacet.rows = len(df_dacet)
-        if not df_dacet.empty:
-            stats.dacet.max_groups = (
-                int(df_dacet["n_groups"].max()) if "n_groups" in df_dacet.columns else 0
-            )
-            if "missing" in df_dacet.columns:
-                stats.dacet.missing_total = int(df_dacet["missing"].apply(len).sum())
-        _debug(f"find_series(dacet): {len(df_dacet)} строк")
-        if not df_dacet.empty:
-            _debug(
-                f"  max_groups={stats.dacet.max_groups}, missing_total={stats.dacet.missing_total}"
-            )
-    except Exception as e:
-        msg = f"[PIPELINE] ОШИБКА find_series(dacet): {e}\n{traceback.format_exc()}"
-        logger.error(msg)
-        messages.append(msg)
-
-    print(f"  Соединений с сериями CD3CO: {len(df_dacet)}")
-    if not df_dacet.empty:
-        print(f"  Макс. N_OH = {stats.dacet.max_groups}")
-        if stats.dacet.missing_total:
-            print(
-                f"  ВНИМАНИЕ: Внутренних пропусков в сериях: {stats.dacet.missing_total}"
-            )
-    if progress_callback:
-        progress_callback("Поиск серий CD3CO завершён", 82)
+    df_dacet = _find_series_stage(
+        src,
+        dacet,
+        DELTA_CD3CO,
+        ppm_tol,
+        max_groups,
+        allow_gaps,
+        stats.dacet,
+        "dacet",
+        "CD3CO",
+        "N_OH",
+        68,
+        13,
+        82,
+        messages,
+        progress_callback,
+    )
 
     # -----------------------------------------------------------------------
     # ШАГ 5: Итоговая таблица
