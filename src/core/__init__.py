@@ -7,11 +7,11 @@ from .chemistry.fragments import (
 )
 from .chemistry.fragment_combinations import (
     find_fragment_combinations,
-    find_and_visualize_molecules,
     assemble_all_combinations,
     assemble_molecule_from_combination,
     filter_fragments,
 )
+from .chemistry._visualize import find_and_visualize_molecules
 from .domain.molecule import Molecule
 from .pipeline import run_pipeline
 from .van_krevelen import (

@@ -138,3 +138,27 @@ def _match_row_by_mass(
 # ---------------------------------------------------------------------------
 # Датаклассы статистики
 # ---------------------------------------------------------------------------
+
+
+def _make_sub_progress(progress_callback, base_pct, range_pct, label_tpl):
+    """Create a per-step callback that maps ``(step, total)`` → absolute %.
+
+    Parameters
+    ----------
+    progress_callback : callable or None
+        Outer callback ``(label, pct) → None``.
+    base_pct : int
+        Starting percentage for this sub-stage.
+    range_pct : int
+        Width of the percentage range allocated to this sub-stage.
+    label_tpl : str
+        Template string with ``{0}`` = step, ``{1}`` = total.
+    """
+    if not progress_callback:
+        return None
+
+    def cb(step, total):
+        pct = base_pct + int(step / max(total, 1) * range_pct)
+        progress_callback(label_tpl.format(step, total), pct)
+
+    return cb

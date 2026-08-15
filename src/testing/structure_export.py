@@ -28,7 +28,7 @@ EXPORT_PNG = False  # генерировать PNG (медленно)
 # Проверка зависимостей
 # ----------------------------------------------------------------------
 try:
-    from src.core.chemistry.fragment_combinations import find_and_visualize_molecules
+    from src.core.chemistry._visualize import find_and_visualize_molecules
 
     _HAS_FRAGMENT_SEARCH = True
 except ImportError as e:
