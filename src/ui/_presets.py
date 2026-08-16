@@ -164,12 +164,19 @@ class PresetsMixin:
             return
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
-            filetypes=[("CSV", "*.csv"), ("Excel", "*.xlsx"), ("All", "*.*")],
+            filetypes=[
+                ("CSV", "*.csv"),
+                ("Excel", "*.xlsx"),
+                ("JSON", "*.json"),
+                ("All", "*.*"),
+            ],
         )
         if path:
             try:
                 if str(path).lower().endswith((".xlsx", ".xls")):
                     self.result_df.to_excel(path, index=False)
+                elif str(path).lower().endswith(".json"):
+                    self.result_df.to_json(path, orient="records", force_ascii=False)
                 else:
                     self.result_df.to_csv(
                         path, index=False, sep=";", encoding="utf-8-sig"
