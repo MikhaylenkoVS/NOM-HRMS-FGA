@@ -16,11 +16,13 @@
 
 ## Версионная привязка (важно)
 
-- Релизнута **v0.6.0** (git tag `v0.6.0`), `pyproject.toml` → `version = "0.6.0"`.
-- **v0.6.1** — патч (formula_db + docs + CI + fixes), следующий релиз.
+- Ядро NOM-HRMS-FGA продолжает линейку версий **v0.6.1 → v0.7 → v0.8 → v0.9 → v1.0**
+  (milestones GitHub ядра: «Инструменты пользователя», «Научная полнота»,
+  «Публикационная готовность», «Релиз»).
 - Реструктуризация каталогов и рефакторинг (`docs/plans/v0.7-directory-restructure.md`,
   `docs/plans/v0.7-refactoring-plan.md`) фактически вошли в v0.6.0.
-- Веб-миграция продолжает общую линейку версий и стартует с **v0.7**.
+- «СпектраЛаб» — **отдельная линейка версий** `v0.1 → v0.2 → v0.3 → v0.4`, не
+  пересекается с линейкой ядра.
 
 ## Контекст и допущения (зафиксированы по фактическому коду)
 
@@ -48,24 +50,24 @@
 
 | Milestone | Название | Срок | Тип |
 |-----------|----------|------|-----|
-| `v0.7` | СпектраЛаб MVP-каркас | недели 1–3 (до ~2026-08-28) | релизный трек |
-| `v0.8` | СпектраЛаб обработка и экспорт | недели 3–5 (до ~2026-09-11) | релизный трек |
-| `v0.9` | СпектраЛаб удобства | по необходимости, недели 6+ | опционально |
-| `v0.10` | СпектраЛаб путь роста | без жёсткого срока | по потребности |
+| `v0.1` | СпектраЛаб MVP-каркас | недели 1–3 (до ~2026-08-28) | релизный трек |
+| `v0.2` | СпектраЛаб обработка и экспорт | недели 3–5 (до ~2026-09-11) | релизный трек |
+| `v0.3` | СпектраЛаб удобства | по необходимости, недели 6+ | опционально |
+| `v0.4` | СпектраЛаб путь роста | без жёсткого срока | по потребности |
 
 ## Конвенции labels
 
-- `release/v0.7`, `release/v0.8`, `release/v0.9`, `release/v0.10`
+- `spectralab/v0.1`, `spectralab/v0.2`, `spectralab/v0.3`, `spectralab/v0.4`
 - `type/feature`, `type/refactor`, `type/test`, `type/infra`, `type/docs`
 - область: `spectralab`
 
 ---
 
-# Milestone: `v0.7` — СпектраЛаб MVP-каркас (недели 1–3)
+# Milestone: `v0.1` — СпектраЛаб MVP-каркас (недели 1–3)
 
 ## SPECTRALAB-01 — Выделить `src/core` в переиспользуемый пакет без tkinter и с лёгким импортом
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/refactor` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/refactor` `spectralab`
 
 **Описание.** `src/core/` уже не зависит от tkinter (зависимость только в `src/app.py`
 и `src/ui/`). Но `src/core/__init__.py` при импорте жадно тянет RDKit и matplotlib,
@@ -91,7 +93,7 @@
 
 ## SPECTRALAB-02 — Инициализировать структуру веб-проекта `spectralab/`
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/infra` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/infra` `spectralab`
 
 **Описание.** Создать скелет веб-приложения по упрощённому стеку: FastAPI + Jinja2/HTMX
 + SQLite + локальные файлы. Один процесс, минимум компонентов, комфортная поддержка
@@ -116,7 +118,7 @@
 
 ## SPECTRALAB-03 — Создать FastAPI-каркас с health-check и Jinja2
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/feature` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/feature` `spectralab`
 
 **Описание.** Минимальное приложение FastAPI с health-check, подключением
 Jinja2Templates и базовым шаблоном, чтобы «прогнать» весь стек до бизнес-логики.
@@ -138,7 +140,7 @@ Jinja2Templates и базовым шаблоном, чтобы «прогнат�
 
 ## SPECTRALAB-04 — Реализовать `POST /spectra` (загрузка CSV) + сохранение файла
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/feature` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/feature` `spectralab`
 
 **Описание.** Приём одного CSV-спектра через multipart, валидация и сохранение в
 `./data/spectra/`, возврат `spectrum_id`.
@@ -160,7 +162,7 @@ Jinja2Templates и базовым шаблоном, чтобы «прогнат�
 
 ## SPECTRALAB-05 — Ввести SQLite-хранилище метаданных и истории
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/infra` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/infra` `spectralab`
 
 **Описание.** Локальная БД `data/spectralab.db` для метаданных спектров и истории
 обработок. Использовать SQLModel или чистый `sqlite3` — что проще для одного разработчика.
@@ -182,7 +184,7 @@ Jinja2Templates и базовым шаблоном, чтобы «прогнат�
 
 ## SPECTRALAB-06 — Реализовать `GET /spectra` и `GET /spectra/{id}` (+ `?downsample=N`)
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/feature` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/feature` `spectralab`
 
 **Описание.** Список загруженных спектров и метаданные конкретного спектра с
 опциональной децимацией точек для рендера.
@@ -203,7 +205,7 @@ Jinja2Templates и базовым шаблоном, чтобы «прогнат�
 
 ## SPECTRALAB-07 — Базовый шаблон списка спектров (HTMX)
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/feature` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/feature` `spectralab`
 
 **Описание.** Стартовая страница показывает загруженные спектры и обновляется через
 HTMX (частичное обновление без JS-фреймворка).
@@ -221,7 +223,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-08 — Документировать запуск (README: pip install, run.py, systemd/ярлык)
 
-**Milestone:** `v0.7` · **Метки:** `release/v0.7` `type/docs` `spectralab`
+**Milestone:** `v0.1` · **Метки:** `spectralab/v0.1` `type/docs` `spectralab`
 
 **Описание.** Инструкция по развёртыванию СпектраЛаб: от чистой установки до автозапуска
 сервисом/ярлыком.
@@ -237,11 +239,11 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ---
 
-# Milestone: `v0.8` — СпектраЛаб обработка и экспорт (недели 3–5)
+# Milestone: `v0.2` — СпектраЛаб обработка и экспорт (недели 3–5)
 
 ## SPECTRALAB-09 — Реализовать `POST /process` (синхронный запуск пайплайна)
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/feature` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/feature` `spectralab`
 
 **Описание.** Запуск существующего `run_pipeline` по тройке спектров через API.
 В MVP — синхронно (создаёт задачу, выполняет, возвращает `task_id`).
@@ -265,7 +267,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-10 — Реализовать `GET /tasks/{id}` (статус и прогресс)
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/feature` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/feature` `spectralab`
 
 **Описание.** Опрос статуса задачи: `queued/running/done/error` + прогресс `%`.
 
@@ -282,7 +284,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-11 — Вьюер спектра на uPlot + HTMX (зум, тултипы, таблица пиков)
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/feature` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/feature` `spectralab`
 
 **Описание.** Единственное место с «настоящим» JS — график на uPlot: отрисовка спектра,
 зум/пан, тултип, таблица найденных пиков.
@@ -303,7 +305,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-12 — Реализовать `GET /spectra/{id}/peaks` (m/z, интенсивность, С/Ш)
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/feature` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/feature` `spectralab`
 
 **Описание.** Список найденных пиков спектра с соотношением сигнал/шум, вычисляемым ядром.
 
@@ -322,7 +324,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-13 — Реализовать `GET /tasks/{id}/export?fmt=csv|json` (CSV минимум)
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/feature` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/feature` `spectralab`
 
 **Описание.** Выгрузка результата обработки (`result_table`), минимум CSV.
 
@@ -341,7 +343,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-14 — Интеграционные HTTP-тесты через FastAPI TestClient
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/test` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/test` `spectralab`
 
 **Описание.** Отдельный набор HTTP-тестов для веб-слоя — независимо от chemical-validity
 тестов в `tests/unit/test_chemical_validity.py`.
@@ -360,7 +362,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-15 — Регрессия: веб-пайплайн идентичен десктопу на `set_01`–`set_05`
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/test` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/test` `spectralab`
 
 **Описание.** Ключевой научный инвариант: результаты веб-версии должны совпадать с
 десктоп-версией на всех эталонных наборах.
@@ -381,7 +383,7 @@ HTMX (частичное обновление без JS-фреймворка).
 
 ## SPECTRALAB-16 — Страница результата: таблица result_table (HTMX)
 
-**Milestone:** `v0.8` · **Метки:** `release/v0.8` `type/feature` `spectralab`
+**Milestone:** `v0.2` · **Метки:** `spectralab/v0.2` `type/feature` `spectralab`
 
 **Описание.** После обработки показывать итоговую таблицу результатов (формулы, N_COOH,
 N_OH) на отдельной странице/фрагменте.
@@ -397,14 +399,14 @@ N_OH) на отдельной странице/фрагменте.
 
 ---
 
-# Milestone: `v0.9` — СпектраЛаб удобства (по необходимости, недели 6+)
+# Milestone: `v0.3` — СпектраЛаб удобства (по необходимости, недели 6+)
 
 > Все issues ниже — опциональные, создаются/выполняются по мере реальной потребности,
 > не блокируют MVP.
 
 ## SPECTRALAB-17 — Импорт mzML через pymzML
 
-**Milestone:** `v0.9` · **Метки:** `release/v0.9` `type/feature` `spectralab`
+**Milestone:** `v0.3` · **Метки:** `spectralab/v0.3` `type/feature` `spectralab`
 
 **Описание.** Приём `.mzML` в `POST /spectra` наравне с CSV (через `pymzml`), конвертация
 во внутреннее представление.
@@ -419,7 +421,7 @@ CSV-эквивалентом в пределах допуска.
 
 ## SPECTRALAB-18 — Van Krevelen-диаграмма в результатах
 
-**Milestone:** `v0.9` · **Метки:** `release/v0.9` `type/feature` `spectralab`
+**Milestone:** `v0.3` · **Метки:** `spectralab/v0.3` `type/feature` `spectralab`
 
 **Описание.** Отрисовка диаграммы Ван-Кревелена для результата обработки.
 
@@ -434,7 +436,7 @@ CSV-эквивалентом в пределах допуска.
 
 ## SPECTRALAB-19 — Сравнение и наложение спектров
 
-**Milestone:** `v0.9` · **Метки:** `release/v0.9` `type/feature` `spectralab`
+**Milestone:** `v0.3` · **Метки:** `spectralab/v0.3` `type/feature` `spectralab`
 
 **Описание.** Оверлей нескольких спектров в вьюере для визуального сравнения.
 
@@ -447,7 +449,7 @@ CSV-эквивалентом в пределах допуска.
 
 ## SPECTRALAB-20 — Библиотека спектров / поиск по массе
 
-**Milestone:** `v0.9` · **Метки:** `release/v0.9` `type/feature` `spectralab`
+**Milestone:** `v0.3` · **Метки:** `spectralab/v0.3` `type/feature` `spectralab`
 
 **Описание.** Возможность помечать спектры и искать по диапазону масс/имени (поверх SQLite).
 
@@ -460,7 +462,7 @@ CSV-эквивалентом в пределах допуска.
 
 ## SPECTRALAB-21 — Лёгкая авторизация: один пароль + cookie-сессия
 
-**Milestone:** `v0.9` · **Метки:** `release/v0.9` `type/feature` `spectralab`
+**Milestone:** `v0.3` · **Метки:** `spectralab/v0.3` `type/feature` `spectralab`
 
 **Описание.** Опциональный вход по одному паролю для случаев выхода сервера за пределы
 локальной машины.
@@ -475,7 +477,7 @@ middleware для защиты маршрутов. Без OAuth/JWT (это — 
 
 ## SPECTRALAB-22 — Docker-контейнер + volume
 
-**Milestone:** `v0.9` · **Метки:** `release/v0.9` `type/infra` `spectralab`
+**Milestone:** `v0.3` · **Метки:** `spectralab/v0.3` `type/infra` `spectralab`
 
 **Описание.** Опциональная упаковка в один контейнер с volume для `./data`.
 
@@ -488,7 +490,7 @@ middleware для защиты маршрутов. Без OAuth/JWT (это — 
 
 ## SPECTRALAB-23 — Руководство пользователя веб-версии
 
-**Milestone:** `v0.9` · **Метки:** `release/v0.9` `type/docs` `spectralab`
+**Milestone:** `v0.3` · **Метки:** `spectralab/v0.3` `type/docs` `spectralab`
 
 **Описание.** Документация по работе в СпектраЛаб (загрузка тройки, запуск, просмотр, экспорт).
 
@@ -500,14 +502,14 @@ middleware для защиты маршрутов. Без OAuth/JWT (это — 
 
 ---
 
-# Milestone: `v0.10` — СпектраЛаб путь роста (без жёсткого срока)
+# Milestone: `v0.4` — СпектраЛаб путь роста (без жёсткого срока)
 
 > Issues создаются только при появлении **конкретной причины** (нагрузка, число
 > пользователей, батчи). Не блокируют MVP.
 
 ## SPECTRALAB-24 — Перейти на асинхронную обработку: BackgroundTasks → Celery + Redis
 
-**Milestone:** `v0.10` · **Метки:** `release/v0.10` `type/feature` `spectralab`
+**Milestone:** `v0.4` · **Метки:** `spectralab/v0.4` `type/feature` `spectralab`
 
 **Описание.** Для длительных/батч-задач. Сначала `FastAPI BackgroundTasks`, затем
 Celery + Redis. WebSocket-прогресс `WS /ws/tasks/{id}`.
@@ -523,7 +525,7 @@ request-потока; (2) при реальных батчах — Celery+Redis,
 
 ## SPECTRALAB-25 — Многопользовательская авторизация (OAuth2/JWT)
 
-**Milestone:** `v0.10` · **Метки:** `release/v0.10` `type/feature` `spectralab`
+**Milestone:** `v0.4` · **Метки:** `spectralab/v0.4` `type/feature` `spectralab`
 
 **Описание.** Только при появлении нескольких пользователей/ролей. Заменяет
 SPECTRALAB-21 (один пароль) на OAuth2/JWT.
@@ -538,7 +540,7 @@ SPECTRALAB-21 (один пароль) на OAuth2/JWT.
 
 ## SPECTRALAB-26 — Миграция SQLite → PostgreSQL (метаданные)
 
-**Milestone:** `v0.10` · **Метки:** `release/v0.10` `type/infra` `spectralab`
+**Milestone:** `v0.4` · **Метки:** `spectralab/v0.4` `type/infra` `spectralab`
 
 **Описание.** Только при многопользовательском сценарии/конкуренции за БД.
 SQLModel облегчает переход.
@@ -552,7 +554,7 @@ SQLModel облегчает переход.
 
 ## SPECTRALAB-27 — Вынос файлов в MinIO/S3
 
-**Milestone:** `v0.10` · **Метки:** `release/v0.10` `type/infra` `spectralab`
+**Milestone:** `v0.4` · **Метки:** `spectralab/v0.4` `type/infra` `spectralab`
 
 **Описание.** Хранение `.csv`/`.mzML` в объектном хранилище вместо локальной папки.
 
@@ -565,7 +567,7 @@ SQLModel облегчает переход.
 
 ## SPECTRALAB-28 — Точечная миграция HTMX-компонентов на React/Vite
 
-**Milestone:** `v0.10` · **Метки:** `release/v0.10` `type/feature` `spectralab`
+**Milestone:** `v0.4` · **Метки:** `spectralab/v0.4` `type/feature` `spectralab`
 
 **Описание.** Только когда HTMX-интерфейс станет слишком сложным. Мигрировать **точечно**
 (отдельные компоненты), не переписывая всё и не трогая API.
@@ -581,7 +583,7 @@ API-контракт неизменен.
 
 ## SPECTRALAB-29 — Roadmap: рост системы (backlog-заметка)
 
-**Milestone:** `v0.10` · **Метки:** `release/v0.10` `type/docs` `spectralab`
+**Milestone:** `v0.4` · **Метки:** `spectralab/v0.4` `type/docs` `spectralab`
 
 **Описание.** Финальная заметка-бэклог с пунктами полного стека **без** отдельной
 детальной инструкции, пока для них нет обоснованной необходимости.
@@ -604,15 +606,15 @@ Pyodide-совместимого RDKit.
 
 | Milestone | Срок | Issues | Ключевой результат |
 |-----------|------|--------|--------------------|
-| `v0.7` MVP-каркас | недели 1–3 (~2026-08-28) | 01–08 | FastAPI+Jinja2, лёгкий импорт core, upload+SQLite, healthz, README |
-| `v0.8` Обработка и экспорт | недели 3–5 (~2026-09-11) | 09–16 | `POST /process`, вьюер uPlot, peaks, экспорт CSV, HTTP-тесты, регрессия set_01–05 |
-| `v0.9` Удобства | недели 6+ (по необходимости) | 17–23 | mzML, Van Krevelen, сравнение, библиотека, пароль, Docker, гайд |
-| `v0.10` Путь роста | без срока | 24–29 | Celery, OAuth2, PostgreSQL, S3, React, roadmap-бэклог |
+| `v0.1` MVP-каркас | недели 1–3 (~2026-08-28) | 01–08 | FastAPI+Jinja2, лёгкий импорт core, upload+SQLite, healthz, README |
+| `v0.2` Обработка и экспорт | недели 3–5 (~2026-09-11) | 09–16 | `POST /process`, вьюер uPlot, peaks, экспорт CSV, HTTP-тесты, регрессия set_01–05 |
+| `v0.3` Удобства | недели 6+ (по необходимости) | 17–23 | mzML, Van Krevelen, сравнение, библиотека, пароль, Docker, гайд |
+| `v0.4` Путь роста | без срока | 24–29 | Celery, OAuth2, PostgreSQL, S3, React, roadmap-бэклог |
 
 ## Итог
 
 - **29 issues**, разбиты по 4 milestones, каждый с метками `release/*` + `type/*` + `spectralab`.
-- Релизный трек (v0.7, v0.8) строится на упрощённом стеке; «путь роста» (v0.10) —
+- Релизный трек (v0.1, v0.2) строится на упрощённом стеке; «путь роста» (v0.4) —
   опциональный, по реальной потребности.
 - Веб-версия на любом этапе остаётся надстройкой, не заменой, до подтверждения
   эквивалентности на `set_01`–`set_05`.
