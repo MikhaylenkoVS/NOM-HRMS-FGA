@@ -10,6 +10,7 @@ from ._helpers import _debug, _normalize_brutto, _ppm_error, _make_sub_progress
 from ._stats import PipelineStats, PipelineRunResult, SeriesStats
 from ._test import _run_test_mode
 from ._stages import _load_triple, _denoise_triple, _find_series_stage
+from ._export import export_result_table
 from src.core.timer import PipelineTimings
 
 # ---------------------------------------------------------------------------
@@ -458,20 +459,35 @@ def run_pipeline(
             messages.append(msg)
 
     # -----------------------------------------------------------------------
-    # Сохранение результата (CSV или XLSX по расширению)
+    # Сохранение результата (CSV / XLSX / JSON по расширению)
     # -----------------------------------------------------------------------
     if output_csv and not result.empty:
         try:
             if progress_callback:
                 progress_callback("Сохранение результата…", 96)
-            if str(output_csv).lower().endswith((".xlsx", ".xls")):
-                result.to_excel(output_csv, index=False)
-                _fmt = "XLSX"
-            else:
-                result.to_csv(output_csv, index=False, sep=";", encoding="utf-8-sig")
-                _fmt = "CSV"
+            export_result_table(
+                result,
+                output_csv,
+                metadata={
+                    "params": {
+                        "rel_error_ppm": rel_error,
+                        "sign": sign,
+                        "noise_force": noise_force,
+                        "noise_intensity": noise_intensity,
+                        "noise_quantile": noise_quantile,
+                        "ppm_tol": ppm_tol,
+                        "max_groups": max_groups,
+                        "allow_gaps": allow_gaps,
+                        "isotope_filter": isotope_filter,
+                        "assign_mass_min": assign_mass_min,
+                        "assign_mass_max": assign_mass_max,
+                        "load_mass_min": load_mass_min,
+                        "load_mass_max": load_mass_max,
+                    }
+                },
+            )
             print(f"\nИтоговая таблица сохранена: {output_csv}")
-            _debug(f"{_fmt} сохранён в {output_csv}, строк={len(result)}")
+            _debug(f"Результат сохранён в {output_csv}, строк={len(result)}")
         except Exception as e:
             msg = f"[PIPELINE] ОШИБКА сохранения результата: {e}"
             logger.error(msg)
