@@ -95,14 +95,14 @@ def availability_error() -> str | None:
 # ── Core: average RAW → CSV ───────────────────────────────────────────────────
 
 
-def average_raw_to_csv(
+def average_raw_to_json(
     raw_path: str,
     rt_min: float,
     rt_max: float,
-    output_csv: str | None = None,
+    output: str | None = None,
     progress_callback: Callable[[str], None] | None = None,
 ) -> str:
-    """Average a ThermoRAW file over [rt_min, rt_max] and write a CSV.
+    """Average a ThermoRAW file over [rt_min, rt_max] and write a JSON table.
 
     Parameters
     ----------
@@ -110,7 +110,7 @@ def average_raw_to_csv(
         Path to the ``.raw`` file.
     rt_min, rt_max : float
         Retention-time window (minutes).
-    output_csv : str or None
+    output : str or None
         Target path; auto-generated from *raw_path* when ``None``.
     progress_callback : callable or None
         Called with status messages during processing.
@@ -118,7 +118,7 @@ def average_raw_to_csv(
     Returns
     -------
     str
-        Absolute path to the written CSV.
+        Absolute path to the written JSON file.
     """
     if not is_available():
         raise RuntimeError(f"RawFileReader not available: {_RAW_ERROR}")
@@ -133,16 +133,14 @@ def average_raw_to_csv(
 
     df = average_raw_to_df(raw_path, rt_min, rt_max, progress_callback)
 
-    if output_csv is None:
+    if output is None:
         base = os.path.splitext(os.path.basename(raw_path))[0]
-        output_csv = os.path.join(
-            os.path.dirname(raw_path) or ".", f"{base}_averaged.csv"
-        )
+        output = os.path.join(os.path.dirname(raw_path) or ".", f"{base}_averaged.json")
 
-    output_csv = os.path.abspath(output_csv)
-    df.to_csv(output_csv, index=False, float_format="%.6f")
-    _log(progress_callback, f"Written {len(df)} peaks → {output_csv}")
-    return output_csv
+    output = os.path.abspath(output)
+    df.to_json(output, orient="records")
+    _log(progress_callback, f"Written {len(df)} peaks → {output}")
+    return output
 
 
 def average_raw_to_df(

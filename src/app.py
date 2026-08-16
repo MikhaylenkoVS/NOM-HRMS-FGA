@@ -118,21 +118,21 @@ except Exception as _core_err:
 
 # ── Импорт raw-бриджа (опционально) ──────────────────────────────────────────
 try:
-    from src.core.io.raw_bridge import average_raw_to_csv
+    from src.core.io.raw_bridge import average_raw_to_json
 
     _RAW_LOADED = True
     _RAW_ERROR = ""
 except Exception as _raw_err:
     _RAW_LOADED = False
     _RAW_ERROR = str(_raw_err)
-    average_raw_to_csv = None  # type: ignore[assignment]
+    average_raw_to_json = None  # type: ignore[assignment]
 
 
 # ── Импорт mzML-бриджа (опционально) ─────────────────────────────────────────
 try:
-    from src.core.io.mzml_bridge import mzml_to_csv as _mzml_to_csv
+    from src.core.io.mzml_bridge import mzml_to_json as _mzml_to_json
 except Exception:
-    _mzml_to_csv = None  # type: ignore[assignment]
+    _mzml_to_json = None  # type: ignore[assignment]
 
 
 # ── Импорт конфигурации ─────────────────────────────────────────────────────

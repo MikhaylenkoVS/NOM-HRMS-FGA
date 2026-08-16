@@ -283,6 +283,7 @@ class ParamsMixin:
             filetypes=[
                 ("CSV / RAW files", "*.csv;*.raw"),
                 ("CSV files", "*.csv"),
+                ("Excel files", "*.xlsx"),
                 ("RAW files", "*.raw"),
                 ("Text files", "*.txt"),
                 ("All files", "*.*"),
@@ -294,7 +295,11 @@ class ParamsMixin:
     def _save_browse(self, var: tk.StringVar):
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            filetypes=[
+                ("CSV files", "*.csv"),
+                ("Excel files", "*.xlsx"),
+                ("All files", "*.*"),
+            ],
         )
         if path:
             var.set(path)

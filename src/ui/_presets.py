@@ -28,14 +28,22 @@ class PresetsMixin:
     """Extracted from app.py."""
 
     def _import_csv(self):
-        """Загрузить result_table.csv, заполнить таблицу и структуры."""
+        """Загрузить result_table (.csv / .xlsx), заполнить таблицу и структуры."""
         path = filedialog.askopenfilename(
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+            filetypes=[
+                ("CSV / Excel files", "*.csv;*.xlsx"),
+                ("CSV files", "*.csv"),
+                ("Excel files", "*.xlsx"),
+                ("All files", "*.*"),
+            ]
         )
         if not path:
             return
         try:
-            df = pd.read_csv(path, sep=";", encoding="utf-8-sig")
+            if str(path).lower().endswith((".xlsx", ".xls")):
+                df = pd.read_excel(path)
+            else:
+                df = pd.read_csv(path, sep=";", encoding="utf-8-sig")
         except Exception:
             # пробуем другие разделители
             try:
@@ -107,11 +115,12 @@ class PresetsMixin:
         import os, glob
 
         csv_files = glob.glob(os.path.join(folder, "*.csv"))
+        xlsx_files = glob.glob(os.path.join(folder, "*.xlsx"))
         raw_files = glob.glob(os.path.join(folder, "*.raw"))
-        all_files = csv_files + raw_files
+        all_files = csv_files + xlsx_files + raw_files
         if not all_files:
             messagebox.showwarning(
-                "Нет файлов", f"В папке нет .csv или .raw файлов: {folder}"
+                "Нет файлов", f"В папке нет .csv, .xlsx или .raw файлов: {folder}"
             )
             return
 
@@ -154,11 +163,17 @@ class PresetsMixin:
             messagebox.showinfo("Нет данных", "Сначала запустите анализ.")
             return
         path = filedialog.asksaveasfilename(
-            defaultextension=".csv", filetypes=[("CSV", "*.csv"), ("All", "*.*")]
+            defaultextension=".csv",
+            filetypes=[("CSV", "*.csv"), ("Excel", "*.xlsx"), ("All", "*.*")],
         )
         if path:
             try:
-                self.result_df.to_csv(path, index=False, sep=";", encoding="utf-8-sig")
+                if str(path).lower().endswith((".xlsx", ".xls")):
+                    self.result_df.to_excel(path, index=False)
+                else:
+                    self.result_df.to_csv(
+                        path, index=False, sep=";", encoding="utf-8-sig"
+                    )
                 self._log(f"Таблица сохранена: {path}", color=OK)
             except Exception as e:
                 self._log(f"[ОШИБКА] Сохранение не удалось: {e}", color=WARN)
