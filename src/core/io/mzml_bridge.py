@@ -1,4 +1,4 @@
-"""mzML → averaged CSV bridge (requires pymzml for XML parsing only).
+"""mzML → averaged JSON bridge (requires pymzml for XML parsing only).
 
 Handles both centroided and profile-mode mzML files by decoding the
 binary data arrays directly (bypassing pymzml's ``peaks()`` method,
@@ -6,21 +6,21 @@ which silently loses data on large profile spectra).
 
 Usage
 -----
-    from src.core.io.mzml_bridge import mzml_to_csv
+    from src.core.io.mzml_bridge import mzml_to_json
 
-    csv_path = mzml_to_csv("sample.mzML", output_csv="averaged.csv",
-                           rt_min=0.0, rt_max=30.0)
+    json_path = mzml_to_json("sample.mzML", output="averaged.json",
+                             rt_min=0.0, rt_max=30.0)
 """
 
 from __future__ import annotations
 
 import base64
-import csv
 import os
 import zlib
 from typing import Callable, Optional
 
 import numpy as np
+import pandas as pd
 
 # mzML XML namespace
 _NS = "{http://psi.hupo.org/ms/mzml}"
@@ -72,23 +72,23 @@ def _spectrum_is_profile(spec_elem) -> bool:
     )
 
 
-def mzml_to_csv(
+def mzml_to_json(
     mzml_path: str,
-    output_csv: Optional[str] = None,
+    output: Optional[str] = None,
     rt_min: float = 0.0,
     rt_max: float = 999.0,
     min_intensity: float = 0.0,
     progress_callback: Optional[Callable[[str], None]] = None,
 ) -> str:
     """Average all MS1 spectra in *mzml_path* over [*rt_min*, *rt_max*]
-    and write a ``mass,intensity`` CSV.
+    and write a ``mass,intensity`` JSON table.
 
     Parameters
     ----------
     mzml_path : str
         Path to the ``.mzML`` file.
-    output_csv : str or None
-        Where to write the CSV.  Default: ``<basename>_avrg.csv`` next to mzML.
+    output : str or None
+        Where to write the JSON.  Default: ``<basename>_avrg.json`` next to mzML.
     rt_min : float
         Start of retention-time window (minutes).  Default 0.0.
     rt_max : float
@@ -101,7 +101,7 @@ def mzml_to_csv(
     Returns
     -------
     str
-        Absolute path to the CSV file.
+        Absolute path to the JSON file.
     """
     try:
         from pymzml.run import Reader  # type: ignore[import-untyped]
@@ -197,22 +197,20 @@ def mzml_to_csv(
     summed_int = np.zeros(len(unique_mz))
     np.add.at(summed_int, inverse, int_array)
 
-    # ── write CSV ───────────────────────────────────────────────────────────
+    # ── write JSON ──────────────────────────────────────────────────────────
     if progress_callback:
-        progress_callback("Запись CSV…")
+        progress_callback("Запись JSON…")
 
-    if output_csv is None:
+    if output is None:
         base = os.path.splitext(os.path.basename(mzml_path))[0]
         out_dir = os.path.dirname(mzml_path) or "."
-        output_csv = os.path.join(out_dir, f"{base}_avrg.csv")
+        output = os.path.join(out_dir, f"{base}_avrg.json")
 
-    with open(output_csv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["mass", "intensity"])
-        for mz, ints in zip(unique_mz, summed_int):
-            writer.writerow([f"{mz:.6f}", f"{ints:.2f}"])
+    pd.DataFrame({"mass": unique_mz, "intensity": summed_int}).to_json(
+        output, orient="records"
+    )
 
-    return os.path.abspath(output_csv)
+    return os.path.abspath(output)
 
 
 def is_available() -> bool:

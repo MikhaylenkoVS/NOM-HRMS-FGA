@@ -110,7 +110,8 @@ def run_pipeline(
     save_dmet, save_dacet : optional
         Paths to save the -COOH / -OH series figures.
     output_csv : str or None, keyword-only, optional
-        If given, the result table is written to this CSV path.
+        If given, the result table is written to this path. The format is
+        chosen by extension: ``.xlsx`` / ``.xls`` → Excel, otherwise CSV.
     test_mode : bool, keyword-only, optional
         If ``True``, ignore the path arguments and run the bundled test sets
         instead. Default ``False``.
@@ -457,17 +458,22 @@ def run_pipeline(
             messages.append(msg)
 
     # -----------------------------------------------------------------------
-    # Сохранение CSV
+    # Сохранение результата (CSV или XLSX по расширению)
     # -----------------------------------------------------------------------
     if output_csv and not result.empty:
         try:
             if progress_callback:
-                progress_callback("Сохранение CSV…", 96)
-            result.to_csv(output_csv, index=False, sep=";", encoding="utf-8-sig")
+                progress_callback("Сохранение результата…", 96)
+            if str(output_csv).lower().endswith((".xlsx", ".xls")):
+                result.to_excel(output_csv, index=False)
+                _fmt = "XLSX"
+            else:
+                result.to_csv(output_csv, index=False, sep=";", encoding="utf-8-sig")
+                _fmt = "CSV"
             print(f"\nИтоговая таблица сохранена: {output_csv}")
-            _debug(f"CSV сохранён в {output_csv}, строк={len(result)}")
+            _debug(f"{_fmt} сохранён в {output_csv}, строк={len(result)}")
         except Exception as e:
-            msg = f"[PIPELINE] ОШИБКА сохранения CSV: {e}"
+            msg = f"[PIPELINE] ОШИБКА сохранения результата: {e}"
             logger.error(msg)
             messages.append(msg)
 

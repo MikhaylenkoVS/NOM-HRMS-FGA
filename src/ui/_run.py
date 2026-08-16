@@ -82,7 +82,7 @@ class RunMixin:
             self._set_status("Усреднение RAW-спектра…")
             self.progress["value"] = 0
             self.update_idletasks()
-            path = average_raw_to_csv(path, rt_min, rt_max)
+            path = average_raw_to_json(path, rt_min, rt_max)
             self.progress["value"] = 100
             self._set_status("Готово")
             self._log(f"[RAW] → {path}", color=OK)
@@ -95,7 +95,7 @@ class RunMixin:
             except ValueError:
                 raise ValueError(f"[{label}] Некорректный RT-диапазон")
 
-            if _mzml_to_csv is None:
+            if _mzml_to_json is None:
                 raise RuntimeError(
                     f"[{label}] Обработка mzML недоступна.\n"
                     "Установите pymzml: pip install pymzml"
@@ -107,7 +107,7 @@ class RunMixin:
             self._set_status("Усреднение mzML-спектра…")
             self.progress["value"] = 0
             self.update_idletasks()
-            path = _mzml_to_csv(path, rt_min=rt_min, rt_max=rt_max)
+            path = _mzml_to_json(path, rt_min=rt_min, rt_max=rt_max)
             self.progress["value"] = 100
             self._set_status("Готово")
             self._log(f"[mzML] → {path}", color=OK)

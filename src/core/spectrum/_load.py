@@ -24,6 +24,29 @@ CSV_COLUMN_MAPPER = {
 }
 
 
+def _read_table(path, sep):
+    """Read a spectrum table from CSV, XLSX or JSON (detected by extension).
+
+    Parameters
+    ----------
+    path : str or path-like
+        Path to the data file.
+    sep : str
+        Field separator for CSV input.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The loaded table.
+    """
+    p = str(path).lower()
+    if p.endswith((".xlsx", ".xls")):
+        return pd.read_excel(path)
+    if p.endswith(".json"):
+        return pd.read_json(path, orient="records")
+    return pd.read_csv(path, sep=sep, encoding="utf-8")
+
+
 def load_spectrum(
     path,
     mapper=None,
@@ -32,12 +55,15 @@ def load_spectrum(
     mass_max=PIPELINE.load_spectrum_defaults["mass_max"],
     metadata=None,
 ):
-    """Load a mass spectrum from a CSV file into a Spectrum object.
+    """Load a mass spectrum from a CSV / XLSX / JSON file into a Spectrum object.
+
+    The format is detected by file extension: ``.csv``, ``.xlsx`` / ``.xls``
+    or ``.json``.
 
     Parameters
     ----------
     path : str or path-like
-        Path to the CSV file with mass and intensity columns.
+        Path to the file with mass and intensity columns.
     mapper : dict, optional
         Extra column-rename rules merged over the built-in defaults
         (which map ``m/z``, ``mz``, ``I`` etc. to ``mass``/``intensity``).
@@ -65,12 +91,12 @@ def load_spectrum(
     _sep = sep or ","
 
     try:
-        df = pd.read_csv(path, sep=_sep, encoding="utf-8")
+        df = _read_table(path, _sep)
     except Exception as e:
         # Логируем на уровне core для разработчика
-        logger.exception("Ошибка чтения CSV-файла %r", path)
+        logger.exception("Ошибка чтения файла %r", path)
         # Поднимаем дальше осмысленное исключение
-        raise ValueError(f"Не удалось прочитать CSV-файл '{path}': {e}") from e
+        raise ValueError(f"Не удалось прочитать файл '{path}': {e}") from e
 
     df.columns = [c.strip() for c in df.columns]
 
