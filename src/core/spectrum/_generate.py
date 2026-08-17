@@ -2,6 +2,8 @@
 
 import logging
 import math
+from functools import lru_cache
+
 import numpy as np
 from src.configs import CHEM, PIPELINE
 from src.core.van_krevelen import NOM_REGIONS
@@ -16,24 +18,24 @@ DEFAULT_BRUTTO_DICT = {
 }
 
 
-def _generate_candidate_formulas(
+@lru_cache(maxsize=16)
+def _generate_cached(
     mass_min: float,
     mass_max: float,
-    cfg: FormulaSearchConfig,
-    mode: str = "soft",
-) -> list[tuple[int, int, int, int, float]]:
-    """Enumerate candidate CHON formulas within a neutral-mass window.
-
-    Returns (c, h, o, n, mass) tuples — string building is deferred.
-    """
+    c_range: tuple[int, int],
+    h_range: tuple[int, int],
+    o_range: tuple[int, int],
+    n_range: tuple[int, int],
+) -> tuple[tuple[int, int, int, int, float], ...]:
+    """Enumerate candidate CHON formulas (memoized on hashable parameters)."""
     eps = 1e-9  # защита от округления в ceil/floor
     mass_min_abs = mass_min * 0.99
     mass_max_abs = mass_max * 1.01
 
-    c_min, c_max = cfg.ranges["C"]
-    h_min, h_max = cfg.ranges["H"]
-    o_min, o_max = cfg.ranges.get("O", (0, 0))
-    n_min, n_max = cfg.ranges.get("N", (0, 0))
+    c_min, c_max = c_range
+    h_min, h_max = h_range
+    o_min, o_max = o_range
+    n_min, n_max = n_range
 
     M_C = ATOMIC_MASS["C"]
     M_H = ATOMIC_MASS.get("H", 0.0)
@@ -110,7 +112,27 @@ def _generate_candidate_formulas(
 
                     result.append((c, h, o, n, mass))
 
-    return result
+    return tuple(result)
+
+
+def _generate_candidate_formulas(
+    mass_min: float,
+    mass_max: float,
+    cfg: FormulaSearchConfig,
+    mode: str = "soft",
+) -> list[tuple[int, int, int, int, float]]:
+    """Enumerate candidate CHON formulas within a neutral-mass window.
+
+    Returns (c, h, o, n, mass) tuples — string building is deferred. The
+    result is memoized on the hashable parameters (mass window + count ranges).
+    """
+    c_range = tuple(cfg.ranges["C"])
+    h_range = tuple(cfg.ranges["H"])
+    o_range = tuple(cfg.ranges.get("O", (0, 0)))
+    n_range = tuple(cfg.ranges.get("N", (0, 0)))
+    return list(
+        _generate_cached(mass_min, mass_max, c_range, h_range, o_range, n_range)
+    )
 
 
 def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:

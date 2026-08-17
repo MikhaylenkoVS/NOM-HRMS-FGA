@@ -16,7 +16,7 @@ from ._constants import (
 from ._chem import (
     _beynon_m1_ratio_cached,
     _counts_to_str,
-    _nom_distance,
+    _NOM_REGION_CENTERS,
     _measure_m1_ratio,
     _ISOTOPE_TOLERANCE,
     _ISOTOPE_PENALTY,
@@ -79,7 +79,7 @@ def assign_formulas(
     if search_config is None:
         search_config = FormulaSearchConfig()
 
-    table = src.table.copy()
+    table = src.table
     mass_series = table["mass"]
 
     if mass_min is None:
@@ -119,7 +119,6 @@ def assign_formulas(
     if not candidates:
         table["brutto"] = None
         table["assign"] = False
-        src.table = table
         return src
 
     # Разделим counts и нейтральные массы (один проход)
@@ -136,13 +135,50 @@ def assign_formulas(
     _shift = _ion_shift(ion_mode)
     cand_masses_ion = cand_masses_neutral + _shift
 
-    # Предвычисляем DBE для всех кандидатов
-    cand_dbe = (
-        1.0
-        + cand_counts[:, 0].astype(float)
-        - cand_counts[:, 1].astype(float) / 2.0
-        + cand_counts[:, 2].astype(float) / 2.0
+    # ── Предвычисление метрик кандидатов (OPT-07 / OPT-08) ─────────────────────
+    c_arr = cand_counts[:, 0].astype(float)
+    h_arr = cand_counts[:, 1].astype(float)
+    o_arr = cand_counts[:, 2].astype(float)
+    n_arr = cand_counts[:, 3].astype(float)
+
+    valid = c_arr > 0
+    safe_c = np.where(valid, c_arr, 1.0)
+    hc_arr = np.where(valid, h_arr / safe_c, 0.0)
+    oc_arr = np.where(valid, o_arr / safe_c, 0.0)
+    nc_arr = np.where(valid, n_arr / safe_c, 0.0)
+
+    cand_dbe = 1.0 + c_arr - h_arr / 2.0 + o_arr / 2.0
+
+    centers = np.asarray(_NOM_REGION_CENTERS, dtype=float)
+    ndist_arr = np.min(
+        np.hypot(
+            oc_arr[:, None] - centers[None, :, 0],
+            hc_arr[:, None] - centers[None, :, 1],
+        ),
+        axis=1,
     )
+    ndist_arr = np.where(hc_arr <= 0, 10.0, ndist_arr)
+
+    dbe_pen_arr = np.where(cand_dbe > 20, (cand_dbe - 20) * 0.5, 0.0)
+    nc_pen_arr = np.where(nc_arr > 0.3, nc_arr * 2.0, 0.0)
+    n_abs_pen_arr = np.where(
+        (n_arr > 3) & ((o_arr == 0) | (o_arr / np.where(n_arr > 0, n_arr, 1.0) < 0.5)),
+        (n_arr - 3) * 2.0,
+        0.0,
+    )
+
+    base_score = nom_weight * ndist_arr + dbe_pen_arr + nc_pen_arr + n_abs_pen_arr
+    base_score = np.where(valid, base_score, np.inf)
+
+    cand_m1_theor = None
+    if isotope_filter and original is not None:
+        cand_m1_theor = np.array(
+            [
+                _beynon_m1_ratio_cached(int(ci), int(hi), int(oi), int(ni))
+                for ci, hi, oi, ni in cand_counts
+            ],
+            dtype=float,
+        )
 
     brutto_col = [None] * len(table)
     assign_col = [False] * len(table)
@@ -162,53 +198,34 @@ def assign_formulas(
 
         global_indices = np.where(mask)[0]
 
-        best_local: int | None = None
-        best_score = float("inf")
-
-        m1_real: float | None = None
-        if isotope_filter and original is not None:
+        if cand_m1_theor is not None:
+            m1_real = None
             try:
                 m1_real = _measure_m1_ratio(mass_obs, original)
             except Exception:
                 m1_real = None
-
-        for li in global_indices:
-            c_val = int(cand_counts[li, 0])
-            h_val = int(cand_counts[li, 1])
-            o_val = int(cand_counts[li, 2])
-            n_val = int(cand_counts[li, 3])
-            if c_val <= 0:
-                continue
-            hc = h_val / c_val
-            oc = o_val / c_val
-            nc = n_val / c_val
-            ndist = _nom_distance(hc, oc)
-            dbe = float(cand_dbe[li])
-            dbe_pen = (dbe - 20) * 0.5 if dbe > 20 else 0.0
-            nc_pen = nc * 2.0 if nc > 0.3 else 0.0
-            if n_val > 3 and (o_val == 0 or o_val / n_val < 0.5):
-                n_abs_pen = (n_val - 3) * 2.0
-            else:
-                n_abs_pen = 0.0
-            iso_pen = 0.0
             if m1_real is not None and m1_real > 0:
-                m1_theor = _beynon_m1_ratio_cached(c_val, h_val, o_val, n_val)
-                if m1_theor > 0:
-                    dev = abs(m1_real - m1_theor) / m1_theor
-                    if dev > _ISOTOPE_TOLERANCE:
-                        iso_pen = _ISOTOPE_PENALTY
-            score = nom_weight * ndist + dbe_pen + nc_pen + n_abs_pen + iso_pen
-            if score < best_score:
-                best_score = score
-                best_local = li
-
-        if best_local is None:
-            sorted_order = np.argsort(abs_ppm[mask])
-            chosen_global = int(global_indices[sorted_order[0]])
+                safe_theor = np.where(cand_m1_theor > 0, cand_m1_theor, 1.0)
+                dev = np.abs(m1_real - cand_m1_theor) / safe_theor
+                iso_pen_arr = np.where(
+                    (cand_m1_theor > 0) & (dev > _ISOTOPE_TOLERANCE),
+                    _ISOTOPE_PENALTY,
+                    0.0,
+                )
+                scores = base_score + iso_pen_arr
+            else:
+                scores = base_score
         else:
-            chosen_global = int(best_local)
+            scores = base_score
 
-        sorted_order = np.argsort(abs_ppm[mask])
+        masked_scores = scores[global_indices]
+        if np.isfinite(masked_scores).any():
+            chosen_global = int(global_indices[int(np.argmin(masked_scores))])
+        else:
+            sorted_order = np.argsort(abs_ppm[global_indices])
+            chosen_global = int(global_indices[sorted_order[0]])
+
+        sorted_order = np.argsort(abs_ppm[global_indices])
         sorted_global = global_indices[sorted_order]
         all_candidates_list = [_counts_to_str(*cand_counts[i]) for i in sorted_global]
         candidates_col[idx] = all_candidates_list
@@ -218,5 +235,4 @@ def assign_formulas(
     table["brutto"] = brutto_col
     table["assign"] = assign_col
     table["all_candidates"] = candidates_col
-    src.table = table
     return src
