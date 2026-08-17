@@ -13,7 +13,14 @@ from ._constants import (
     _FS_ELEMENTS,
     _FORMULA_SEARCH,
 )
-from ._chem import _beynon_m1_ratio_cached, _counts_to_str, _nom_distance
+from ._chem import (
+    _beynon_m1_ratio_cached,
+    _counts_to_str,
+    _nom_distance,
+    _measure_m1_ratio,
+    _ISOTOPE_TOLERANCE,
+    _ISOTOPE_PENALTY,
+)
 from src.configs import CHEM, PIPELINE
 
 logger = logging.getLogger(__name__)

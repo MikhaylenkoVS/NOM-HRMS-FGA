@@ -8,6 +8,7 @@ import numpy as np
 from ._chem import _nom_distance
 from ._constants import FormulaSearchConfig
 from ._assign import assign_formulas
+from ._series import _find_peak
 from src.core.domain.molecule import parse_formula
 from src.core.van_krevelen import NOM_REGIONS
 

@@ -1,5 +1,6 @@
 """PlotsMixin — extracted from app.py."""
 
+import ast
 import threading, queue, os, sys, traceback, io
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -8,6 +9,8 @@ import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from src.core._safety import _safe_df
+from src.ui._deps import create_van_krevelen_plot, DELTA_CD3, DELTA_CD3CO
 from src.ui._config import (
     BG,
     FG,

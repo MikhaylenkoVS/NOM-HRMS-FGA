@@ -12,6 +12,9 @@ from ._test import _run_test_mode
 from ._stages import _load_triple, _denoise_triple, _find_series_stage
 from ._export import export_result_table
 from src.core.timer import PipelineTimings
+from src.core.van_krevelen import create_van_krevelen_plot
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 try:
@@ -33,7 +36,6 @@ except Exception as _e:
     logger.error(
         f"[PIPELINE] CRITICAL: не удалось импортировать spectrum_ops: {_e}",
     )
-logger = logging.getLogger(__name__)
 
 
 def run_pipeline(
