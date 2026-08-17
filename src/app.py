@@ -92,48 +92,22 @@ except Exception as _ui_err:
             plt.show()
 
 
-# ── Импорт пайплайна ─────────────────────────────────────────────────────────
-try:
-    from src.core import (
-        DELTA_CD3,
-        DELTA_CD3CO,
-        create_van_krevelen_plot,
-        find_series,
-        load_spectrum,
-        run_pipeline,
-        visualize_series,
-    )
-
-    CORE_LOADED = True
-    _CORE_ERROR = ""
-except Exception as _core_err:
-    CORE_LOADED = False
-    _CORE_ERROR = traceback.format_exc()
-    from src.configs import CHEM
-
-    DELTA_CD3 = CHEM.derivatization_shifts["delta_cd3"]
-    DELTA_CD3CO = CHEM.derivatization_shifts["delta_cd3co"]
-    run_pipeline = load_spectrum = find_series = visualize_series = None
-    create_van_krevelen_plot = None
-
-# ── Импорт raw-бриджа (опционально) ──────────────────────────────────────────
-try:
-    from src.core.io.raw_bridge import average_raw_to_json
-
-    _RAW_LOADED = True
-    _RAW_ERROR = ""
-except Exception as _raw_err:
-    _RAW_LOADED = False
-    _RAW_ERROR = str(_raw_err)
-    average_raw_to_json = None  # type: ignore[assignment]
-
-
-# ── Импорт mzML-бриджа (опционально) ─────────────────────────────────────────
-try:
-    from src.core.io.mzml_bridge import mzml_to_json as _mzml_to_json
-except Exception:
-    _mzml_to_json = None  # type: ignore[assignment]
-
+# ── Импорт пайплайна / мостов (с fallback) ────────────────────────────────────
+from src.ui._deps import (
+    DELTA_CD3,
+    DELTA_CD3CO,
+    create_van_krevelen_plot,
+    find_series,
+    load_spectrum,
+    run_pipeline,
+    visualize_series,
+    CORE_LOADED,
+    _CORE_ERROR,
+    average_raw_to_json,
+    _RAW_LOADED,
+    _RAW_ERROR,
+    _mzml_to_json,
+)
 
 # ── Импорт конфигурации ─────────────────────────────────────────────────────
 from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
@@ -144,57 +118,10 @@ _FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Перехват stdout/stderr → thread-safe очередь → GUI-лог
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class _QueueWriter:
-    """Thread-safe stream shim that tees writes to a queue and a stream.
-
-    Used to redirect ``sys.stdout``/``sys.stderr`` so that ``print``
-    output from the pipeline (which may run in a worker thread) is
-    delivered to the GUI log via a queue while still reaching the original
-    stream.
-
-    Parameters
-    ----------
-    q : queue.Queue
-        Queue that receives ``("log", text)`` items.
-    original : io.TextIOBase, optional
-        Underlying stream to also forward writes to. Default ``None``.
-    """
-
-    def __init__(self, q: queue.Queue, original=None):
-        self._q = q
-        self._orig = original
-
-    def write(self, data: str):
-        if data:
-            self._q.put(("log", data))
-        if self._orig:
-            try:
-                self._orig.write(data)
-            except Exception:
-                pass
-
-    def flush(self):
-        if self._orig:
-            try:
-                self._orig.flush()
-            except Exception:
-                pass
-
-    def fileno(self):
-        if self._orig and hasattr(self._orig, "fileno"):
-            return self._orig.fileno()
-        raise io.UnsupportedOperation("fileno")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Импорт UI-миксинов (методы вынесены в src/ui/_*.py)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from src.ui._log import LogMixin
+from src.ui._log import LogMixin, _QueueWriter
 from src.ui._run import RunMixin
 from src.ui._params import ParamsMixin
 from src.ui._tabs import TabsMixin

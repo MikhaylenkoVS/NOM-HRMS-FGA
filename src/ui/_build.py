@@ -23,6 +23,11 @@ from src.ui._config import (
 )
 from src.ui.plots import embed_figure
 
+try:
+    from src.structures.tab import StructureViewerTab
+except Exception:
+    StructureViewerTab = None
+
 
 class BuildMixin:
     """Extracted from app.py."""

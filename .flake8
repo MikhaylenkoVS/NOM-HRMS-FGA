@@ -20,17 +20,16 @@ per-file-ignores =
     src/core/benchmark.py: F841
     src/core/chemistry/__init__.py: F401
     src/core/chemistry/fragments.py: E402, E302, F401
-    src/core/chemistry/rdkit_bridge.py: F821
     src/core/domain/spectrum.py: F401
     src/core/formula_db/__init__.py: F401
     src/core/formula_db/*.py: F401, E701, E203
     src/core/pipeline/__init__.py: F401
     src/core/pipeline/_cache.py: F401, E231
     src/core/pipeline/_helpers.py: F401
-    src/core/pipeline/_run.py: F401, E401, F821, E712
-    src/core/pipeline/_test.py: F401, E401, E712, F821
+    src/core/pipeline/_run.py: F401, E401, E712
+    src/core/pipeline/_test.py: F401, E401, E712
     src/core/spectrum/__init__.py: F401
-    src/core/spectrum/_assign.py: F401, F821
+    src/core/spectrum/_assign.py: F401
     src/core/spectrum/_build.py: F401, E712
     src/core/spectrum/_chem.py: F401
     src/core/spectrum/_constants.py: F401
@@ -38,19 +37,19 @@ per-file-ignores =
     src/core/spectrum/_generate.py: F401
     src/core/spectrum/_load.py: F401
     src/core/spectrum/_series.py: F401
-    src/core/spectrum/_visualize.py: F401, F821
+    src/core/spectrum/_visualize.py: F401
     src/sim/generate_test_sets.py: E402, F401
     src/sim/process_pubchem_candidates.py: F401
     src/simulations/generate_test_sets.py: F811, F401
     src/simulations/process_pubchem_candidates.py: F401
-    src/ui/_build.py: F401, E401, F821
+    src/ui/_build.py: F401, E401
     src/ui/_config.py: F401
     src/ui/_log.py: F401, E401
-    src/ui/_params.py: F401, E401, F821
-    src/ui/_plots.py: F401, E401, F821, F841, E231
+    src/ui/_params.py: F401, E401
+    src/ui/_plots.py: F401, E401, F841, E231
     src/ui/_presets.py: F401, E401, F811
     src/ui/_results.py: F401, E401
-    src/ui/_run.py: F401, E401, F821
+    src/ui/_run.py: F401, E401
     src/ui/_structures.py: F401, E401
     src/ui/_tabs.py: F401, E401
     src/structures/__init__.py: F401, F811

@@ -1,6 +1,7 @@
 """ParamsMixin — extracted from app.py."""
 
 import threading, queue, os, sys, traceback, io
+from typing import Optional
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from pathlib import Path

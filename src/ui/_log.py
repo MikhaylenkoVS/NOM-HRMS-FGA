@@ -24,6 +24,40 @@ from src.ui._config import (
 from src.ui.plots import embed_figure
 
 
+class _QueueWriter:
+    """Thread-safe stream shim that tees writes to a queue and a stream.
+
+    Used to redirect ``sys.stdout``/``sys.stderr`` so that ``print`` output
+    from the pipeline (which may run in a worker thread) is delivered to the
+    GUI log via a queue while still reaching the original stream.
+    """
+
+    def __init__(self, q, original=None):
+        self._q = q
+        self._orig = original
+
+    def write(self, data: str):
+        if data:
+            self._q.put(("log", data))
+        if self._orig:
+            try:
+                self._orig.write(data)
+            except Exception:
+                pass
+
+    def flush(self):
+        if self._orig:
+            try:
+                self._orig.flush()
+            except Exception:
+                pass
+
+    def fileno(self):
+        if self._orig and hasattr(self._orig, "fileno"):
+            return self._orig.fileno()
+        raise io.UnsupportedOperation("fileno")
+
+
 class LogMixin:
     """Extracted from app.py."""
 

@@ -11,11 +11,12 @@ import logging
 from typing import Union
 
 from src.core.domain.molecule import Molecule
+from src.core.chemistry.fragments import MoleculeFragment
 
 logger = logging.getLogger(__name__)
 
 
-def to_rdkit_mol(fragment: Union[Molecule, "MoleculeFragment"]):
+def to_rdkit_mol(fragment: Union[Molecule, MoleculeFragment]):
     """Convert an internal molecule/fragment to a sanitized RDKit ``Mol``.
 
     Parameters

@@ -228,6 +228,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.test:
+        from ._run import run_pipeline
+
         run_pipeline(test_mode=True, test_sets_root=args.sets_root)
     else:
         print(
