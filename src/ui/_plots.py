@@ -242,40 +242,7 @@ class PlotsMixin:
     def _auto_plot_hist(self):
         if self.result_df is None:
             return
-        self._log("[DEBUG] _auto_plot_hist", color="info")
-        self._clear_frame(self.hist_frame)
-        try:
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 2.5))
-            for ax, col, color in [
-                (ax1, "N_COOH", "#f38ba8"),
-                (ax2, "N_OH", "#a6e3a1"),
-            ]:
-                if col not in self.result_df.columns:
-                    self._log(f"[WARN] _auto_plot_hist: нет '{col}'", color=WARN)
-                    continue
-                vals = _safe_df(self.result_df)[col].dropna().astype(int)
-                if not vals.empty:
-                    ax.hist(
-                        vals,
-                        bins=range(vals.max() + 2),
-                        color=color,
-                        alpha=0.85,
-                        edgecolor=BG,
-                        rwidth=0.7,
-                    )
-                ax.set_xlabel(col, fontsize=8)
-                ax.set_ylabel("Кол-во", fontsize=8)
-                ax.grid(True, alpha=0.3)
-            fig.tight_layout()
-            embed_figure(fig, self.hist_frame, toolbar=False)
-        except Exception:
-            messagebox.showwarning(
-                "Ошибка построения гистограмм",
-                "Не удалось построить гистограммы функциональных групп.\n"
-                "Проверьте данные в таблице результатов.",
-            )
-            self._log(f"[ОШИБКА] _auto_plot_hist: {traceback.format_exc()}", color=WARN)
-            plt.close("all")
+        self._plot_histograms()
 
     def _plot_hist(self, col: str):
         if self.result_df is None:
@@ -322,6 +289,51 @@ class PlotsMixin:
                 f"[ОШИБКА] _plot_hist({col}): {traceback.format_exc()}", color=WARN
             )
             plt.close("all")
+
+    def _plot_histograms(self):
+        if self.result_df is None or self.result_df.empty:
+            messagebox.showinfo("Нет данных", "Сначала запустите анализ.")
+            return
+        try:
+            from src.core.statistics import create_histograms_plot
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Модуль статистики не загружен: {e}")
+            return
+        self._clear_frame(self.histograms_canvas_frame)
+        try:
+            self._histograms_figure = create_histograms_plot(self.result_df)
+            embed_figure(
+                self._histograms_figure, self.histograms_canvas_frame, toolbar=False
+            )
+            self._log("[DEBUG] _plot_histograms: построено", color=OK)
+        except Exception:
+            self._log(
+                f"[ОШИБКА] _plot_histograms:\n{traceback.format_exc()}", color=WARN
+            )
+            plt.close("all")
+            messagebox.showerror("Ошибка", "Не удалось построить гистограммы.")
+
+    def _save_histograms(self):
+        fig = getattr(self, "_histograms_figure", None)
+        if fig is None:
+            messagebox.showinfo("Нет гистограмм", "Сначала постройте гистограммы.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[
+                ("PNG image", "*.png"),
+                ("SVG image", "*.svg"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        try:
+            fig.savefig(path, dpi=300)
+            self._log(f"Гистограммы сохранены: {path}", color=OK)
+        except Exception as e:
+            self._log(f"[ОШИБКА] Сохранение гистограмм: {e}", color=WARN)
+            messagebox.showerror("Ошибка", str(e))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
