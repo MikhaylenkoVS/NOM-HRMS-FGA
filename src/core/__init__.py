@@ -25,6 +25,11 @@ from .statistics import (
     aromaticity_index,
     dbe,
 )
+from .batch import (
+    detect_sample_triples,
+    compute_sample_summary,
+    build_batch_summary,
+)
 from .spectrum import (
     load_spectrum,
     denoise,

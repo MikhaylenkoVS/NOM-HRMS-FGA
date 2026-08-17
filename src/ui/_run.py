@@ -204,4 +204,175 @@ class RunMixin:
             sys.stdout = orig_stdout
             sys.stderr = orig_stderr
 
+    # ── Batch-обработка ────────────────────────────────────────────────────────
+
+    def _select_batch_folder(self):
+        folder = filedialog.askdirectory(title="Выберите папку с наборами образцов")
+        if not folder:
+            return
+        from src.core.batch import detect_sample_triples
+
+        self._batch_folder = folder
+        self._batch_triples = detect_sample_triples(folder)
+        n = len(self._batch_triples)
+        if not n:
+            messagebox.showwarning(
+                "Нет троек",
+                "В папке не найдено троек файлов (исходный / CD₃ / CD₃CO).",
+            )
+            return
+        self._log(f"[INFO] Batch: {folder} → {n} наборов", color=OK)
+        messagebox.showinfo(
+            "Batch", f"Найдено наборов: {n}.\nНажмите «Запустить batch»."
+        )
+
+    def _run_batch(self):
+        triples = getattr(self, "_batch_triples", None)
+        if not triples:
+            messagebox.showinfo("Batch", "Сначала выберите папку с наборами.")
+            return
+        params = self._parse_params()
+        if params is None:
+            return
+        rt_min = self._rt_float(self.src_rt_min, 0.0)
+        rt_max = self._rt_float(self.src_rt_max, 999.0)
+        self._clear_log()
+        self.progress["value"] = 0
+        self._set_status(f"Batch: {len(triples)} наборов…")
+        threading.Thread(
+            target=self._batch_worker,
+            args=(triples, params, rt_min, rt_max),
+            daemon=True,
+        ).start()
+
+    def _rt_float(self, var, default):
+        try:
+            val = var.get().strip()
+            return float(val) if val else default
+        except (ValueError, tk.TclError):
+            return default
+
+    def _batch_worker(self, triples, params, rt_min, rt_max):
+        from src.core import run_pipeline, build_batch_summary, compute_sample_summary
+        from src.core.io.raw_bridge import average_raw_to_json
+        from src.core.io.mzml_bridge import mzml_to_json
+
+        orig_stdout, orig_stderr = sys.stdout, sys.stderr
+        sys.stdout = _QueueWriter(self._log_queue, orig_stdout)
+        sys.stderr = _QueueWriter(self._log_queue, orig_stderr)
+
+        def _progress(stage, pct):
+            self._log_queue.put(("progress", (stage, pct)))
+
+        rows = []
+        total = len(triples)
+        try:
+            for i, tp in enumerate(triples, 1):
+                sample = tp["sample"]
+                self._log_queue.put(
+                    ("log", f"\n═══ [Batch {i}/{total}] {sample} ═══\n")
+                )
+                paths, ok = [], True
+                for role in ("src", "dmet", "dacet"):
+                    p = tp.get(role, "")
+                    if not p:
+                        self._log_queue.put(
+                            ("log", f"  [WARN] {role}: файл не найден\n")
+                        )
+                        ok = False
+                        break
+                    try:
+                        paths.append(
+                            _resolve_batch_path(
+                                p, rt_min, rt_max, average_raw_to_json, mzml_to_json
+                            )
+                        )
+                    except Exception as e:
+                        self._log_queue.put(("log", f"  [ОШИБКА] {role}: {e}\n"))
+                        ok = False
+                        break
+                if not ok:
+                    rows.append(compute_sample_summary(None, sample))
+                    continue
+                try:
+                    res = run_pipeline(
+                        src_path=paths[0],
+                        dmet_path=paths[1],
+                        dacet_path=paths[2],
+                        progress_callback=_progress,
+                        **params,
+                    )
+                    rows.append(
+                        compute_sample_summary(
+                            getattr(res, "table", None),
+                            sample,
+                            getattr(res, "stats", None),
+                        )
+                    )
+                except Exception as e:
+                    self._log_queue.put(("log", f"  [ОШИБКА] pipeline: {e}\n"))
+                    rows.append(compute_sample_summary(None, sample))
+                self._log_queue.put(("progress", ("", int(100 * i / total))))
+            self._log_queue.put(("batch_done", {"summary": build_batch_summary(rows)}))
+        except Exception:
+            self._log_queue.put(
+                ("log", f"[ОШИБКА] _batch_worker:\n{traceback.format_exc()}\n")
+            )
+        finally:
+            sys.stdout, sys.stderr = orig_stdout, orig_stderr
+
+    def _on_batch_done(self, payload):
+        summary = payload["summary"]
+        self.batch_summary_df = summary
+        for item in self.batch_tree.get_children():
+            self.batch_tree.delete(item)
+        for _, r in summary.iterrows():
+            self.batch_tree.insert(
+                "",
+                "end",
+                values=(
+                    r.get("sample", ""),
+                    r.get("n_compounds", 0),
+                    r.get("N_COOH_total", 0),
+                    r.get("N_OH_total", 0),
+                    r.get("avg_mass", ""),
+                ),
+            )
+        self.progress["value"] = 100
+        self._set_status("Batch завершён.")
+        self._log("✅ Batch-обработка завершена.", color=OK)
+
+    def _export_batch_summary(self):
+        summary = getattr(self, "batch_summary_df", None)
+        if summary is None or summary.empty:
+            messagebox.showinfo("Нет сводки", "Сначала запустите batch.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[
+                ("CSV", "*.csv"),
+                ("Excel", "*.xlsx"),
+                ("JSON", "*.json"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        try:
+            from src.core.pipeline._export import export_result_table
+
+            export_result_table(summary, path)
+            self._log(f"Сводка сохранена: {path}", color=OK)
+        except Exception as e:
+            messagebox.showerror("Ошибка", str(e))
+
     # ── Таблица результатов ───────────────────────────────────────────────────
+
+
+def _resolve_batch_path(path, rt_min, rt_max, average_raw_to_json, mzml_to_json):
+    """Resolve a batch input path: RAW/mzML → JSON, otherwise unchanged."""
+    if path.lower().endswith(".raw"):
+        return average_raw_to_json(path, rt_min, rt_max)
+    if path.lower().endswith(".mzml"):
+        return mzml_to_json(path, rt_min=rt_min, rt_max=rt_max)
+    return path
