@@ -158,6 +158,38 @@ class TabsMixin:
         self.histograms_canvas_frame = ttk.Frame(frame)
         self.histograms_canvas_frame.pack(fill="both", expand=True)
 
+    # ── ВКЛАДКА BATCH ─────────────────────────────────────────────────────────
+
+    def _build_batch_tab(self):
+        frame = self.tab_batch
+        ctrl = ttk.Frame(frame)
+        ctrl.pack(fill="x", pady=4, padx=8)
+        ttk.Button(
+            ctrl, text="📂 Выбрать папку", command=self._select_batch_folder
+        ).pack(side="left", padx=4)
+        ttk.Button(ctrl, text="▶ Запустить batch", command=self._run_batch).pack(
+            side="left", padx=4
+        )
+        ttk.Button(
+            ctrl, text="💾 Экспорт сводки", command=self._export_batch_summary
+        ).pack(side="left", padx=4)
+
+        info = ttk.Label(
+            frame,
+            text="Пакетная обработка: выберите папку с несколькими наборами "
+            "(по 3 файла: исходный / CD₃ / CD₃CO).",
+            wraplength=700,
+        )
+        info.pack(fill="x", padx=8, pady=(4, 0))
+
+        cols = ("sample", "n_compounds", "N_COOH_total", "N_OH_total", "avg_mass")
+        self.batch_tree = ttk.Treeview(frame, columns=cols, show="headings", height=12)
+        labels = ["Sample", "N соед.", "Σ N_COOH", "Σ N_OH", "Avg mass"]
+        for c, lbl, w in zip(cols, labels, [180, 90, 110, 110, 110]):
+            self.batch_tree.heading(c, text=lbl)
+            self.batch_tree.column(c, width=w, anchor="center")
+        self.batch_tree.pack(fill="both", expand=True, padx=8, pady=4)
+
     # ── ВКЛАДКА VAN KREVELEN ─────────────────────────────────────────────────
 
     def _build_van_krevelen_tab(self):

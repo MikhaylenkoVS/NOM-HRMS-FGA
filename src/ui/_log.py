@@ -43,6 +43,8 @@ class LogMixin:
                     self.progress["value"] = pct
                     if stage:
                         self._set_status(stage)
+                elif kind == "batch_done":
+                    self._on_batch_done(data)
         except queue.Empty:
             pass
         finally:
