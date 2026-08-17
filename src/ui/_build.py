@@ -46,6 +46,7 @@ class BuildMixin:
         self.tab_series = ttk.Frame(nb)
         self.tab_result = ttk.Frame(nb)
         self.tab_van_krevelen = ttk.Frame(nb)
+        self.tab_histograms = ttk.Frame(nb)
         self.tab_log = ttk.Frame(nb)
 
         nb.add(self.tab_params, text="⚙  Параметры")
@@ -53,6 +54,7 @@ class BuildMixin:
         nb.add(self.tab_series, text="🔗  Серии")
         nb.add(self.tab_result, text="📊  Результаты")
         nb.add(self.tab_van_krevelen, text="🌿  Van Krevelen")
+        nb.add(self.tab_histograms, text="📊  Гистограммы")
         nb.add(self.tab_log, text="📋  Лог")
 
         if StructureViewerTab is not None:
@@ -69,6 +71,7 @@ class BuildMixin:
         self._build_series_tab()
         self._build_result_tab()
         self._build_van_krevelen_tab()
+        self._build_histograms_tab()
         self._build_log_tab()
 
         self.status_var = tk.StringVar(value="Готов к работе")

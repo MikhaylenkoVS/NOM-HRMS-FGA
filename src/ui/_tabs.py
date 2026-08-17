@@ -138,6 +138,26 @@ class TabsMixin:
         self.hist_frame = ttk.Frame(frame)
         self.hist_frame.grid(row=2, column=0, columnspan=2, sticky="ew", padx=8, pady=4)
 
+    # ── ВКЛАДКА ГИСТОГРАММЫ ───────────────────────────────────────────────────
+
+    def _build_histograms_tab(self):
+        frame = self.tab_histograms
+        ctrl = ttk.Frame(frame)
+        ctrl.pack(fill="x", pady=4, padx=8)
+        ttk.Button(
+            ctrl, text="📊 Построить гистограммы", command=self._plot_histograms
+        ).pack(side="left", padx=4)
+        ttk.Button(ctrl, text="💾 Экспорт PNG/SVG", command=self._save_histograms).pack(
+            side="left", padx=4
+        )
+        ttk.Button(
+            ctrl,
+            text="🗑 Очистить",
+            command=lambda: self._clear_frame(self.histograms_canvas_frame),
+        ).pack(side="left", padx=4)
+        self.histograms_canvas_frame = ttk.Frame(frame)
+        self.histograms_canvas_frame.pack(fill="both", expand=True)
+
     # ── ВКЛАДКА VAN KREVELEN ─────────────────────────────────────────────────
 
     def _build_van_krevelen_tab(self):

@@ -19,6 +19,12 @@ from .van_krevelen import (
     compute_van_krevelen_data,
     create_van_krevelen_plot,
 )
+from .statistics import (
+    compute_distribution_metrics,
+    create_histograms_plot,
+    aromaticity_index,
+    dbe,
+)
 from .spectrum import (
     load_spectrum,
     denoise,
