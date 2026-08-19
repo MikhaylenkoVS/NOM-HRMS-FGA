@@ -45,6 +45,7 @@ raw = [
 
 [project.scripts]
 nom-hrms-fga = "src.app:main"
+nom-hrms-fga-cli = "src.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA"
