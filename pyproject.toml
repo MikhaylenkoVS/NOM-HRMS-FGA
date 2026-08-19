@@ -30,6 +30,7 @@ dependencies = [
     "rdkit>=2023.9",
     "Pillow>=9.0",
     "zstandard>=0.22",
+    "reportlab>=4.0",
 ]
 
 [project.optional-dependencies]

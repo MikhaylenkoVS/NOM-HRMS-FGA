@@ -41,6 +41,7 @@ class RunMixin:
         self.progress["value"] = 100
         result_df = payload.get("result")
         self.result_df = result_df
+        self._last_stats = payload.get("stats")
         n = len(result_df) if result_df is not None else 0
         self._set_status(f"Готово. Найдено {n} соединений.")
         self._log("✅ Анализ завершён успешно.", color=OK)
@@ -153,6 +154,7 @@ class RunMixin:
         params = self._parse_params()
         if params is None:
             return
+        self._last_params = params
 
         self._clear_log()
         self._structure_cache.clear()  # сброс кэша структур

@@ -30,6 +30,7 @@ from .batch import (
     compute_sample_summary,
     build_batch_summary,
 )
+from .report import generate_pdf_report
 from .spectrum import (
     load_spectrum,
     denoise,

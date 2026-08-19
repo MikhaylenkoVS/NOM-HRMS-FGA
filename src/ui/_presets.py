@@ -186,4 +186,32 @@ class PresetsMixin:
                 self._log(f"[ОШИБКА] Сохранение не удалось: {e}", color=WARN)
                 messagebox.showerror("Ошибка", str(e))
 
+    def _export_pdf(self):
+        if self.result_df is None or self.result_df.empty:
+            messagebox.showinfo("Нет данных", "Сначала запустите анализ.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF", "*.pdf"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            from src import __version__
+            from src.core.report import generate_pdf_report
+
+            sample = os.path.basename(self.src_var.get().strip()) or "sample"
+            generate_pdf_report(
+                output_path=path,
+                sample_name=sample,
+                table=self.result_df,
+                stats=getattr(self, "_last_stats", None),
+                params=getattr(self, "_last_params", None),
+                version=__version__,
+            )
+            self._log(f"PDF-отчёт сохранён: {path}", color=OK)
+        except Exception as e:
+            self._log(f"[ОШИБКА] Экспорт PDF: {e}", color=WARN)
+            messagebox.showerror("Ошибка", str(e))
+
     # ── Van Krevelen ──────────────────────────────────────────────────────────
