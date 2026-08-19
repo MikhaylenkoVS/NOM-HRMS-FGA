@@ -61,3 +61,6 @@ test_sets.zip
 # AI workflow runtime reports (not committed)
 .ai/reports/benchmarks/
 
+
+# Сгенерированные PDF-отчёты тест-наборов (см. REPORT-01)
+data/test_sets/*/report.pdf
