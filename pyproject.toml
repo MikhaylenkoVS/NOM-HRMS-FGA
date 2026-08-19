@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nom-hrms-fga"
-version = "0.6.1"
+version = "0.7.0"
 description = "NOM HRMS FGA: functional-group analyzer for natural organic matter (NOM) mass spectra"
 readme = "README.md"
 license = {text = "MPL-2.0"}
