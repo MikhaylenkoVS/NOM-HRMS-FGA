@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "id": "packaging-01-install-and-exe",
+  "title": "PACKAGING-01: работоспособность установки (wheel/sdist) и сборки .exe",
+  "status": "validation",
+  "type": "packaging",
+  "risk_level": "low",
+  "created_at": "2026-10-07T14:00:00Z",
+  "updated_at": "2026-10-07T14:10:00Z",
+  "owners": {
+    "planner": "perplexity",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "dev",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "pyproject.toml",
+      "MANIFEST.in",
+      "requirements.txt",
+      "README.md",
+      "THIRD_PARTY_NOTICES.md",
+      "tools/NOM_HRMS_FGA.spec",
+      ".ai/tasks/active/packaging-01-install-and-exe/"
+    ],
+    "forbidden_paths": [
+      "src/",
+      "tests/",
+      "data/",
+      "docs/",
+      ".github/"
+    ],
+    "max_changed_files": 12
+  },
+  "requirements": {
+    "must_have": [
+      "Колесо и sdist содержат src/configs/constants/*.json и src/configs/presets/*.json",
+      "import src.configs не падает после установки пакета из wheel",
+      "PyInstaller spec включает src/configs/constants/*.json в datas",
+      "openpyxl исключён из excludes в PyInstaller spec (XLSX-экспорт — заявленная функция)",
+      "Classifier лицензии в pyproject.toml соответствует MPL-2.0 (LICENSE)",
+      "README не утверждает GPL-3.0 для основного кода",
+      "zstandard отнесён к обязательным зависимостям (используется src/core/formula_db/_packed.py)",
+      "scipy удалён из THIRD_PARTY_NOTICES.md (не является зависимостью и не импортируется)",
+      "Результаты конвейера на set_01 не изменились (побайтовое сравнение CSV)",
+      "Полный прогон pytest остаётся зелёным"
+    ],
+    "must_not": [
+      "Изменять код в src/ и tests/",
+      "Изменять научные константы (chemistry.json, pipeline.json)",
+      "Менять версию пакета",
+      "Добавлять новые зависимости",
+      "Пушить в main или stable",
+      "Коммитить неотслеживаемые локальные файлы (.aiignore, AI_AUDIT_HANDOFF.md, deepcode_audit_triage.md, NOM-HRMS-FGA_factual_report.md)"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task packaging-01-install-and-exe",
+      "python -m pip wheel . --no-deps --no-build-isolation",
+      "python -m zipfile -l dist/*.whl (наличие configs/constants и configs/presets)"
+    ],
+    "required_test_commands": [
+      "pytest tests/ -q",
+      "flake8 src/ tests/ tools/",
+      "black --check src/ tests/ tools/",
+      "python -m src.cli --input data/test_sets/set_01/original.csv --dmet data/test_sets/set_01/deutermethylated.csv --dacet data/test_sets/set_01/deuteroacylated.csv -o <out.csv>"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": false,
+    "requires_adr": false,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": []
+  }
+}
