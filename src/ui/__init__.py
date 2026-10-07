@@ -1,4 +1,4 @@
-from .plots import embed_figure, clear_canvas
+from .plots import embed_figure
 from .theme import (
     BG,
     FG,

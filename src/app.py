@@ -51,7 +51,7 @@ try:
 
     _UI_LOADED = True
     _UI_ERROR = ""
-except Exception as _ui_err:
+except Exception:
     _UI_LOADED = False
     _UI_ERROR = traceback.format_exc()
     # Fallback-константы, чтобы GUI хотя бы запустился без src.ui
@@ -61,8 +61,6 @@ except Exception as _ui_err:
     WARN = "#f38ba8"
     FG = "#cdd6f4"
     OK = "#a6e3a1"
-    BTN = "#45475a"
-    FONT = ("Segoe UI", 10)
     MONO = ("Consolas", 9)
     IMG_H = 260
     IMG_W = 340
@@ -113,7 +111,6 @@ from src.ui._deps import (
 from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
 
 _GUI_DEFAULTS = _PIPE_CFG.run_pipeline_defaults
-_BRUTTO_DEFAULTS = _PIPE_CFG.default_brutto_dict
 _FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
 
 

@@ -91,10 +91,8 @@ class LogMixin:
         except Exception:
             pass
         try:
-            import sys as _sys
-
-            _sys.stdout = _sys.__stdout__
-            _sys.stderr = _sys.__stderr__
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
         except Exception:
             pass
         try:
@@ -104,9 +102,7 @@ class LogMixin:
         except Exception:
             pass
         self.destroy()
-        import os as _os
-
-        _os._exit(0)
+        os._exit(0)
 
     # ── методы лога ───────────────────────────────────────────────────────────
 
