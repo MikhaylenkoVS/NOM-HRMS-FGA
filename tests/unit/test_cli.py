@@ -67,3 +67,58 @@ def test_cli_missing_file_exit_1(tmp_path):
         ]
     )
     assert code == 1
+
+
+# ── --element-ranges: разбор и обработка ошибок (S-07) ────────────────────────
+
+
+@pytest.mark.unit
+def test_parse_element_ranges_valid():
+    from src.cli import _parse_element_ranges
+
+    assert _parse_element_ranges("C:5-60,H:4-120,O:1-30,N:0-3") == {
+        "C": (5, 60),
+        "H": (4, 120),
+        "O": (1, 30),
+        "N": (0, 3),
+    }
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "C:abc",  # границы не целые
+        "C5-60",  # нет ':'
+        "C:60",  # нет '-'
+        "C:60-5",  # нижняя больше верхней
+        ",,",  # не задано ни одного элемента
+    ],
+)
+def test_parse_element_ranges_invalid(spec):
+    from src.cli import _parse_element_ranges
+
+    with pytest.raises(ValueError):
+        _parse_element_ranges(spec)
+
+
+@pytest.mark.unit
+def test_cli_invalid_element_ranges_exit_1(capsys):
+    """Некорректный --element-ranges → код 1 и понятное сообщение, без traceback."""
+    src, dmet, dacet = _set01()
+    code = main(
+        [
+            "--input",
+            src,
+            "--dmet",
+            dmet,
+            "--dacet",
+            dacet,
+            "--element-ranges",
+            "C:abc",
+        ]
+    )
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "element-ranges" in err
+    assert "Traceback" not in err
