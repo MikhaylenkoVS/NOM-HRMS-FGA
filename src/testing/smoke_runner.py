@@ -148,6 +148,7 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
         from src.core.spectrum import (
             load_spectrum,
             denoise,
+            assign_formulas,
             find_series,
             DELTA_CD3,
             DELTA_CD3CO,
@@ -174,10 +175,8 @@ def _run_one_set(set_dir: Path, output_dir: Path) -> SetSmokeResult:
             dacet_sp, force=_p["noise_force"], intensity=_p["noise_intensity"]
         )
 
-        # Назначаем формулы (используем тот же вызов, что и пайплайн)
-        from src.core.spectrum import assign_formulas_simple
-
-        src_sp = assign_formulas_simple(
+        # Назначаем формулы (тот же вызов, что и в пайплайне)
+        src_sp = assign_formulas(
             src_sp, rel_error_ppm=_p["rel_error"], ion_mode=CHEM.default_ion_mode
         )
 
