@@ -39,5 +39,7 @@ compatible with the Mozilla Public License 2.0:
 | RDKit | BSD-3-Clause |
 | Pillow | MIT-CMU |
 | pythonnet | MIT |
-| scipy | BSD-3-Clause |
 | pymzml | MIT |
+| openpyxl | MIT |
+| reportlab | BSD-3-Clause |
+| zstandard | BSD-3-Clause (двойная BSD/GPLv2) |
