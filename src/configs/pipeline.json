@@ -3,26 +3,6 @@
     "mass_min": 100.0,
     "mass_max": 800.0
   },
-  "default_brutto_dict": {
-    "C": [0, 50],
-    "H": [0, 100],
-    "O": [0, 25],
-    "N": [0, 10]
-  },
-  "formula_search": {
-    "elements": ["C", "H", "O", "N"],
-    "ranges": {
-      "C": [1, 50],
-      "H": [4, 100],
-      "O": [0, 20],
-      "N": [0, 8]
-    },
-    "max_hc": 3.0,
-    "max_oc": 1.2,
-    "max_nc": 1.0,
-    "max_dbe": 30.0,
-    "min_c": 1
-  },
   "run_pipeline_defaults": {
     "sep": ",",
     "load_mass_min": 0.0,

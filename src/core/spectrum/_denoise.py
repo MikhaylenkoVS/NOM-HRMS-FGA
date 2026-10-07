@@ -46,9 +46,6 @@ def denoise(
 # ЭТАП 2b: Назначение брутто-формул
 # ===========================================================================
 
-# Default per-element count ranges for brutto assignment.
-# Source: pipeline.json -> default_brutto_dict. JSON stores [min, max] lists;
-
 
 # GMM noise threshold (from noise.py)
 def _log_gaussian_pdf(x: np.ndarray, mean: float, var: float) -> np.ndarray:

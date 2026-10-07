@@ -3,20 +3,15 @@
 import logging
 import pandas as pd
 from src.core.domain.spectrum import Spectrum
-from src.configs import PIPELINE
+from src.configs import PIPELINE, SPECTRUM_LOAD_CFG
 
 logger = logging.getLogger(__name__)
 
-# load_spectrum() и app.py
+# Маппинг колонок (канонические имена + синонимы) — единый источник:
+# configs/constants/spectrum_load.json. Используется load_spectrum() и app.py.
 CSV_COLUMN_MAPPER = {
-    "m/z": "mass",
-    "M/Z": "mass",
-    "mz": "mass",
-    "mass": "mass",
-    "Intensity": "intensity",
-    "I": "intensity",
-    "int": "intensity",
-    "Int": "intensity",
+    **SPECTRUM_LOAD_CFG["default"],
+    **SPECTRUM_LOAD_CFG["synonyms"],
 }
 
 

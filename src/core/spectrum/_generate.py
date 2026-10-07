@@ -4,14 +4,16 @@ import logging
 import math
 from functools import lru_cache
 
-from src.configs import CHEM, PIPELINE
+from src.configs import CHEM, FORMULA_SEARCH_CFG
 from ._constants import ATOMIC_MASS, FormulaSearchConfig
 
 logger = logging.getLogger(__name__)
 
+# Default per-element count ranges for brutto assignment
+# (single source of truth: configs/constants/formula_search.json).
 # convert to tuples to preserve the exact original types.
 DEFAULT_BRUTTO_DICT = {
-    el: tuple(rng) for el, rng in PIPELINE.default_brutto_dict.items()
+    el: tuple(rng) for el, rng in FORMULA_SEARCH_CFG["default_brutto_dict"].items()
 }
 
 

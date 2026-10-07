@@ -31,6 +31,7 @@ _CONFIG_FILES = {
     "noise": "constants/noise.json",
     "isotope": "constants/isotope.json",
     "spectrum_load": "constants/spectrum_load.json",
+    "formula_search": "constants/formula_search.json",
 }
 
 
@@ -133,3 +134,4 @@ PATHS = load_config("paths")
 NOISE_CFG = load_config("noise")
 ISOTOPE_CFG = load_config("isotope")
 SPECTRUM_LOAD_CFG = load_config("spectrum_load")
+FORMULA_SEARCH_CFG = load_config("formula_search")

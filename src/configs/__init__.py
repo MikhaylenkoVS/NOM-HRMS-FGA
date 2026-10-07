@@ -13,10 +13,14 @@ Use :func:`load_config` for dynamic access by name.
 from src.configs.loader import (
     CHEM,
     CONFIG_DIR,
-    ConfigError,
-    ConfigNamespace,
+    FORMULA_SEARCH_CFG,
+    ISOTOPE_CFG,
+    NOISE_CFG,
     PATHS,
     PIPELINE,
+    SPECTRUM_LOAD_CFG,
+    ConfigError,
+    ConfigNamespace,
     load_config,
 )
 
@@ -24,6 +28,10 @@ __all__ = [
     "CHEM",
     "PIPELINE",
     "PATHS",
+    "NOISE_CFG",
+    "ISOTOPE_CFG",
+    "SPECTRUM_LOAD_CFG",
+    "FORMULA_SEARCH_CFG",
     "load_config",
     "ConfigNamespace",
     "ConfigError",

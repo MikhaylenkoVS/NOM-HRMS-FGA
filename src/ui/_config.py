@@ -1,9 +1,9 @@
 """Shared configuration constants for UI mixins."""
 
-from src.configs import PIPELINE as _PIPE_CFG
+from src.configs import FORMULA_SEARCH_CFG, PIPELINE as _PIPE_CFG
 
 _GUI_DEFAULTS = _PIPE_CFG.run_pipeline_defaults
-_FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
+_FORMULA_RANGES = FORMULA_SEARCH_CFG["ranges"]
 
 # Theme constants — imported from theme.py, with fallback if UI not loaded
 try:

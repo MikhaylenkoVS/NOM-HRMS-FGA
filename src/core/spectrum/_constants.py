@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from src.configs import CHEM, PIPELINE
+from src.configs import CHEM, FORMULA_SEARCH_CFG
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,11 @@ logger = logging.getLogger(__name__)
 # (single source of truth: chemistry.json -> monoisotopic_masses).
 ATOMIC_MASS = {el: CHEM.monoisotopic_masses[el] for el in CHEM.atomic_mass_elements}
 
-# Formula-search defaults (single source of truth: pipeline.json -> formula_search).
+# Formula-search defaults
+# (single source of truth: configs/constants/formula_search.json).
 # JSON stores ranges as [min, max] lists; convert to tuples to preserve the
 # exact original types expected downstream.
-_FORMULA_SEARCH = PIPELINE.formula_search
+_FORMULA_SEARCH = FORMULA_SEARCH_CFG
 _FS_ELEMENTS: tuple[str, ...] = tuple(_FORMULA_SEARCH["elements"])
 _FS_RANGES: dict[str, tuple[int, int]] = {
     el: tuple(rng) for el, rng in _FORMULA_SEARCH["ranges"].items()
@@ -66,7 +67,7 @@ class FormulaSearchConfig:
 
     elements: tuple[str, ...] = _FS_ELEMENTS
     ranges: dict[str, tuple[int, int]] | None = None
-    # Plausibility filters (defaults from pipeline.json -> formula_search).
+    # Plausibility filters (defaults from constants/formula_search.json).
     max_hc: float = _FORMULA_SEARCH["max_hc"]  # H/C <= 3
     max_oc: float = _FORMULA_SEARCH["max_oc"]  # O/C <= 1.2
     max_nc: float = _FORMULA_SEARCH["max_nc"]  # N/C <= 1.0
@@ -75,7 +76,7 @@ class FormulaSearchConfig:
 
     def __post_init__(self):
         if self.ranges is None:
-            # Default per-element count ranges (see pipeline.json).
+            # Default per-element count ranges (constants/formula_search.json).
             self.ranges = dict(_FS_RANGES)
         for el in self.elements:
             if el not in self.ranges:

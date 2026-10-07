@@ -1,9 +1,21 @@
 {
-  "_description": "Default formula search ranges for brutto assignment",
-  "default": {
-    "C": [1, 80],
-    "H": [1, 200],
-    "O": [0, 40],
-    "N": [0, 5]
+  "_description": "Formula generation defaults — single source of truth for CHON enumeration. Consumers: src/core/spectrum/_constants.py (FormulaSearchConfig), src/core/spectrum/_generate.py (DEFAULT_BRUTTO_DICT), src/ui/_config.py и src/app.py (диапазоны элементов в GUI).",
+  "elements": ["C", "H", "O", "N"],
+  "ranges": {
+    "C": [1, 50],
+    "H": [4, 100],
+    "O": [0, 20],
+    "N": [0, 8]
+  },
+  "max_hc": 3.0,
+  "max_oc": 1.2,
+  "max_nc": 1.0,
+  "max_dbe": 30.0,
+  "min_c": 1,
+  "default_brutto_dict": {
+    "C": [0, 50],
+    "H": [0, 100],
+    "O": [0, 25],
+    "N": [0, 10]
   }
 }

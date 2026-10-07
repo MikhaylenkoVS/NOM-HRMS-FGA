@@ -1,5 +1,5 @@
 {
-  "_description": "CSV column mapping for spectrum loading",
+  "_description": "CSV column mapping for spectrum loading — single source of truth for src/core/spectrum/_load.py (CSV_COLUMN_MAPPER). Итоговый маппинг собирается как {**default, **synonyms}.",
   "default": {
     "mass": "mass",
     "intensity": "intensity",
@@ -9,5 +9,14 @@
     "charge": "charge",
     "retention_time": "retention_time",
     "scan_number": "scan_number"
+  },
+  "synonyms": {
+    "m/z": "mass",
+    "M/Z": "mass",
+    "mz": "mass",
+    "Intensity": "intensity",
+    "I": "intensity",
+    "int": "intensity",
+    "Int": "intensity"
   }
 }

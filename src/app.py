@@ -108,10 +108,14 @@ from src.ui._deps import (
 )
 
 # ── Импорт конфигурации ─────────────────────────────────────────────────────
-from src.configs import PIPELINE as _PIPE_CFG, PATHS as _PATHS_CFG
+from src.configs import (
+    FORMULA_SEARCH_CFG as _FORMULA_SEARCH_CFG,
+    PIPELINE as _PIPE_CFG,
+    PATHS as _PATHS_CFG,
+)
 
 _GUI_DEFAULTS = _PIPE_CFG.run_pipeline_defaults
-_FORMULA_RANGES = _PIPE_CFG.formula_search["ranges"]
+_FORMULA_RANGES = _FORMULA_SEARCH_CFG["ranges"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -253,7 +257,7 @@ class App(
         self.allow_gaps_var = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
         self.isotope_filter_var = tk.BooleanVar(value=False)
         self.output_csv_var = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))
-        # Диапазоны элементов из pipeline.json -> formula_search.ranges
+        # Диапазоны элементов из configs/constants/formula_search.json -> ranges
         _r = _FORMULA_RANGES
         self.c_min = tk.StringVar(value=str(_r["C"][0]))
         self.c_max = tk.StringVar(value=str(_r["C"][1]))

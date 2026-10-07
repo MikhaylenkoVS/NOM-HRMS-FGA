@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 import re
 from src.core.spectrum import load_spectrum, assign_formulas, denoise
-from src.configs import PIPELINE, PATHS
+from src.configs import FORMULA_SEARCH_CFG, PIPELINE, PATHS
 
 THIS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = THIS_DIR.parent
@@ -13,8 +13,8 @@ PROJECT_ROOT = THIS_DIR.parent
 _TEST_SETS_ROOT = PROJECT_ROOT / PATHS.test_sets_dir
 TEST_SETS = sorted(p for p in _TEST_SETS_ROOT.glob("set_*") if p.is_dir())
 
-# bruto_dict из pipeline.json -> default_brutto_dict
-_RAW_BRUTTO = PIPELINE.default_brutto_dict
+# bruto_dict из configs/constants/formula_search.json -> default_brutto_dict
+_RAW_BRUTTO = FORMULA_SEARCH_CFG["default_brutto_dict"]
 DEFAULT_BRUTTO_DICT = {el: tuple(rng) for el, rng in _RAW_BRUTTO.items()}
 
 FORMULA_RE = re.compile(r"([A-Z][a-z]?)(\d*)")

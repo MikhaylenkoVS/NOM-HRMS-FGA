@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "fix-05-config-and-error-contract",
+  "title": "PACKAGE-05: единый источник конфигурации и контракт ошибок конвейера",
+  "status": "implementation",
+  "type": "refactor",
+  "risk_level": "medium",
+  "created_at": "2026-10-07T15:35:00Z",
+  "updated_at": "2026-10-07T15:35:00Z",
+  "owners": {
+    "planner": "perplexity",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "dev",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/configs/",
+      "src/core/spectrum/",
+      "src/core/pipeline/",
+      "src/core/domain/spectrum.py",
+      "src/core/benchmark.py",
+      "src/ui/_config.py",
+      "src/app.py",
+      "src/cli.py",
+      "tests/",
+      "pyproject.toml",
+      ".github/workflows/ci.yml",
+      ".ai/tasks/active/fix-05-config-and-error-contract/"
+    ],
+    "forbidden_paths": [
+      "src/configs/chemistry.json",
+      "src/sim/",
+      "data/",
+      "docs/Библиография",
+      ".git/"
+    ],
+    "max_changed_files": 30
+  },
+  "requirements": {
+    "must_have": [
+      "src/configs/constants/formula_search.json подключён к загрузчику и является единственным источником диапазонов генерации формул и default_brutto_dict",
+      "src/configs/constants/spectrum_load.json подключён и является источником маппинга колонок CSV (включая синонимы)",
+      "pipeline.json больше не содержит дублирующих ключей formula_search и default_brutto_dict",
+      "run_pipeline(test_mode=True) читает параметры из PIPELINE.test_mode, а не из run_pipeline_defaults",
+      "Параметры GMM (max_components, max_iter, tol, subsample_max_points) читаются из constants/noise.json",
+      "Ошибки и предупреждения этапов конвейера разделены: ошибка не приводит к молчаливому продолжению с недостоверным результатом",
+      "CLI возвращает код 1 только при ошибках, а не при предупреждениях",
+      "Устранён известный дефект: пустой спектр не даёт ValueError (снят xfail)",
+      "Добавлены guard-проверки на NaN/дубликаты/некорректные диапазоны в точках, выявленных аудитом",
+      "Результат конвейера на set_01 и сводка тест-режима не меняются (побайтовое сравнение)",
+      "Включён --cov-fail-under в CI"
+    ],
+    "must_not": [
+      "Изменять значения научных констант: массы, delta_cd3, delta_cd3co, proton_mass, характер сдвигов",
+      "Менять поведение скоринга (пороги 20 / 0.3 / N>3 и веса) — это задача пакета 6 с ADR",
+      "Менять формат выходной таблицы (набор и порядок колонок)",
+      "Добавлять runtime-зависимости",
+      "Пушить в main или stable"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task fix-05-config-and-error-contract",
+      "python -c \"import src.configs\""
+    ],
+    "required_test_commands": [
+      "pytest tests/ -q",
+      "flake8 src/ tests/ tools/",
+      "black --check src/ tests/ tools/",
+      "python -m src.cli --input data/test_sets/set_01/original.csv --dmet data/test_sets/set_01/deutermethylated.csv --dacet data/test_sets/set_01/deuteroacylated.csv -o <out.csv>",
+      "python -m src.core.pipeline._test --test"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": true,
+    "requires_adr": false,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": "reference_validation.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": []
+  }
+}

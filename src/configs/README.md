@@ -30,9 +30,24 @@ src/configs/ — централизованная конфигурация пр�
                       default_ion_mode     — режим ионизации ([M-H]-).
 
   pipeline.json     Параметры и пороги конвейера:
-                      load_spectrum_defaults, default_brutto_dict,
-                      formula_search, run_pipeline_defaults, test_mode,
-                      thresholds, smoke_pipeline_params.
+                      load_spectrum_defaults, run_pipeline_defaults,
+                      test_mode, thresholds, smoke_pipeline_params.
+
+  constants/
+    noise.json        Параметры GMM-шумоподавления (eps, max_components,
+                      max_iter, tol, subsample_max_points).
+    isotope.json      Изотопный фильтр Бейнона (delta_m1, коэффициенты
+                      C/H/N/O, tolerance, penalty).
+    spectrum_load.json  Маппинг колонок CSV при загрузке спектров:
+                      default (канонические имена) и synonyms (m/z, M/Z,
+                      mz, Intensity, I, int, Int). Единственный источник
+                      для CSV_COLUMN_MAPPER в core/spectrum/_load.py.
+    formula_search.json Единственный источник параметров генерации
+                      брутто-формул: elements, ranges, max_hc, max_oc,
+                      max_nc, max_dbe, min_c, default_brutto_dict.
+                      Потребляется core/spectrum/_constants.py
+                      (FormulaSearchConfig), core/spectrum/_generate.py
+                      (DEFAULT_BRUTTO_DICT), ui/_config.py и app.py.
 
   paths.json        Относительные пути и имена файлов (data/, test_sets/,
                     имена спектров, выходной CSV, число тестовых наборов).
@@ -51,12 +66,16 @@ src/configs/ — централизованная конфигурация пр�
 
 Использование
 -------------
-    from src.configs import CHEM, PIPELINE, PATHS
+    from src.configs import CHEM, PIPELINE, PATHS, FORMULA_SEARCH_CFG
 
     delta   = CHEM.derivatization_shifts["delta_cd3"]     # 17.03448
     masses  = CHEM.monoisotopic_masses                    # dict
     ppm_tol = PIPELINE.run_pipeline_defaults["ppm_tol"]   # 5.0
+    ranges  = FORMULA_SEARCH_CFG["ranges"]                # C/H/O/N
     data    = PATHS.data_dir                               # "data"
+
+Доступны все синглтоны: CHEM, PIPELINE, PATHS, NOISE_CFG, ISOTOPE_CFG,
+SPECTRUM_LOAD_CFG, FORMULA_SEARCH_CFG.
 
 Динамический доступ по имени:
 
