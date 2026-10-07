@@ -11,19 +11,25 @@ logger = logging.getLogger(__name__)
 
 _TEST_MATCH_PPM = PIPELINE.test_mode["match_ppm"]
 
+#: Эталонные параметры тест-режима — единый источник: pipeline.json -> test_mode.
+#: Ранее здесь стояли литералы (force=10.0, intensity=100, rel_error=0.5,
+#: ppm_tol=0.5), из-за чего «эталонный» прогон не соответствовал объявленной
+#: в конфиге эталонной конфигурации.
+_TEST_CFG = PIPELINE.test_mode
+
 
 def _run_test_mode(
     test_sets_root=None,
-    noise_force=10.0,
-    noise_intensity=100,
-    noise_quantile=None,
-    assign_mass_min=None,
-    assign_mass_max=None,
-    rel_error=0.5,
-    sign="-",
-    ppm_tol=0.5,
-    max_groups=20,
-    allow_gaps=True,
+    noise_force=_TEST_CFG["denoise"]["force"],
+    noise_intensity=_TEST_CFG["denoise"]["intensity"],
+    noise_quantile=_TEST_CFG["denoise"]["quantile"],
+    assign_mass_min=_TEST_CFG["assign"]["mass_min"],
+    assign_mass_max=_TEST_CFG["assign"]["mass_max"],
+    rel_error=_TEST_CFG["assign"]["rel_error_ppm"],
+    sign=PIPELINE.run_pipeline_defaults["sign"],
+    ppm_tol=_TEST_CFG["series"]["ppm_tol"],
+    max_groups=_TEST_CFG["series"]["max_groups"],
+    allow_gaps=_TEST_CFG["series"]["allow_gaps"],
 ) -> list[TestSetResult]:
     """Run the pipeline over every ``set_0N`` and print detailed statistics.
 
@@ -34,19 +40,26 @@ def _run_test_mode(
         auto-detected relative to the repository, falling back to
         ``<cwd>/data/test_sets``.
     noise_force, noise_intensity, noise_quantile : optional
-        Denoising parameters.
+        Denoising parameters. По умолчанию —
+        ``pipeline.json -> test_mode.denoise``.
     assign_mass_min, assign_mass_max : float or None, optional
-        Mass window for formula assignment.
+        Mass window for formula assignment (``test_mode.assign``).
     rel_error : float, optional
-        Mass tolerance (ppm) for assignment. Default 0.5.
+        Mass tolerance (ppm) for assignment. По умолчанию
+        ``test_mode.assign.rel_error_ppm``.
     sign : {'-', '+'}, optional
-        Ionization sign. Default ``'-'``.
+        Ionization sign. По умолчанию ``run_pipeline_defaults.sign``.
     ppm_tol : float, optional
-        Series-matching tolerance (ppm). Default 0.5.
+        Series-matching tolerance (ppm). По умолчанию ``test_mode.series``.
     max_groups : int, optional
-        Maximum functional groups probed per molecule. Default 20.
+        Maximum functional groups probed per molecule (``test_mode.series``).
     allow_gaps : bool, optional
-        Whether to tolerate gaps within a series. Default ``True``.
+        Whether to tolerate gaps within a series (``test_mode.series``).
+
+    Notes
+    -----
+    Значения по умолчанию читаются из ``pipeline.json -> test_mode``; литералов
+    в сигнатуре нет, поэтому эталонная конфигурация меняется правкой JSON.
 
     Returns
     -------

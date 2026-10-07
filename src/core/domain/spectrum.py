@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from src.configs import NOISE_CFG
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -288,7 +290,7 @@ class Spectrum:
         force: float = 2.0,
         intensity: float | None = None,
         quantile: float | None = None,
-        max_components: int = 15,
+        max_components: int = NOISE_CFG.max_components,
     ) -> Spectrum:
         """Remove noise peaks from the spectrum.
 

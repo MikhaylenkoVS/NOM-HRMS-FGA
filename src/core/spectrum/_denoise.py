@@ -7,6 +7,13 @@ from src.configs.loader import NOISE_CFG
 
 logger = logging.getLogger(__name__)
 
+# Значения по умолчанию для GMM — единый источник: configs/constants/noise.json.
+# Литералов в сигнатурах быть не должно: любое изменение параметров шумоподавления
+# выполняется правкой JSON, а не кода.
+_GMM_MAX_COMPONENTS: int = NOISE_CFG.max_components
+_GMM_MAX_ITER: int = NOISE_CFG.max_iter
+_GMM_TOL: float = NOISE_CFG.tol
+
 
 def denoise(
     spec,
@@ -57,8 +64,8 @@ def fit_gmm_1d(
     x: np.ndarray,
     n_components: int,
     *,
-    max_iter: int = 200,
-    tol: float = 1e-4,
+    max_iter: int = _GMM_MAX_ITER,
+    tol: float = _GMM_TOL,
     random_state: int = 42,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     """Fit a 1-D Gaussian mixture model via EM.
@@ -256,7 +263,7 @@ class NoiseThresholdResult:
 def compute_noise_threshold(
     intensities: np.ndarray,
     *,
-    max_components: int = 15,
+    max_components: int = _GMM_MAX_COMPONENTS,
     random_state: int = 42,
 ) -> NoiseThresholdResult:
     """Determine the noise/signal intensity threshold via GMM + BIC.

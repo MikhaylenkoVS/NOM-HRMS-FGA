@@ -113,7 +113,9 @@ def run_pipeline(
         chosen by extension: ``.xlsx`` / ``.xls`` → Excel, otherwise CSV.
     test_mode : bool, keyword-only, optional
         If ``True``, ignore the path arguments and run the bundled test sets
-        instead. Default ``False``.
+        instead. Default ``False``. Эталонные параметры берутся из
+        ``pipeline.json -> test_mode``; явно переданное значение, отличное от
+        production-дефолта, переопределяет эталонное.
     test_sets_root : str or None, keyword-only, optional
         Root directory of the test sets used when ``test_mode=True``.
     progress_callback : callable or None, keyword-only, optional
@@ -142,18 +144,42 @@ def run_pipeline(
     # ТЕСТ-РЕЖИМ
     # -----------------------------------------------------------------------
     if test_mode:
+        # В тест-режиме эталонные параметры берутся из pipeline.json -> test_mode
+        # (единый источник истины). Значение, явно заданное вызывающим и
+        # отличающееся от production-дефолта, имеет приоритет — это сохраняет
+        # возможность разовых экспериментов без правки конфига.
+        tm = PIPELINE.test_mode
+        prod = PIPELINE.run_pipeline_defaults
+
+        def _reference(test_value, passed, prod_default):
+            return passed if passed != prod_default else test_value
+
         return _run_test_mode(
             test_sets_root=test_sets_root,
-            noise_force=noise_force,
-            noise_intensity=noise_intensity,
-            noise_quantile=noise_quantile,
-            assign_mass_min=assign_mass_min,
-            assign_mass_max=assign_mass_max,
-            rel_error=rel_error,
+            noise_force=_reference(
+                tm["denoise"]["force"], noise_force, prod["noise_force"]
+            ),
+            noise_intensity=_reference(
+                tm["denoise"]["intensity"], noise_intensity, prod["noise_intensity"]
+            ),
+            noise_quantile=_reference(tm["denoise"]["quantile"], noise_quantile, None),
+            assign_mass_min=_reference(
+                tm["assign"]["mass_min"], assign_mass_min, prod["assign_mass_min"]
+            ),
+            assign_mass_max=_reference(
+                tm["assign"]["mass_max"], assign_mass_max, prod["assign_mass_max"]
+            ),
+            rel_error=_reference(
+                tm["assign"]["rel_error_ppm"], rel_error, prod["rel_error"]
+            ),
             sign=sign,
-            ppm_tol=ppm_tol,
-            max_groups=max_groups,
-            allow_gaps=allow_gaps,
+            ppm_tol=_reference(tm["series"]["ppm_tol"], ppm_tol, prod["ppm_tol"]),
+            max_groups=_reference(
+                tm["series"]["max_groups"], max_groups, prod["max_groups"]
+            ),
+            allow_gaps=_reference(
+                tm["series"]["allow_gaps"], allow_gaps, prod["allow_gaps"]
+            ),
         )
 
     # -----------------------------------------------------------------------
