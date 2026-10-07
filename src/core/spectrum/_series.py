@@ -1,13 +1,11 @@
-"""Auto-generated."""
+"""Homologous-series detection for isotope-labelled (CD3 / CD3CO) spectra."""
 
 import logging
 import numpy as np
 import pandas as pd
-from src.core.domain.spectrum import Spectrum
 from src.configs import CHEM
-from ._chem import _counts_to_str, exact_mass_from_counts
-from ._constants import FormulaSearchConfig
-from ._generate import _neutral_to_ion_mass, _ion_shift
+from ._chem import exact_mass_from_counts
+from ._generate import _neutral_to_ion_mass
 from src.core.domain.molecule import parse_formula
 
 logger = logging.getLogger(__name__)

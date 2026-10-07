@@ -1,17 +1,17 @@
 """run_pipeline — main pipeline entry point."""
 
-import logging, traceback, os, time
+import logging
+import traceback
 import pandas as pd
 from pathlib import Path
 from typing import Optional
-from src.configs import CHEM, PIPELINE, PATHS
-from ._cache import _pipeline_cache, _result_cache, PipelineProgress
-from ._helpers import _debug, _normalize_brutto, _ppm_error, _make_sub_progress
-from ._stats import PipelineStats, PipelineRunResult, SeriesStats
+from src.configs import PIPELINE
+from ._cache import _result_cache
+from ._helpers import _debug, _make_sub_progress
+from ._stats import PipelineStats, PipelineRunResult
 from ._test import _run_test_mode
 from ._stages import _load_triple, _denoise_triple, _find_series_stage
 from ._export import export_result_table
-from src.core.timer import PipelineTimings
 from src.core.van_krevelen import create_van_krevelen_plot
 
 logger = logging.getLogger(__name__)
@@ -19,11 +19,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 try:
     from src.core.spectrum import (
-        Spectrum,
-        load_spectrum,
-        denoise,
         assign_formulas,
-        find_series,
         build_result_table,
         visualize_series,
         DELTA_CD3,
@@ -34,7 +30,7 @@ try:
 except Exception as _e:
     _IMPORT_ERROR = str(_e)
     logger.error(
-        f"[PIPELINE] CRITICAL: не удалось импортировать spectrum_ops: {_e}",
+        f"[PIPELINE] CRITICAL: не удалось импортировать src.core.spectrum: {_e}",
     )
 
 
@@ -136,7 +132,7 @@ def run_pipeline(
     # Проверка импорта
     # -----------------------------------------------------------------------
     if _IMPORT_ERROR:
-        msg = f"[PIPELINE] Импорт spectrum_ops не удался: {_IMPORT_ERROR}"
+        msg = f"[PIPELINE] Импорт src.core.spectrum не удался: {_IMPORT_ERROR}"
         logger.error(msg)
         if not test_mode:
             stats = PipelineStats()
@@ -312,22 +308,6 @@ def run_pipeline(
 
     if progress_callback:
         progress_callback("Назначение формул завершено", 52)
-
-    # Строим копию только с назначенными пиками
-    try:
-        assigned_only_table = (
-            src.table.loc[src.table["assign"] == True].reset_index(drop=True).copy()
-        )  # noqa: E712
-        _debug(
-            f"assigned_only: {len(assigned_only_table)} строк, колонки: {list(assigned_only_table.columns)}"
-        )
-        if assigned_only_table.empty:
-            _debug(
-                "КРИТИЧНО: assigned_only пуст – find_series вернёт пустой результат!"
-            )
-    except Exception as e:
-        _debug(f"ОШИБКА при создании assigned_only: {e}")
-        assigned_only_table = pd.DataFrame()
 
     # -----------------------------------------------------------------------
     # ШАГ 3: Серии CD3 (N_COOH)

@@ -1,7 +1,6 @@
 """Pipeline cache and progress tracking."""
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,10 @@ class PipelineCache:
         return str(hash(args))
 
     def load(self, path: str, loader, **kw):
-        key = f"{path}|{kw.get('sep','')}|{kw.get('mass_min',0)}|{kw.get('mass_max',0)}"
+        key = (
+            f"{path}|{kw.get('sep', '')}|{kw.get('mass_min', 0)}"
+            f"|{kw.get('mass_max', 0)}"
+        )
         if key not in self._loaded:
             self._loaded[key] = loader(path, **kw)
         return self._loaded[key]

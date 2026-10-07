@@ -1,18 +1,9 @@
-"""Auto-generated."""
+"""Assignment of CHON brute formulas to observed m/z values."""
 
 import logging
-import math
 import numpy as np
-from src.core.domain.spectrum import Spectrum
-from ._denoise import compute_noise_threshold
-from ._generate import _generate_candidate_formulas, _ion_shift, _neutral_to_ion_mass
-from ._constants import (
-    FormulaSearchConfig,
-    ATOMIC_MASS,
-    _FS_RANGES,
-    _FS_ELEMENTS,
-    _FORMULA_SEARCH,
-)
+from ._generate import _generate_candidate_formulas, _ion_shift
+from ._constants import FormulaSearchConfig
 from ._chem import (
     _beynon_m1_ratio_cached,
     _counts_to_str,
@@ -21,7 +12,7 @@ from ._chem import (
     _ISOTOPE_TOLERANCE,
     _ISOTOPE_PENALTY,
 )
-from src.configs import CHEM, PIPELINE
+from src.configs import CHEM
 
 logger = logging.getLogger(__name__)
 

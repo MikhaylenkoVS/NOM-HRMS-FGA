@@ -1,14 +1,12 @@
-"""Auto-generated."""
+"""Chemistry primitives: exact mass, DBE, isotope pattern, NOM distance."""
 
 import logging
 import math
 import pandas as pd
 import numpy as np
-from typing import List, Tuple
-from src.core.domain.molecule import parse_formula
 from src.core.van_krevelen import NOM_REGIONS
 from src.configs.loader import ISOTOPE_CFG
-from ._constants import ATOMIC_MASS, DELTA_CD3, DELTA_CD3CO
+from ._constants import ATOMIC_MASS
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,8 @@
-"""Auto-generated."""
+"""Spectrum-package constants loaded from ``src/configs``."""
 
 import logging
-import math
-import numpy as np
-from typing import Literal, Optional, Sequence
 from dataclasses import dataclass
 from src.configs import CHEM, PIPELINE
-from src.configs.loader import ISOTOPE_CFG
 
 logger = logging.getLogger(__name__)
 

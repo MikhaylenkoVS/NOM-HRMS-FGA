@@ -4,27 +4,11 @@ import logging
 from pathlib import Path
 
 from src.configs import PIPELINE, PATHS
-from src.core.spectrum import DELTA_CD3, DELTA_CD3CO
 from ._stats import TestSetResult
 from ._test_set import _run_single_test_set
 
 logger = logging.getLogger(__name__)
 
-
-#: Конфигурация дериватизации для тест-режима:
-#: имена файлов из paths.json, сдвиги масс из chemistry.json.
-_DERIV_SPECS = [
-    (
-        PATHS.spectrum_files["deutermethylated"],
-        DELTA_CD3,
-        "deutermethylated",
-    ),
-    (
-        PATHS.spectrum_files["deuteroacylated"],
-        DELTA_CD3CO,
-        "deuteroacylated",
-    ),
-]
 _TEST_MATCH_PPM = PIPELINE.test_mode["match_ppm"]
 
 

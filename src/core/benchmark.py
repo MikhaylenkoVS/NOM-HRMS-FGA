@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 
 from src.core.pipeline import run_pipeline
-from src.configs import PIPELINE
 
 
 def benchmark(set_dir: str) -> None:
@@ -38,7 +37,6 @@ def benchmark(set_dir: str) -> None:
         else "  dacet: MISSING"
     )
 
-    defaults = PIPELINE.run_pipeline_defaults
     t0 = time.perf_counter()
     res = run_pipeline(
         src_path=str(src_csv),
@@ -48,10 +46,7 @@ def benchmark(set_dir: str) -> None:
     )
     elapsed = time.perf_counter() - t0
 
-    timings = getattr(res, "timings", None)
     print(f"\nTotal: {elapsed:.2f}s")
-    if timings:
-        print(f"  Breakdown: {timings.summary()}")
     print(
         f"  Result rows: {len(res.table) if hasattr(res, 'table') and res.table is not None else 'N/A'}"
     )

@@ -1,13 +1,9 @@
-"""Auto-generated."""
+"""Loading mass spectra from CSV / XLSX / JSON into ``Spectrum`` objects."""
 
 import logging
 import pandas as pd
-import warnings
-import numpy as np
 from src.core.domain.spectrum import Spectrum
 from src.configs import PIPELINE
-from src.configs.loader import SPECTRUM_LOAD_CFG
-from ._constants import _FORMULA_SEARCH, _FS_RANGES, _FS_ELEMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +66,8 @@ def load_spectrum(
     sep : str, optional
         Field separator. Empty/``None`` falls back to ``","``. Default ``","``.
     mass_min, mass_max : float, optional
-        Inclusive m/z window (Da) to keep. Defaults 200.0 and 700.0.
+        Inclusive m/z window (Da) to keep. Defaults come from
+        ``pipeline.json -> load_spectrum_defaults`` (100.0 and 800.0).
     metadata : optional
         Metadata forwarded to the ``Spectrum`` constructor.
 

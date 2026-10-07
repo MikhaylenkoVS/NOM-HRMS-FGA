@@ -1,14 +1,11 @@
-"""Auto-generated."""
+"""Enumeration of CHON candidate formulas within a mass window."""
 
 import logging
 import math
 from functools import lru_cache
 
-import numpy as np
 from src.configs import CHEM, PIPELINE
-from src.core.van_krevelen import NOM_REGIONS
-from src.core.domain.molecule import parse_formula
-from ._constants import ATOMIC_MASS, DELTA_CD3, DELTA_CD3CO, FormulaSearchConfig
+from ._constants import ATOMIC_MASS, FormulaSearchConfig
 
 logger = logging.getLogger(__name__)
 
@@ -193,19 +190,3 @@ def _ion_shift(ion_mode: str) -> float:
     if ion_mode in ("[m+h]+", "m+h", "mh+"):
         return +CHEM.proton_mass
     raise ValueError(f"Unknown ion_mode: {ion_mode}")
-
-
-# ── NOM-приоритизация ────────────────────────────────────────────────────────
-
-# Центры NOM-областей (усреднённые вершины) для расчёта расстояния
-_NOM_REGION_CENTERS: list[tuple[float, float]] = [
-    (
-        sum(v[0] for v in r["vertices"]) / len(r["vertices"]),
-        sum(v[1] for v in r["vertices"]) / len(r["vertices"]),
-    )
-    for r in NOM_REGIONS
-]
-
-# ── Изотопный фильтр ¹³C (опциональный, формула Бейнона) ──────────────────
-
-# Относительные распространённости тяжёлых изотопов (в %):

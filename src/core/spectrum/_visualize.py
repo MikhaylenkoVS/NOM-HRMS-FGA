@@ -1,16 +1,9 @@
-"""Auto-generated."""
+"""Plotting of a homologous series (ladder with missing peaks marked)."""
 
 import logging
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import pandas as pd
-import numpy as np
-from ._chem import _nom_distance
-from ._constants import FormulaSearchConfig
-from ._assign import assign_formulas
 from ._series import _find_peak
-from src.core.domain.molecule import parse_formula
-from src.core.van_krevelen import NOM_REGIONS
 
 logger = logging.getLogger(__name__)
 

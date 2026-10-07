@@ -2,15 +2,10 @@
 
 import logging
 import numpy as np
-import math
 from dataclasses import dataclass
-from typing import Optional
-from src.core.domain.spectrum import Spectrum
 from src.configs.loader import NOISE_CFG
 
 logger = logging.getLogger(__name__)
-
-# Denoise wrapper (from spectrum_ops.py)
 
 
 def denoise(
@@ -29,7 +24,7 @@ def denoise(
     spec : Spectrum
         Input spectrum.
     force : float, keyword-only, optional
-        Multiplier applied to the auto-detected noise level. Default 1.5.
+        Multiplier applied to the auto-detected noise level. Default 2.0.
     intensity : float, keyword-only, optional
         Hard absolute intensity threshold. Takes priority when given.
     quantile : float, keyword-only, optional
@@ -82,7 +77,8 @@ def fit_gmm_1d(
     tol : float
         Convergence threshold on log-likelihood change.
     random_state : int
-        Seed for reproducible initialisation.
+        Seed kept for API compatibility. Initialisation uses deterministic
+        equal-frequency bins, so the fitted model does not depend on it.
 
     Returns
     -------
@@ -97,8 +93,6 @@ def fit_gmm_1d(
     """
     n = len(x)
     K = n_components
-
-    rng = np.random.default_rng(random_state)
 
     # ── Initialisation (equal-frequency bins) ───────────────────────
     x_sorted = np.sort(x)

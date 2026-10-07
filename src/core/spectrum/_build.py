@@ -1,10 +1,7 @@
-"""Build result table."""
+"""Assembly of the final -COOH / -OH count table."""
 
 import logging
 import pandas as pd
-import numpy as np
-from ._chem import _counts_to_str
-from src.core.domain.molecule import parse_formula
 
 logger = logging.getLogger(__name__)
 
