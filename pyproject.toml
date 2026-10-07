@@ -15,7 +15,7 @@ authors = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GPL-3.0 License",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -57,7 +57,14 @@ include = ["src*"]
 exclude = ["tests*", "external*", "docs*"]
 
 [tool.setuptools.package-data]
-src = ["configs/*.json"]
+# Все JSON-конфиги обязаны попадать в дистрибутив: src/configs/loader.py
+# загружает часть из них (noise, isotope) на уровне модуля, поэтому их
+# отсутствие делает пакет неработоспособным сразу после установки.
+src = [
+    "configs/*.json",
+    "configs/constants/*.json",
+    "configs/presets/*.json",
+]
 
 [tool.black]
 line-length = 88

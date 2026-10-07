@@ -1,0 +1,31 @@
+# NOM-HRMS-FGA — состав sdist.
+# См. .ai/tasks/active/packaging-01-install-and-exe/design.md (PACKAGING-01).
+#
+# Причина: [tool.setuptools.package-data] покрывает только wheel; для sdist
+# требуется явное перечисление не-Python файлов. Без этого каталоги
+# src/configs/constants/ и src/configs/presets/ отсутствуют в архиве, и
+# import src.configs падает с ConfigError (loader.py читает constants/*.json
+# на уровне модуля).
+
+include LICENSE
+include README.md
+include THIRD_PARTY_NOTICES.md
+include CITATION.cff
+include requirements.txt
+
+# Научные константы, параметры конвейера и пресеты
+recursive-include src/configs *.json
+
+# Проприетарные бинарники Thermo RawFileReader в дистрибутив НЕ попадают
+# (см. THIRD_PARTY_NOTICES.md): распространять их запрещено.
+prune thermo
+prune external
+prune build
+prune dist
+prune Документация
+
+global-exclude *.py[cod]
+global-exclude __pycache__/*
+global-exclude *.bak
+global-exclude *.backup
+global-exclude *.orig

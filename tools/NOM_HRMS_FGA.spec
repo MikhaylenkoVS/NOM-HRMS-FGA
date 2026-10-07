@@ -33,6 +33,8 @@ _hidden: list[str] = [
     "numpy.core._methods", "numpy.lib.format",
     # pandas
     "pandas._libs.tslibs",
+    # Excel: подключается динамически через engine="openpyxl"
+    "openpyxl", "openpyxl.utils", "openpyxl.styles",
     # misc
     "queue", "threading", "warnings", "logging",
     "json", "csv", "io", "ast", "re", "math",
@@ -60,11 +62,15 @@ _config_dir = _ROOT / "src" / "configs"
 if _config_dir.is_dir():
     for _jf in _config_dir.glob("*.json"):
         _added_datas.append((str(_jf), os.path.join("src", "configs")))
-    # Presets subdirectory
-    _presets_dir = _config_dir / "presets"
-    if _presets_dir.is_dir():
-        for _jf in _presets_dir.glob("*.json"):
-            _added_datas.append((str(_jf), os.path.join("src", "configs", "presets")))
+    # Subdirectories: loader.py reads constants/*.json at import time,
+    # presets/*.json feed the GUI preset list.
+    for _sub in ("constants", "presets"):
+        _sub_dir = _config_dir / _sub
+        if _sub_dir.is_dir():
+            for _jf in _sub_dir.glob("*.json"):
+                _added_datas.append(
+                    (str(_jf), os.path.join("src", "configs", _sub))
+                )
 
 # Also collect matplotlib's mpl-data
 _added_datas.extend(collect_data_files("matplotlib"))
@@ -86,7 +92,9 @@ _excludes: list[str] = [
     "IPython", "ipykernel", "jupyter", "notebook",
     "PyQt5", "PyQt6", "PySide2", "PySide6", "wx",
     "zmq", "tornado", "sqlalchemy",
-    "sympy", "openpyxl", "xlrd", "xlsxwriter",
+    # ВНИМАНИЕ: openpyxl НЕ исключается — он нужен для XLSX-экспорта
+    # (src/core/pipeline/_export.py) и загрузки .xlsx (src/core/spectrum/_load.py).
+    "sympy", "xlrd", "xlsxwriter",
     "lxml", "html5lib", "bs4", "sphinx",
     "pytest", "setuptools", "pip", "wheel", "Cython",
     "distutils",
