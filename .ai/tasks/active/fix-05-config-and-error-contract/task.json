@@ -2,11 +2,11 @@
   "schema_version": 1,
   "id": "fix-05-config-and-error-contract",
   "title": "PACKAGE-05: единый источник конфигурации и контракт ошибок конвейера",
-  "status": "implementation",
+  "status": "validation",
   "type": "refactor",
   "risk_level": "medium",
   "created_at": "2026-10-07T15:35:00Z",
-  "updated_at": "2026-10-07T15:35:00Z",
+  "updated_at": "2026-10-07T15:47:00Z",
   "owners": {
     "planner": "perplexity",
     "implementer": "deepcode",
