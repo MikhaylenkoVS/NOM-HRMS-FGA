@@ -16,6 +16,7 @@ import sys
 from contextlib import redirect_stdout
 
 from src.configs.presets_loader import load_preset
+from src.core.console import ensure_utf8_stdio
 
 #: Preset keys passed through to ``run_pipeline`` unchanged.
 _PRESET_DIRECT_KEYS = (
@@ -45,15 +46,35 @@ def _preset_to_kwargs(params: dict) -> dict:
 
 
 def _parse_element_ranges(spec: str) -> dict:
-    """Parse ``'C:5-60,H:4-120,O:1-30,N:0-3'`` → ``{'C': (5, 60), ...}``."""
+    """Parse ``'C:5-60,H:4-120,O:1-30,N:0-3'`` → ``{'C': (5, 60), ...}``.
+
+    Raises
+    ------
+    ValueError
+        Если элемент не соответствует виду ``El:min-max``, границы не целые
+        или нижняя граница больше верхней. Текст исключения пригоден для
+        показа пользователю.
+    """
     brutto: dict = {}
     for part in spec.split(","):
         part = part.strip()
         if not part:
             continue
-        el, _, rng = part.partition(":")
-        lo, _, hi = rng.partition("-")
-        brutto[el.strip()] = (int(lo), int(hi))
+        el, colon, rng = part.partition(":")
+        if not colon:
+            raise ValueError(f"ожидается 'C:5-60', получено '{part}'")
+        lo_s, dash, hi_s = rng.partition("-")
+        if not dash:
+            raise ValueError(f"ожидается 'C:5-60', получено '{part}'")
+        try:
+            lo, hi = int(lo_s), int(hi_s)
+        except ValueError:
+            raise ValueError(f"границы должны быть целыми: '{part}'") from None
+        if lo > hi:
+            raise ValueError(f"нижняя граница больше верхней: '{part}'")
+        brutto[el.strip()] = (lo, hi)
+    if not brutto:
+        raise ValueError("не задано ни одного элемента")
     return brutto
 
 
@@ -117,6 +138,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
+    # Русский текст в сообщениях + перенаправленный stdout на Windows
+    # (ANSI-кодировка) иначе приводят к UnicodeEncodeError.
+    ensure_utf8_stdio()
+
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -140,7 +165,11 @@ def main(argv=None) -> int:
     if args.isotope_filter is not None:
         kwargs["isotope_filter"] = args.isotope_filter
     if args.element_ranges:
-        kwargs["brutto_dict"] = _parse_element_ranges(args.element_ranges)
+        try:
+            kwargs["brutto_dict"] = _parse_element_ranges(args.element_ranges)
+        except ValueError as e:
+            print(f"Ошибка: неверный --element-ranges: {e}", file=sys.stderr)
+            return 1
 
     # ── 2. Разрешаем входы (RAW / mzML → JSON) ────────────────────────────────
     try:

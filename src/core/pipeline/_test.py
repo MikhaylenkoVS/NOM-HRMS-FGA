@@ -216,6 +216,12 @@ def _run_test_mode(
 if __name__ == "__main__":
     import argparse
 
+    from src.core.console import ensure_utf8_stdio
+
+    # Сводка печатается по-русски: при перенаправленном выводе на Windows
+    # (ANSI-кодировка) это давало UnicodeEncodeError вместо отчёта.
+    ensure_utf8_stdio()
+
     parser = argparse.ArgumentParser(
         description="pipeline.py – анализ масс-спектров гуминовых веществ"
     )
