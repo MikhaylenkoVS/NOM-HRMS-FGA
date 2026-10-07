@@ -268,9 +268,6 @@ class TestAssignFormulasSmoke:
         result = assign_formulas(sp, rel_error_ppm=5.0, sign="-")
         assert result.table["assign"].dtype == bool
 
-    @pytest.mark.xfail(
-        reason="Known: empty spectrum raises ValueError (NaN→int in formula range calc)"
-    )
     def test_empty_spectrum_no_crash(self):
         from src.core.spectrum import assign_formulas
 

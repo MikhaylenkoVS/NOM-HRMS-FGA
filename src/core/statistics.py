@@ -16,11 +16,16 @@ from src.core.domain.molecule import parse_formula
 
 
 def dbe(counts: dict) -> float:
-    """Double-bond equivalents (DBE / IHD): ``(2*C + 2 + N - H) / 2``."""
+    """Double-bond equivalents (DBE / IHD): ``(2*C + 2 + N - H) / 2``.
+
+    Отрицательные значения клампятся к нулю — так же, как в
+    ``src/core/spectrum/_chem.py::dbe_from_counts``; иначе две реализации DBE
+    в проекте давали разные числа для одного и того же состава.
+    """
     c = counts.get("C", 0)
     h = counts.get("H", 0)
     n = counts.get("N", 0)
-    return (2 * c + 2 + n - h) / 2
+    return max(0.0, (2 * c + 2 + n - h) / 2)
 
 
 def aromaticity_index(counts: dict) -> float | None:

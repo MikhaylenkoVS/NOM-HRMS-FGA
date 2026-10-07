@@ -91,6 +91,7 @@ def load_spectrum(
         raise ValueError(f"Не удалось прочитать файл '{path}': {e}") from e
 
     df.columns = [c.strip() for c in df.columns]
+    original_columns = list(df.columns)
 
     _default_mapper = CSV_COLUMN_MAPPER.copy()
     if mapper:
@@ -105,6 +106,18 @@ def load_spectrum(
     )
 
     required = ["mass", "intensity"]
+
+    # Дубликаты после переименования: например, CSV содержит и «m/z», и «mass» —
+    # оба отображаются в «mass». Раньше df["mass"] возвращал DataFrame и падал
+    # ниже с невнятной ошибкой; сообщаем явно.
+    duplicated = sorted({c for c in df.columns if list(df.columns).count(c) > 1})
+    if duplicated:
+        raise ValueError(
+            f"После переименования колонок появились дубликаты {duplicated} "
+            f"(исходные колонки: {list(original_columns)}). "
+            "Оставьте только одну колонку массы и одну колонку интенсивности."
+        )
+
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise KeyError(

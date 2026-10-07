@@ -129,22 +129,32 @@ class Spectrum:
         rt = df["rt"] if "rt" in cols else None
         scan_number = df["scan_number"] if "scan_number" in cols else None
 
+        def _opt_float(series, i):
+            """Значение необязательной колонки как float; NaN/None → None."""
+            if series is None:
+                return None
+            value = series.iloc[i]
+            return None if pd.isna(value) else float(value)
+
+        def _opt_int(series, i):
+            """Значение необязательной колонки как int; NaN/None → None."""
+            if series is None:
+                return None
+            value = series.iloc[i]
+            return None if pd.isna(value) else int(value)
+
         peaks: list[Peak] = []
         for i in range(len(df)):
             peaks.append(
                 Peak(
                     mass=float(masses.iloc[i]),
                     intensity=float(intensities.iloc[i]),
-                    resolution=(
-                        float(resolution.iloc[i]) if resolution is not None else None
-                    ),
-                    baseline=float(baseline.iloc[i]) if baseline is not None else None,
-                    noise=float(noise.iloc[i]) if noise is not None else None,
-                    charge=int(charge.iloc[i]) if charge is not None else None,
-                    rt=float(rt.iloc[i]) if rt is not None else None,
-                    scan_number=(
-                        int(scan_number.iloc[i]) if scan_number is not None else None
-                    ),
+                    resolution=_opt_float(resolution, i),
+                    baseline=_opt_float(baseline, i),
+                    noise=_opt_float(noise, i),
+                    charge=_opt_int(charge, i),
+                    rt=_opt_float(rt, i),
+                    scan_number=_opt_int(scan_number, i),
                 )
             )
         return tuple(peaks)
@@ -304,6 +314,11 @@ class Spectrum:
 
         Returns a **new** Spectrum; does not mutate ``self``.
         """
+        if quantile is not None and not 0.0 <= quantile <= 1.0:
+            raise ValueError(
+                f"quantile должен быть в диапазоне [0, 1], получено {quantile!r}"
+            )
+
         if intensity is not None:
             threshold = intensity
         elif quantile is not None:

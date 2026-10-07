@@ -71,15 +71,28 @@ def assign_formulas(
         search_config = FormulaSearchConfig()
 
     table = src.table
-    mass_series = table["mass"]
+    mass_values = np.asarray(table["mass"], dtype=float)
+
+    # Краевые случаи: пустой спектр и нечисловые/неположительные массы.
+    # Раньше пустой спектр приводил к NaN в расчёте массового окна и падению
+    # на приведении к int внутри генератора кандидатов. Теперь такие пики
+    # просто остаются без назначения.
+    valid_mass = np.isfinite(mass_values) & (mass_values > 0)
+
+    if not valid_mass.any():
+        n_rows = len(table)
+        table["brutto"] = [None] * n_rows
+        table["assign"] = [False] * n_rows
+        table["all_candidates"] = [[] for _ in range(n_rows)]
+        return src
 
     if mass_min is None:
-        mass_min_local = float(mass_series.min())
+        mass_min_local = float(mass_values[valid_mass].min())
     else:
         mass_min_local = float(mass_min)
 
     if mass_max is None:
-        mass_max_local = float(mass_series.max())
+        mass_max_local = float(mass_values[valid_mass].max())
     else:
         mass_max_local = float(mass_max)
 
@@ -176,9 +189,13 @@ def assign_formulas(
     candidates_col = [None] * len(table)
 
     n_peaks = len(table)
-    for idx, (mass_obs,) in enumerate(zip(table["mass"])):
+    for idx, mass_obs in enumerate(mass_values):
         if progress_callback:
             progress_callback(idx + 1, n_peaks)
+        if not valid_mass[idx]:
+            # NaN или неположительная масса — пик остаётся без назначения
+            candidates_col[idx] = []
+            continue
         mass_obs = float(mass_obs)
 
         abs_ppm = np.abs((cand_masses_ion - mass_obs) / mass_obs * 1e6)
