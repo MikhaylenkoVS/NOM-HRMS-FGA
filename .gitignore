@@ -12,6 +12,12 @@ __pycache__/
 .ruff_cache/
 .ipynb_checkpoints/
 
+# покрытие кода (pytest-cov)
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
 # артефакты сборки exe и прочего
 build/
 dist/

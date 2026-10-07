@@ -36,6 +36,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    # Покрытие кода: без него доля протестированных ветвей не измеряется.
+    # Обоснование (AGENTS.md, правило 7): используется в CI-шаге «Unit tests»
+    # (--cov=src) и локально; не является runtime-зависимостью.
+    "pytest-cov>=5.0",
     "black>=24.0",
     "flake8>=7.0",
 ]
@@ -79,3 +83,19 @@ markers = [
     "unit: unit tests",
     "smoke: smoke tests",
 ]
+# Маркеры unit/integration/smoke проставляются автоматически по расположению
+# файла — см. pytest_collection_modifyitems в tests/conftest.py.
+
+[tool.coverage.run]
+source = ["src"]
+branch = false
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
