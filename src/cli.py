@@ -196,10 +196,17 @@ def main(argv=None) -> int:
         print(f"Ошибка выполнения: {e}", file=sys.stderr)
         return 1
 
-    # Пайплайн мог вернуть пустой результат с сообщениями об ошибках
-    # (например, отсутствующие файлы) — для CLI это тоже ошибка.
-    if getattr(res, "messages", None):
+    # Пайплайн мог вернуть результат с ошибками этапов (например, отсутствующие
+    # файлы) — для CLI это код возврата 1. Предупреждения (визуализация,
+    # Van Krevelen) не влияют на код возврата.
+    if not getattr(res, "ok", True):
+        for msg in getattr(res, "messages", None) or []:
+            print(msg, file=sys.stderr)
         return 1
+
+    # Предупреждения не делают результат недостоверным, но должны быть видны.
+    for msg in getattr(res, "messages", None) or []:
+        print(msg, file=sys.stderr)
 
     # ── 4. Вывод результата ────────────────────────────────────────────────────
     try:

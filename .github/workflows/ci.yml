@@ -57,7 +57,7 @@ jobs:
       - name: Unit tests
         run: |
           python -m pytest tests/unit/ -q --tb=short \
-            --cov=src --cov-report=term-missing \
+            --cov=src --cov-report=term-missing --cov-fail-under=25 \
             --ignore=tests/unit/test_formula_db.py \
             --ignore=tests/unit/test_ai_workflow.py \
             --ignore=tests/unit/test_raw_bridge.py

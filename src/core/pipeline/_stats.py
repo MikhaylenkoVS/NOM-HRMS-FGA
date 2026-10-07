@@ -79,12 +79,28 @@ class PipelineRunResult:
     stats : PipelineStats
         Aggregate run statistics.
     messages : list of str
-        Human-readable status/diagnostic messages produced during the run.
+        Все диагностические сообщения прогона (ошибки + предупреждения) —
+        сохранено ради совместимости с существующими вызовами.
+    errors : list of str
+        Только ошибки этапов: загрузка, назначение формул, сборка таблицы и
+        сохранение результата. Предупреждения (визуализация, Van Krevelen)
+        сюда не попадают.
     """
 
     table: pd.DataFrame
     stats: PipelineStats
     messages: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        """bool: ``True``, если прогон не содержит ошибок этапов.
+
+        Именно этот признак, а не непустой ``messages``, должен определять код
+        возврата CLI: предупреждение визуализации не делает результат
+        недостоверным.
+        """
+        return not self.errors
 
 
 # ---------------------------------------------------------------------------

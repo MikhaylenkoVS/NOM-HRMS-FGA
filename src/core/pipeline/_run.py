@@ -138,7 +138,9 @@ def run_pipeline(
         logger.error(msg)
         if not test_mode:
             stats = PipelineStats()
-            return PipelineRunResult(table=pd.DataFrame(), stats=stats, messages=[msg])
+            return PipelineRunResult(
+                table=pd.DataFrame(), stats=stats, messages=[msg], errors=[msg]
+            )
 
     # -----------------------------------------------------------------------
     # ТЕСТ-РЕЖИМ
@@ -186,16 +188,31 @@ def run_pipeline(
     # Валидация путей
     # -----------------------------------------------------------------------
     messages: list[str] = []
+    errors: list[str] = []
+
+    def _fail(msg: str) -> None:
+        """Зафиксировать ошибку этапа.
+
+        Ошибка попадает и в ``messages`` (полный журнал прогона), и в
+        ``errors`` — последний определяет ``PipelineRunResult.ok`` и код
+        возврата CLI.
+        """
+        messages.append(msg)
+        errors.append(msg)
+
     for label, path in [("src", src_path), ("dmet", dmet_path), ("dacet", dacet_path)]:
         if path is None:
-            messages.append(f"[PIPELINE] ОШИБКА: путь '{label}' не задан")
+            _fail(f"[PIPELINE] ОШИБКА: путь '{label}' не задан")
         elif not Path(path).exists():
-            messages.append(f"[PIPELINE] ОШИБКА: файл не найден: {path}")
-    if messages:
-        for m in messages:
+            _fail(f"[PIPELINE] ОШИБКА: файл не найден: {path}")
+    if errors:
+        for m in errors:
             logger.error(m)
         return PipelineRunResult(
-            table=pd.DataFrame(), stats=PipelineStats(), messages=messages
+            table=pd.DataFrame(),
+            stats=PipelineStats(),
+            messages=messages,
+            errors=errors,
         )
 
     stats = PipelineStats()
@@ -252,7 +269,10 @@ def run_pipeline(
     if _load_err:
         logger.error(_load_err)
         return PipelineRunResult(
-            table=pd.DataFrame(), stats=stats, messages=[_load_err]
+            table=pd.DataFrame(),
+            stats=stats,
+            messages=[_load_err],
+            errors=[_load_err],
         )
 
     # -----------------------------------------------------------------------
@@ -327,7 +347,7 @@ def run_pipeline(
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА assign_formulas: {e}\n{traceback.format_exc()}"
         logger.error(msg)
-        messages.append(msg)
+        _fail(msg)
         n_assigned = 0
 
     print(f"  Назначено формул: {n_assigned} из {stats.src_denoised} пиков")
@@ -416,7 +436,7 @@ def run_pipeline(
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА build_result_table: {e}\n{traceback.format_exc()}"
         logger.error(msg)
-        messages.append(msg)
+        _fail(msg)
 
     print(f"  Строк в таблице: {stats.result_rows}")
     if not result.empty:
@@ -499,7 +519,7 @@ def run_pipeline(
         except Exception as e:
             msg = f"[PIPELINE] ОШИБКА сохранения результата: {e}"
             logger.error(msg)
-            messages.append(msg)
+            _fail(msg)
 
     # -----------------------------------------------------------------------
     # ШАГ 7: Van Krevelen диаграмма (опционально)
@@ -518,7 +538,9 @@ def run_pipeline(
             logger.error(msg)
             messages.append(msg)
 
-    result_obj = PipelineRunResult(table=result, stats=stats, messages=messages)
+    result_obj = PipelineRunResult(
+        table=result, stats=stats, messages=messages, errors=errors
+    )
     if use_cache:
         _result_cache[_cache_key] = result_obj
     if progress_callback:

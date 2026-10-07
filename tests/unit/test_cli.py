@@ -122,3 +122,85 @@ def test_cli_invalid_element_ranges_exit_1(capsys):
     err = capsys.readouterr().err
     assert "element-ranges" in err
     assert "Traceback" not in err
+
+
+# ── Контракт ошибок: код возврата зависит от errors, а не от messages (S-08) ──
+
+
+def _result(messages, errors=None):
+    """Собрать минимальный PipelineRunResult для проверки кода возврата."""
+    import pandas as pd
+
+    from src.core.pipeline._stats import PipelineRunResult, PipelineStats
+
+    table = pd.DataFrame(
+        {
+            "mass": [100.0],
+            "intensity": [1.0],
+            "brutto": ["C2H4O2"],
+            "all_candidates": [["C2H4O2"]],
+            "N_COOH": [0],
+            "N_OH": [0],
+            "missing_dmet": [False],
+            "missing_dacet": [False],
+        }
+    )
+    return PipelineRunResult(
+        table=table,
+        stats=PipelineStats(),
+        messages=list(messages),
+        errors=list(errors or []),
+    )
+
+
+@pytest.mark.unit
+def test_pipeline_result_ok_is_false_only_for_errors():
+    """Предупреждение не делает результат недостоверным, ошибка — делает."""
+    assert _result(["[PIPELINE] ОШИБКА visualize dmet: ошибка отрисовки"]).ok is True
+    assert _result(["[PIPELINE] ОШИБКА: файл не найден"], errors=["x"]).ok is False
+
+
+@pytest.mark.unit
+def test_cli_returns_0_for_warnings_only(monkeypatch, tmp_path, capsys):
+    """S-08: предупреждение (например, сбой визуализации) не даёт код 1."""
+    src, dmet, dacet = _set01()
+    monkeypatch.setattr(
+        "src.core.run_pipeline",
+        lambda *a, **kw: _result(
+            ["[PIPELINE] ОШИБКА visualize dmet: ошибка отрисовки"]
+        ),
+    )
+
+    code = main(
+        [
+            "--input",
+            src,
+            "--dmet",
+            dmet,
+            "--dacet",
+            dacet,
+            "--output",
+            str(tmp_path / "out.csv"),
+        ]
+    )
+
+    assert code == 0
+    assert "visualize" in capsys.readouterr().err
+
+
+@pytest.mark.unit
+def test_cli_returns_1_for_errors(monkeypatch, capsys):
+    """S-08: ошибка этапа по-прежнему даёт код 1 и сообщение в stderr."""
+    src, dmet, dacet = _set01()
+    monkeypatch.setattr(
+        "src.core.run_pipeline",
+        lambda *a, **kw: _result(
+            ["[PIPELINE] ОШИБКА: файл не найден: nope.csv"],
+            errors=["[PIPELINE] ОШИБКА: файл не найден: nope.csv"],
+        ),
+    )
+
+    code = main(["--input", src, "--dmet", dmet, "--dacet", dacet])
+
+    assert code == 1
+    assert "не найден" in capsys.readouterr().err
