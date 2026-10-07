@@ -39,7 +39,7 @@ git revert SHA    # для каждого коммита пакета, в обр
 | `test_mode` из `PIPELINE.test_mode` | `git checkout PACKAGE05_BASE_SHA -- src/core/pipeline/_run.py` |
 | Параметры GMM | `git checkout PACKAGE05_BASE_SHA -- src/core/spectrum/_denoise.py src/core/domain/spectrum.py` |
 | Контракт ошибок | `git checkout PACKAGE05_BASE_SHA -- src/core/pipeline/_run.py src/core/pipeline/_stages.py src/core/pipeline/_stats.py src/cli.py` |
-| Краевые случаи | `git checkout PACKAGE05_BASE_SHA -- <соответствующие файлы>` |
+| Краевые случаи | `git checkout PACKAGE05_BASE_SHA -- src/core/spectrum/_assign.py src/core/spectrum/_load.py src/core/domain/spectrum.py src/core/statistics.py tests/unit/test_edge_guards.py tests/unit/test_spectrum_ops.py` |
 | `--cov-fail-under` | `git checkout PACKAGE05_BASE_SHA -- .github/workflows/ci.yml` |
 
 ## Быстрый частичный откат только порога GMM
