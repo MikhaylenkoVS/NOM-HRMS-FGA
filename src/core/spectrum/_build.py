@@ -31,10 +31,9 @@ def build_result_table(src, df_dmet, df_dacet):
     -----
     Source and series peaks are joined on m/z rounded to 4 decimals.
     """
+    assign_mask = src.table.get("assign", pd.Series(False, index=src.table.index))
     base = (
-        src.table.loc[
-            src.table.get("assign", pd.Series(False, index=src.table.index)) == True
-        ][["mass", "intensity", "brutto", "all_candidates"]]
+        src.table.loc[assign_mask][["mass", "intensity", "brutto", "all_candidates"]]
         .copy()
         .reset_index(drop=True)
     )

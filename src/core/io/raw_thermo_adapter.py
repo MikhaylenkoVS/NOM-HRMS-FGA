@@ -120,14 +120,14 @@ def average_raw_to_json(
     str
         Absolute path to the written JSON file.
     """
-    if not is_available():
-        raise RuntimeError(f"RawFileReader not available: {_RAW_ERROR}")
-
     if rt_min >= rt_max:
         raise ValueError(f"rt_min ({rt_min}) must be < rt_max ({rt_max})")
 
     if not os.path.isfile(raw_path):
         raise FileNotFoundError(f"RAW file not found: {raw_path}")
+
+    if not is_available():
+        raise RuntimeError(f"RawFileReader not available: {_RAW_ERROR}")
 
     _log(progress_callback, f"Opening {raw_path} …")
 

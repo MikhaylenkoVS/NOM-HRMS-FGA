@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from src.core._safety import _safe_df
-from src.ui._deps import create_van_krevelen_plot, DELTA_CD3, DELTA_CD3CO
+from src.ui._deps import create_van_krevelen_plot
 from src.ui._config import (
     BG,
     FG,
@@ -184,7 +184,6 @@ class PlotsMixin:
         # build_result_table возвращает N_OH (не N_OH_total) — исправлено
         col_n = "N_COOH" if which == "dmet" else "N_OH"
         col_m = "missing_dmet" if which == "dmet" else "missing_dacet"
-        delta = DELTA_CD3 if which == "dmet" else DELTA_CD3CO
         label = "CD₃ (dmet)" if which == "dmet" else "CD₃CO (dacet)"
 
         self._log(f"[DEBUG] _plot_series({which}): col_n={col_n}", color="info")

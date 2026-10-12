@@ -158,6 +158,7 @@ def run_git(*args: str, cwd=None) -> str:
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
         )
         return result.stdout.strip()
     except Exception:

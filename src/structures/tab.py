@@ -205,7 +205,7 @@ class StructureViewerTab(ttk.Frame):
             )
             molecules = result.get("molecules", [])
             self.after(0, lambda: self._on_search_done(molecules, brutto, n_cooh, n_oh))
-        except Exception as e:
+        except Exception:
             import traceback
 
             tb = traceback.format_exc()
@@ -287,7 +287,11 @@ class StructureViewerTab(ttk.Frame):
                     save_png(rdmol, path)
                 saved += 1
             except Exception as e:
-                pass
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Ошибка экспорта структуры %s: %s", path, e
+                )
 
         messagebox.showinfo(
             "Экспорт завершён",

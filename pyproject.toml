@@ -31,6 +31,9 @@ dependencies = [
     "Pillow>=9.0",
     "zstandard>=0.22",
     "reportlab>=4.0",
+    # Используется src/core/formula_db/_manager.py для загрузки formula_db
+    # (runtime, HTTPS). Обоснование: AGENTS.md, правило 7.
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
@@ -76,6 +79,7 @@ target-version = ["py310"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
+pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "slow: slow tests",

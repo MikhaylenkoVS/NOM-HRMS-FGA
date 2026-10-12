@@ -92,6 +92,7 @@ def run_benchmark(benchmark_id: str, task_id: str) -> int:
         capture_output=True,
         text=True,
         cwd=str(PROJECT_ROOT),
+        check=False,
     )
     if validate_result.returncode != 0:
         print(f"ERROR: validate-task failed for '{task_id}'")
@@ -113,7 +114,9 @@ def run_benchmark(benchmark_id: str, task_id: str) -> int:
 
     # ----- run benchmark -----
     started_at = datetime.now(timezone.utc)
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT), check=False
+    )
     finished_at = datetime.now(timezone.utc)
     duration = (finished_at - started_at).total_seconds()
 

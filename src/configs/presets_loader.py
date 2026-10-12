@@ -22,8 +22,12 @@ def list_presets() -> list[dict[str, Any]]:
                     preset = json.load(f)
                 preset["id"] = fname.replace(".json", "")
                 presets.append(preset)
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Не удалось загрузить пресет %s: %s", fname, e
+                )
     return presets
 
 
