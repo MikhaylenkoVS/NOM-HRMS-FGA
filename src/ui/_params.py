@@ -98,9 +98,23 @@ class ParamsMixin:
             ttk.Entry(rt_frame, textvariable=rt_max_var, width=5).pack(
                 side="left", padx=2
             )
-            ttk.Label(rt_frame, text="(если .raw)", foreground="gray").pack(
+            ttk.Label(rt_frame, text="(если .raw/.mzML)", foreground="gray").pack(
                 side="left", padx=4
             )
+            if i == 0:
+                # Для исходного спектра: опциональное разбиение диапазона
+                # на отрезки (шаг = ширина отрезка в минутах).
+                ttk.Label(rt_frame, text="Шаг, мин:").pack(
+                    side="left", padx=(12, 2)
+                )
+                ttk.Entry(rt_frame, textvariable=self.segment_width_var, width=5).pack(
+                    side="left", padx=2
+                )
+                ttk.Checkbutton(
+                    rt_frame,
+                    text="разбить на отрезки",
+                    variable=self.segment_mode_var,
+                ).pack(side="left", padx=4)
         out_lf = ttk.LabelFrame(frame, text="💾  Выходной файл")
         out_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
         out_lf.columnconfigure(0, weight=1)
@@ -196,29 +210,6 @@ class ParamsMixin:
         ttk.Entry(load_lf, textvariable=self.noise_value_var, width=12).grid(
             row=4, column=1, sticky="w", padx=4, pady=3
         )
-
-        # ── Сегментный анализ по RT ──
-        seg_lf = ttk.LabelFrame(frame, text="Сегментный анализ хроматограмм")
-        seg_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
-        ttk.Checkbutton(
-            seg_lf,
-            text="Разбить RT-диапазон на отрезки",
-            variable=self.segment_mode_var,
-        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=6, pady=4)
-        ttk.Label(seg_lf, text="Ширина отрезка, мин:").grid(
-            row=1, column=0, sticky="w", padx=6, pady=3
-        )
-        ttk.Entry(seg_lf, textvariable=self.segment_width_var, width=8).grid(
-            row=1, column=1, sticky="w", padx=4, pady=3
-        )
-        ttk.Label(
-            seg_lf,
-            text="Исходные пики сохраняют RT отрезка; производные ищутся\n"
-            "по всем отрезкам дериватизованных спектров. RT-диапазон\n"
-            "берётся из полей исходного файла.",
-            font=("Segoe UI", 8),
-            foreground="#888",
-        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 6))
 
     def _build_params_formulas(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
