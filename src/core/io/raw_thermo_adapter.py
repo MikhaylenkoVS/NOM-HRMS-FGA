@@ -270,15 +270,16 @@ def average_raw_segments(
 
         results: list[pd.DataFrame] = []
         for idx, (rt0, rt1) in enumerate(segments, 1):
-            _log(progress_callback, f"Segment {idx}/{len(segments)}: RT {rt0:.2f}–{rt1:.2f} min")
+            _log(
+                progress_callback,
+                f"Segment {idx}/{len(segments)}: RT {rt0:.2f}–{rt1:.2f} min",
+            )
             start_scan = _scan_at_rt(raw_file, rt0, first_scan, last_scan, "first")
             end_scan = _scan_at_rt(raw_file, rt1, first_scan, last_scan, "last")
             if start_scan > end_scan:
                 results.append(pd.DataFrame({"mass": [], "intensity": []}))
                 continue
-            results.append(
-                _average_scan_range(raw_file, start_scan, end_scan)
-            )
+            results.append(_average_scan_range(raw_file, start_scan, end_scan))
         return results
     finally:
         raw_file.Dispose()
@@ -303,9 +304,7 @@ def _average_scan_range(raw_file, start_scan: int, end_scan: int) -> pd.DataFram
         intensities = np.array(list(avg_scan.CentroidScan.Intensities), dtype=float)
     else:
         masses = np.array(list(avg_scan.SegmentedScan.Positions), dtype=float)
-        intensities = np.array(
-            list(avg_scan.SegmentedScan.Intensities), dtype=float
-        )
+        intensities = np.array(list(avg_scan.SegmentedScan.Intensities), dtype=float)
     return pd.DataFrame({"mass": masses, "intensity": intensities})
 
 

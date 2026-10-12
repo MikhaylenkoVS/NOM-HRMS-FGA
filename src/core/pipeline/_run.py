@@ -19,7 +19,9 @@ from src.core.van_krevelen import create_van_krevelen_plot
 logger = logging.getLogger(__name__)
 
 
-def _search_config_from_brutto(brutto_dict: Optional[dict]) -> Optional[FormulaSearchConfig]:
+def _search_config_from_brutto(
+    brutto_dict: Optional[dict],
+) -> Optional[FormulaSearchConfig]:
     """Build a :class:`FormulaSearchConfig` from GUI/CLI element ranges.
 
     ``brutto_dict`` uses the shape ``{"C": (min, max), ...}`` produced by

@@ -52,8 +52,7 @@ def average_segments(
 
         dfs = average_raw_segments(path, segments, progress_callback)
         return [
-            {"df": df, "rt_start": s, "rt_end": e}
-            for df, (s, e) in zip(dfs, segments)
+            {"df": df, "rt_start": s, "rt_end": e} for df, (s, e) in zip(dfs, segments)
         ]
 
     if lower.endswith(".mzml") or lower.endswith(".mzml".lower()):
@@ -61,8 +60,7 @@ def average_segments(
 
         dfs = mzml_segments_to_dfs(path, segments, progress_callback)
         return [
-            {"df": df, "rt_start": s, "rt_end": e}
-            for df, (s, e) in zip(dfs, segments)
+            {"df": df, "rt_start": s, "rt_end": e} for df, (s, e) in zip(dfs, segments)
         ]
 
     # No retention-time axis → one segment.

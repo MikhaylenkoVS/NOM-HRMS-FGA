@@ -141,7 +141,10 @@ def run_pipeline_segmented(
                 _fail(f"[PIPELINE] ОШИБКА: файл не найден: {path}")
     if errors:
         return PipelineRunResult(
-            table=pd.DataFrame(), stats=PipelineStats(), messages=messages, errors=errors
+            table=pd.DataFrame(),
+            stats=PipelineStats(),
+            messages=messages,
+            errors=errors,
         )
 
     segments = build_rt_segments(rt_min, rt_max, segment_width)
@@ -169,9 +172,14 @@ def run_pipeline_segmented(
         rt_end = seg["rt_end"]
 
         if progress_callback:
-            progress_callback(f"Обработка отрезка {idx}/{n_segments}…", 10 + int(50 * idx / max(n_segments, 1)))
+            progress_callback(
+                f"Обработка отрезка {idx}/{n_segments}…",
+                10 + int(50 * idx / max(n_segments, 1)),
+            )
 
-        src_spec = _spectrum_from_df(seg["df"], load_mass_min, load_mass_max, f"src_seg{idx}")
+        src_spec = _spectrum_from_df(
+            seg["df"], load_mass_min, load_mass_max, f"src_seg{idx}"
+        )
         stats.src_loaded += len(src_spec.table)
 
         # Копия до денойза нужна для изотопного фильтра (как в обычном пайплайне).
@@ -200,7 +208,9 @@ def run_pipeline_segmented(
                 isotope_filter=isotope_filter,
                 original=src_original,
             )
-            stats.assigned_count += int(src_spec.table.get("assign", pd.Series(dtype=bool)).sum())
+            stats.assigned_count += int(
+                src_spec.table.get("assign", pd.Series(dtype=bool)).sum()
+            )
         except Exception as e:  # noqa: BLE001
             _fail(f"[PIPELINE] ОШИБКА assign сегмента {idx}: {e}")
             continue
@@ -211,7 +221,9 @@ def run_pipeline_segmented(
 
     if not src_specs:
         if not errors:
-            _fail("[PIPELINE] ОШИБКА: после обработки сегментов не осталось исходных пиков")
+            _fail(
+                "[PIPELINE] ОШИБКА: после обработки сегментов не осталось исходных пиков"
+            )
         return PipelineRunResult(
             table=pd.DataFrame(), stats=stats, messages=messages, errors=errors
         )
@@ -219,7 +231,9 @@ def run_pipeline_segmented(
     # Дериватизованные сегменты: шумоподавление внутри отрезка,
     # затем объединение всех отрезков (RT не сохраняется).
     for idx, seg in enumerate(dmet_segments, 1):
-        spec = _spectrum_from_df(seg["df"], load_mass_min, load_mass_max, f"dmet_seg{idx}")
+        spec = _spectrum_from_df(
+            seg["df"], load_mass_min, load_mass_max, f"dmet_seg{idx}"
+        )
         try:
             spec = denoise(
                 spec,
@@ -233,7 +247,9 @@ def run_pipeline_segmented(
         dmet_specs.append(spec)
 
     for idx, seg in enumerate(dacet_segments, 1):
-        spec = _spectrum_from_df(seg["df"], load_mass_min, load_mass_max, f"dacet_seg{idx}")
+        spec = _spectrum_from_df(
+            seg["df"], load_mass_min, load_mass_max, f"dacet_seg{idx}"
+        )
         try:
             spec = denoise(
                 spec,
@@ -299,9 +315,13 @@ def run_pipeline_segmented(
             stats.result_n_cooh_gt0 = int((result["N_COOH"] > 0).sum())
         if "N_OH" in result.columns:
             stats.result_n_oh_gt0 = int((result["N_OH"] > 0).sum())
-    stats.assigned_ratio = stats.assigned_count / stats.src_denoised if stats.src_denoised else 0.0
+    stats.assigned_ratio = (
+        stats.assigned_count / stats.src_denoised if stats.src_denoised else 0.0
+    )
 
     if progress_callback:
         progress_callback("Готово", 100)
 
-    return PipelineRunResult(table=result, stats=stats, messages=messages, errors=errors)
+    return PipelineRunResult(
+        table=result, stats=stats, messages=messages, errors=errors
+    )

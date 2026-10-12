@@ -110,7 +110,10 @@ class RunMixin:
                     "Установите pythonnet и RawFileReader DLL в thermo/"
                 )
             self._log_queue.put(
-                ("log", f"[RAW] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…\n")
+                (
+                    "log",
+                    f"[RAW] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…\n",
+                )
             )
             self._log_queue.put(("progress", ("Усреднение RAW-спектра…", 0)))
             path = average_raw_to_json(path, rt_min, rt_max)
@@ -131,7 +134,10 @@ class RunMixin:
                     "Установите pymzml: pip install pymzml"
                 )
             self._log_queue.put(
-                ("log", f"[mzML] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…\n")
+                (
+                    "log",
+                    f"[mzML] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…\n",
+                )
             )
             self._log_queue.put(("progress", ("Усреднение mzML-спектра…", 0)))
             path = _mzml_to_json(path, rt_min=rt_min, rt_max=rt_max)
@@ -252,7 +258,8 @@ class RunMixin:
             self._log_queue.put(("log", "[DEBUG] _run_worker: старт пайплайна\n"))
             if seg_opts:
                 seg_params = {
-                    k: v for k, v in params.items()
+                    k: v
+                    for k, v in params.items()
                     if k not in ("output_csv", "visualize")
                 }
                 res = run_pipeline_segmented(

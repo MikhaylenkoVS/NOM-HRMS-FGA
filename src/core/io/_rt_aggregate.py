@@ -55,9 +55,7 @@ def _segment_index(rt: float, segments: list[tuple[float, float]]) -> int | None
     return None
 
 
-def aggregate_scans(
-    scans, segments: list[tuple[float, float]]
-) -> list[pd.DataFrame]:
+def aggregate_scans(scans, segments: list[tuple[float, float]]) -> list[pd.DataFrame]:
     """Aggregate scans into per-segment ``mass,intensity`` tables.
 
     Parameters

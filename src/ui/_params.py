@@ -104,9 +104,7 @@ class ParamsMixin:
             if i == 0:
                 # Для исходного спектра: опциональное разбиение диапазона
                 # на отрезки (шаг = ширина отрезка в минутах).
-                ttk.Label(rt_frame, text="Шаг, мин:").pack(
-                    side="left", padx=(12, 2)
-                )
+                ttk.Label(rt_frame, text="Шаг, мин:").pack(side="left", padx=(12, 2))
                 ttk.Entry(rt_frame, textvariable=self.segment_width_var, width=5).pack(
                     side="left", padx=2
                 )

@@ -17,8 +17,16 @@ class TestBuildRtSegments:
     def test_default_ten_by_two(self):
         segments = build_rt_segments(0.0, 20.0, 2.0)
         assert segments == [
-            (0.0, 2.0), (2.0, 4.0), (4.0, 6.0), (6.0, 8.0), (8.0, 10.0),
-            (10.0, 12.0), (12.0, 14.0), (14.0, 16.0), (16.0, 18.0), (18.0, 20.0),
+            (0.0, 2.0),
+            (2.0, 4.0),
+            (4.0, 6.0),
+            (6.0, 8.0),
+            (8.0, 10.0),
+            (10.0, 12.0),
+            (12.0, 14.0),
+            (14.0, 16.0),
+            (16.0, 18.0),
+            (18.0, 20.0),
         ]
 
     def test_last_segment_truncated(self):
@@ -101,12 +109,21 @@ class TestSegmentedPipelineCsvEquivalence:
         )
 
         regular = run_pipeline(
-            src_path=src, dmet_path=dmet, dacet_path=dacet,
-            visualize=False, use_cache=False, **kw,
+            src_path=src,
+            dmet_path=dmet,
+            dacet_path=dacet,
+            visualize=False,
+            use_cache=False,
+            **kw,
         )
         segmented = run_pipeline_segmented(
-            src_path=src, dmet_path=dmet, dacet_path=dacet,
-            segment_width=2.0, rt_min=0.0, rt_max=20.0, **kw,
+            src_path=src,
+            dmet_path=dmet,
+            dacet_path=dacet,
+            segment_width=2.0,
+            rt_min=0.0,
+            rt_max=20.0,
+            **kw,
         )
 
         cols = ["mass", "brutto", "N_COOH", "N_OH"]
