@@ -18,6 +18,7 @@ try:
         find_series,
         load_spectrum,
         run_pipeline,
+        run_pipeline_segmented,
         visualize_series,
     )
 
@@ -31,6 +32,7 @@ except Exception:
     DELTA_CD3 = CHEM.derivatization_shifts["delta_cd3"]
     DELTA_CD3CO = CHEM.derivatization_shifts["delta_cd3co"]
     run_pipeline = load_spectrum = find_series = visualize_series = None
+    run_pipeline_segmented = None
     create_van_krevelen_plot = None
 
 # ── Импорт raw-бриджа (опционально) ──────────────────────────────────────────

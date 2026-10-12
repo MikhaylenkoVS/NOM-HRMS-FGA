@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "chrom-01-segmented-averaging",
+  "title": "CHROM-01: сегментное усреднение хроматограмм с сохранением RT исходных пиков",
+  "status": "implementation",
+  "type": "scientific",
+  "risk_level": "high",
+  "created_at": "2026-10-12T12:00:00Z",
+  "updated_at": "2026-10-12T12:00:00Z",
+  "owners": {
+    "planner": "deepcode",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "dev",
+    "working_branch": "feat/chrom-01-segmented-averaging",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/core/io/",
+      "src/core/pipeline/",
+      "src/core/spectrum/",
+      "src/cli.py",
+      "src/ui/",
+      "src/app.py",
+      "tests/",
+      ".ai/tasks/active/chrom-01-segmented-averaging/",
+      ".ai/decisions/"
+    ],
+    "forbidden_paths": [
+      "src/configs/chemistry.json",
+      "data/",
+      ".git/"
+    ],
+    "max_changed_files": 25
+  },
+  "requirements": {
+    "must_have": [
+      "RT-диапазон разбивается на настраиваемые отрезки (ширина, мин; по умолчанию 2.0)",
+      "Усреднение выполняется только внутри каждого отрезка (RAW/mzML)",
+      "Шумоподавление применяется отдельно внутри каждого отрезка",
+      "Для исходного спектра каждый пик сохраняет RT своего отрезка (rt_start/rt_end)",
+      "Дериватизованные спектры усредняются по тем же отрезкам, но при поиске серий используются все отрезки без учёта RT",
+      "Сегменты между файлами не сопоставляются по RT",
+      "CSV/JSON/XLSX без RT обрабатываются как один сегмент (RT = None)",
+      "CLI: флаги --segment-width, --rt-min, --rt-max",
+      "GUI: переключатель сегментного режима и поле ширины отрезка",
+      "Референс-эквивалентность: на CSV set_01 сегментный режим даёт те же mass/brutto/N_COOH/N_OH, что и обычный run_pipeline",
+      "ADR зафиксирован"
+    ],
+    "must_not": [
+      "Изменять значения научных констант (массы, delta_cd3, delta_cd3co, proton_mass)",
+      "Менять скоринг NOM и пороги",
+      "Менять формат выходной таблицы обычного run_pipeline",
+      "Добавлять runtime-зависимости",
+      "Пушить в main или stable"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task chrom-01-segmented-averaging",
+      "python -c \"from src.core.io.segmented import build_rt_segments; print('OK')\""
+    ],
+    "required_test_commands": [
+      "pytest tests/ -q",
+      "python -m src.cli --input data/test_sets/set_01/original.csv --dmet data/test_sets/set_01/deutermethylated.csv --dacet data/test_sets/set_01/deuteroacylated.csv --segment-width 2 -o /tmp/chrom01_set01.csv"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": true,
+    "requires_adr": true,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": "reference_validation.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": ["0003-segmented-chromatogram-averaging.md"]
+  }
+}

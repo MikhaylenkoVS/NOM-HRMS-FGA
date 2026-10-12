@@ -24,6 +24,7 @@ from src.ui._config import (
 from src.ui.plots import embed_figure
 from src.ui._deps import (
     run_pipeline,
+    run_pipeline_segmented,
     CORE_LOADED,
     _CORE_ERROR,
     average_raw_to_json,
@@ -132,24 +133,49 @@ class RunMixin:
             )
             return
 
-        spec_paths = []
-        for label, spec_var, rt_min, rt_max in [
-            ("Исходный", self.src_var, self.src_rt_min, self.src_rt_max),
-            ("Дейтерометилирование", self.dmet_var, self.dmet_rt_min, self.dmet_rt_max),
-            (
-                "Дейтероацилирование",
-                self.dacet_var,
-                self.dacet_rt_min,
-                self.dacet_rt_max,
-            ),
-        ]:
+        seg_opts = None
+        if self.segment_mode_var.get():
+            # Сегментный режим: усреднение по RT-отрезкам выполняет
+            # run_pipeline_segmented (в фоновом потоке). Пути не разрешаем
+            # заранее — функция сама обрабатывает RAW/mzML/CSV.
             try:
-                path = self._resolve_path(spec_var, rt_min, rt_max, label)
-                spec_var.set(path)  # записываем результат для лога
-                spec_paths.append(path)
-            except Exception as e:
-                messagebox.showerror("Ошибка", str(e))
+                seg_width = float(self.segment_width_var.get())
+            except ValueError:
+                messagebox.showerror("Ошибка", "Ширина отрезка: ожидается число")
                 return
+            if seg_width <= 0:
+                messagebox.showerror("Ошибка", "Ширина отрезка должна быть > 0")
+                return
+            rt_min = self._rt_float(self.src_rt_min, 0.0)
+            rt_max = self._rt_float(self.src_rt_max, 20.0)
+            seg_opts = {"segment_width": seg_width, "rt_min": rt_min, "rt_max": rt_max}
+            spec_paths = [
+                self.src_var.get().strip(),
+                self.dmet_var.get().strip(),
+                self.dacet_var.get().strip(),
+            ]
+            if not all(spec_paths):
+                messagebox.showerror("Ошибка", "Укажите все три файла.")
+                return
+        else:
+            spec_paths = []
+            for label, spec_var, rt_min, rt_max in [
+                ("Исходный", self.src_var, self.src_rt_min, self.src_rt_max),
+                ("Дейтерометилирование", self.dmet_var, self.dmet_rt_min, self.dmet_rt_max),
+                (
+                    "Дейтероацилирование",
+                    self.dacet_var,
+                    self.dacet_rt_min,
+                    self.dacet_rt_max,
+                ),
+            ]:
+                try:
+                    path = self._resolve_path(spec_var, rt_min, rt_max, label)
+                    spec_var.set(path)  # записываем результат для лога
+                    spec_paths.append(path)
+                except Exception as e:
+                    messagebox.showerror("Ошибка", str(e))
+                    return
 
         params = self._parse_params()
         if params is None:
@@ -160,6 +186,8 @@ class RunMixin:
         self._structure_cache.clear()  # сброс кэша структур
         self._structure_preloading = False
         self._log("[DEBUG] ═══ Запуск анализа ═══", color="info")
+        if seg_opts:
+            self._log(f"[DEBUG]   сегментный режим: {seg_opts}", color="info")
         self._log(f"[DEBUG]   src   = {spec_paths[0]}", color="info")
         self._log(f"[DEBUG]   dmet  = {spec_paths[1]}", color="info")
         self._log(f"[DEBUG]   dacet = {spec_paths[2]}", color="info")
@@ -170,12 +198,12 @@ class RunMixin:
 
         t = threading.Thread(
             target=self._run_worker,
-            args=(spec_paths[0], spec_paths[1], spec_paths[2], params),
+            args=(spec_paths[0], spec_paths[1], spec_paths[2], params, seg_opts),
             daemon=True,
         )
         t.start()
 
-    def _run_worker(self, src_path: str, dmet_path: str, dacet_path: str, params: dict):
+    def _run_worker(self, src_path: str, dmet_path: str, dacet_path: str, params: dict, seg_opts=None):
         """
         Выполняется в фоновом потоке.
         Все print() из pipeline автоматически попадают в GUI-лог через _QueueWriter.
@@ -191,13 +219,27 @@ class RunMixin:
 
         try:
             self._log_queue.put(("log", "[DEBUG] _run_worker: старт пайплайна\n"))
-            res = run_pipeline(
-                src_path=src_path,
-                dmet_path=dmet_path,
-                dacet_path=dacet_path,
-                progress_callback=_on_progress,
-                **params,
-            )
+            if seg_opts:
+                seg_params = {
+                    k: v for k, v in params.items()
+                    if k not in ("output_csv", "visualize")
+                }
+                res = run_pipeline_segmented(
+                    src_path=src_path,
+                    dmet_path=dmet_path,
+                    dacet_path=dacet_path,
+                    progress_callback=_on_progress,
+                    **seg_opts,
+                    **seg_params,
+                )
+            else:
+                res = run_pipeline(
+                    src_path=src_path,
+                    dmet_path=dmet_path,
+                    dacet_path=dacet_path,
+                    progress_callback=_on_progress,
+                    **params,
+                )
 
             # res — PipelineRunResult
             table = getattr(res, "table", None)

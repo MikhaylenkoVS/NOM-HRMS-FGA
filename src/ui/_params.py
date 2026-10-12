@@ -197,6 +197,29 @@ class ParamsMixin:
             row=4, column=1, sticky="w", padx=4, pady=3
         )
 
+        # ── Сегментный анализ по RT ──
+        seg_lf = ttk.LabelFrame(frame, text="Сегментный анализ хроматограмм")
+        seg_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
+        ttk.Checkbutton(
+            seg_lf,
+            text="Разбить RT-диапазон на отрезки",
+            variable=self.segment_mode_var,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=6, pady=4)
+        ttk.Label(seg_lf, text="Ширина отрезка, мин:").grid(
+            row=1, column=0, sticky="w", padx=6, pady=3
+        )
+        ttk.Entry(seg_lf, textvariable=self.segment_width_var, width=8).grid(
+            row=1, column=1, sticky="w", padx=4, pady=3
+        )
+        ttk.Label(
+            seg_lf,
+            text="Исходные пики сохраняют RT отрезка; производные ищутся\n"
+            "по всем отрезкам дериватизованных спектров. RT-диапазон\n"
+            "берётся из полей исходного файла.",
+            font=("Segoe UI", 8),
+            foreground="#888",
+        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 6))
+
     def _build_params_formulas(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
         nb.add(frame, text="🔬  Формулы")
