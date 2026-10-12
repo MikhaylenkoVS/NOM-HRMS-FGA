@@ -46,13 +46,19 @@ class TestAverageRawToJsonErrors:
         with pytest.raises(ValueError, match="rt_min"):
             average_raw_to_json("nonexistent.raw", 5.0, 3.0)
 
-    def test_raises_runtime_error_when_unavailable(self):
-        """If RawFileReader is unavailable, RuntimeError is raised."""
+    def test_raises_runtime_error_when_unavailable(self, tmp_path):
+        """If RawFileReader is unavailable, RuntimeError is raised.
+
+        The file must exist so validation reaches the availability check
+        (rt/file validation intentionally runs before is_available()).
+        """
         from src.core.io.raw_bridge import is_available, average_raw_to_json
 
         if not is_available():
+            dummy = tmp_path / "dummy.raw"
+            dummy.write_text("not a real raw file")
             with pytest.raises(RuntimeError, match="not available"):
-                average_raw_to_json("dummy.raw", 0.0, 1.0)
+                average_raw_to_json(str(dummy), 0.0, 1.0)
         else:
             pytest.skip("RawFileReader available — skipping error test")
 
