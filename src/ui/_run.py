@@ -62,11 +62,33 @@ class RunMixin:
         self._log("[ОШИБКА ВЫПОЛНЕНИЯ]\n" + tb, color=WARN)
         messagebox.showerror("Ошибка выполнения", tb[:1200])
 
+    def _on_paths_resolved(self, payload):
+        """Обновляет поля путей после RAW/mzML-конвертации (главный поток)."""
+        try:
+            src, dmet, dacet = payload
+        except Exception:
+            return
+        self.src_var.set(src)
+        self.dmet_var.set(dmet)
+        self.dacet_var.set(dacet)
+
+    def _on_run_error_message(self, payload: dict):
+        """Показывает понятную ошибку подготовки входных файлов (главный поток)."""
+        message = payload.get("message", "Неизвестная ошибка")
+        self.progress["value"] = 100
+        self._set_status("Ошибка! Смотри лог.")
+        self._log(f"[ОШИБКА] {message}", color=WARN)
+        messagebox.showerror("Ошибка", message)
+
     # ── ПОСТРОЕНИЕ ИНТЕРФЕЙСА ─────────────────────────────────────────────────
 
-    def _resolve_path(self, spec_var, rt_min_var, rt_max_var, label):
-        """Return the actual CSV path, auto-detecting RAW→CSV if needed."""
-        path = spec_var.get().strip()
+    def _resolve_path(self, path: str, rt_min_s: str, rt_max_s: str, label: str):
+        """Return the actual CSV path, auto-detecting RAW/mzML→JSON if needed.
+
+        Thread-safe: runs in the worker thread and communicates with the GUI
+        exclusively through ``self._log_queue`` (never touches tkinter).
+        """
+        path = path.strip()
         if not path:
             raise ValueError(f"[{label}] Укажите файл (.csv, .mzML или .raw)")
 
@@ -76,8 +98,8 @@ class RunMixin:
         # Автоопределение: если .raw → усреднить
         if path.lower().endswith(".raw"):
             try:
-                rt_min = float(rt_min_var.get()) if rt_min_var.get().strip() else 0.0
-                rt_max = float(rt_max_var.get()) if rt_max_var.get().strip() else 999.0
+                rt_min = float(rt_min_s) if rt_min_s.strip() else 0.0
+                rt_max = float(rt_max_s) if rt_max_s.strip() else 999.0
             except ValueError:
                 raise ValueError(f"[{label}] Некорректный RT-диапазон")
 
@@ -86,23 +108,19 @@ class RunMixin:
                     f"[{label}] Обработка RAW недоступна: {_RAW_ERROR}\n"
                     "Установите pythonnet и RawFileReader DLL в thermo/"
                 )
-            self._log(
-                f"[RAW] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…",
-                color=FG,
+            self._log_queue.put(
+                ("log", f"[RAW] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…\n")
             )
-            self._set_status("Усреднение RAW-спектра…")
-            self.progress["value"] = 0
-            self.update_idletasks()
+            self._log_queue.put(("progress", ("Усреднение RAW-спектра…", 0)))
             path = average_raw_to_json(path, rt_min, rt_max)
-            self.progress["value"] = 100
-            self._set_status("Готово")
-            self._log(f"[RAW] → {path}", color=OK)
+            self._log_queue.put(("progress", ("Готово", 100)))
+            self._log_queue.put(("log", f"[RAW] → {path}\n"))
 
         # Автоопределение: если .mzML → конвертировать через mzml_bridge
         elif path.lower().endswith(".mzml"):
             try:
-                rt_min = float(rt_min_var.get()) if rt_min_var.get().strip() else 0.0
-                rt_max = float(rt_max_var.get()) if rt_max_var.get().strip() else 999.0
+                rt_min = float(rt_min_s) if rt_min_s.strip() else 0.0
+                rt_max = float(rt_max_s) if rt_max_s.strip() else 999.0
             except ValueError:
                 raise ValueError(f"[{label}] Некорректный RT-диапазон")
 
@@ -111,17 +129,13 @@ class RunMixin:
                     f"[{label}] Обработка mzML недоступна.\n"
                     "Установите pymzml: pip install pymzml"
                 )
-            self._log(
-                f"[mzML] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…",
-                color=FG,
+            self._log_queue.put(
+                ("log", f"[mzML] Усреднение {path} (RT {rt_min:.1f}–{rt_max:.1f} мин)…\n")
             )
-            self._set_status("Усреднение mzML-спектра…")
-            self.progress["value"] = 0
-            self.update_idletasks()
+            self._log_queue.put(("progress", ("Усреднение mzML-спектра…", 0)))
             path = _mzml_to_json(path, rt_min=rt_min, rt_max=rt_max)
-            self.progress["value"] = 100
-            self._set_status("Готово")
-            self._log(f"[mzML] → {path}", color=OK)
+            self._log_queue.put(("progress", ("Готово", 100)))
+            self._log_queue.put(("log", f"[mzML] → {path}\n"))
 
         return path
 
@@ -132,8 +146,10 @@ class RunMixin:
             )
             return
 
-        spec_paths = []
-        for label, spec_var, rt_min, rt_max in [
+        # Быстрая валидация в главном потоке: только чтение StringVar,
+        # без файловых операций и конвертации.
+        inputs = []
+        for label, spec_var, rt_min_var, rt_max_var in [
             ("Исходный", self.src_var, self.src_rt_min, self.src_rt_max),
             ("Дейтерометилирование", self.dmet_var, self.dmet_rt_min, self.dmet_rt_max),
             (
@@ -143,13 +159,13 @@ class RunMixin:
                 self.dacet_rt_max,
             ),
         ]:
-            try:
-                path = self._resolve_path(spec_var, rt_min, rt_max, label)
-                spec_var.set(path)  # записываем результат для лога
-                spec_paths.append(path)
-            except Exception as e:
-                messagebox.showerror("Ошибка", str(e))
+            path = spec_var.get().strip()
+            if not path:
+                messagebox.showerror(
+                    "Ошибка", f"[{label}] Укажите файл (.csv, .mzML или .raw)"
+                )
                 return
+            inputs.append((label, path, rt_min_var.get(), rt_max_var.get()))
 
         params = self._parse_params()
         if params is None:
@@ -160,25 +176,24 @@ class RunMixin:
         self._structure_cache.clear()  # сброс кэша структур
         self._structure_preloading = False
         self._log("[DEBUG] ═══ Запуск анализа ═══", color="info")
-        self._log(f"[DEBUG]   src   = {spec_paths[0]}", color="info")
-        self._log(f"[DEBUG]   dmet  = {spec_paths[1]}", color="info")
-        self._log(f"[DEBUG]   dacet = {spec_paths[2]}", color="info")
         self._log(f"[DEBUG]   params = {params}", color="info")
 
         self.progress["value"] = 0
         self._set_status("Выполняется анализ…")
 
+        # RAW/mzML-конвертация и пайплайн выполняются в фоновом потоке.
         t = threading.Thread(
             target=self._run_worker,
-            args=(spec_paths[0], spec_paths[1], spec_paths[2], params),
+            args=(inputs, params),
             daemon=True,
         )
         t.start()
 
-    def _run_worker(self, src_path: str, dmet_path: str, dacet_path: str, params: dict):
+    def _run_worker(self, inputs: list, params: dict):
         """
-        Выполняется в фоновом потоке.
-        Все print() из pipeline автоматически попадают в GUI-лог через _QueueWriter.
+        Выполняется в фоновом потоке: разрешает пути (RAW/mzML → JSON) и
+        запускает пайплайн.  Все print() из pipeline попадают в GUI-лог через
+        _QueueWriter; tkinter из этого потока не вызывается.
         """
         orig_stdout = sys.stdout
         orig_stderr = sys.stderr
@@ -190,11 +205,30 @@ class RunMixin:
             self._log_queue.put(("progress", (stage_name, pct)))
 
         try:
+            spec_paths = []
+            for label, path, rt_min_s, rt_max_s in inputs:
+                resolved = self._resolve_path(path, rt_min_s, rt_max_s, label)
+                spec_paths.append(resolved)
+        except Exception as e:
+            # Ошибка подготовки входных файлов (путь/RAW/mzML) — показываем
+            # пользователю понятное сообщение без длинного traceback.
+            self._log_queue.put(("log", f"[ОШИБКА] Подготовка входных файлов: {e}\n"))
+            self._log_queue.put(("run_error", {"message": str(e)}))
+            sys.stdout = orig_stdout
+            sys.stderr = orig_stderr
+            return
+
+        try:
+            self._log_queue.put(("paths_resolved", tuple(spec_paths)))
+            self._log_queue.put(("log", f"[DEBUG]   src   = {spec_paths[0]}\n"))
+            self._log_queue.put(("log", f"[DEBUG]   dmet  = {spec_paths[1]}\n"))
+            self._log_queue.put(("log", f"[DEBUG]   dacet = {spec_paths[2]}\n"))
+
             self._log_queue.put(("log", "[DEBUG] _run_worker: старт пайплайна\n"))
             res = run_pipeline(
-                src_path=src_path,
-                dmet_path=dmet_path,
-                dacet_path=dacet_path,
+                src_path=spec_paths[0],
+                dmet_path=spec_paths[1],
+                dacet_path=spec_paths[2],
                 progress_callback=_on_progress,
                 **params,
             )
