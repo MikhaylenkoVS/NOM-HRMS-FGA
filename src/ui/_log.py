@@ -79,6 +79,14 @@ class LogMixin:
                         self._set_status(stage)
                 elif kind == "batch_done":
                     self._on_batch_done(data)
+                elif kind == "run_error":
+                    self._on_run_error_message(data)
+                elif kind == "paths_resolved":
+                    self._on_paths_resolved(data)
+                elif kind == "spectra_data":
+                    self._on_spectra_data(data)
+                elif kind == "spectra_error":
+                    self._on_spectra_error(data)
         except queue.Empty:
             pass
         finally:

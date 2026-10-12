@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "gui-02-async-raw-plots",
+  "title": "GUI-02: вынос RAW/mzML-конвертации и подготовки спектров в фоновые потоки",
+  "status": "implementation",
+  "type": "bugfix",
+  "risk_level": "medium",
+  "created_at": "2026-10-12T11:00:00Z",
+  "updated_at": "2026-10-12T11:00:00Z",
+  "owners": {
+    "planner": "deepcode",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "dev",
+    "working_branch": "fix/gui-02-async-raw-plots",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/ui/",
+      "src/app.py",
+      "tests/",
+      ".ai/tasks/active/gui-02-async-raw-plots/"
+    ],
+    "forbidden_paths": [
+      "src/core/",
+      "src/configs/",
+      "data/",
+      ".git/"
+    ],
+    "max_changed_files": 12
+  },
+  "requirements": {
+    "must_have": [
+      "Усреднение .raw и конвертация .mzML выполняются в фоновом потоке, а не в главном",
+      "Чтение CSV и подготовка данных вкладки «Спектры» выполняются в фоновом потоке",
+      "Все обращения к tkinter из фоновых потоков заменены на queue.Queue + обработчики в _poll_log_queue",
+      "Поведение интерфейса сохранено: те же проверки, те же сообщения об ошибках, прогресс-бар работает",
+      "Существующие тесты проходят"
+    ],
+    "must_not": [
+      "Менять научные стадии пайплайна (src/core не трогаем)",
+      "Менять сигнатуры run_pipeline / load_spectrum",
+      "Добавлять runtime-зависимости",
+      "Пушить в main или stable"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task gui-02-async-raw-plots",
+      "python -c \"from src.ui._run import RunMixin; from src.ui._plots import PlotsMixin; print('OK')\""
+    ],
+    "required_test_commands": [
+      "pytest tests/ -q"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": false,
+    "requires_adr": false,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": null
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": []
+  }
+}

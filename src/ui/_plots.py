@@ -105,17 +105,25 @@ class PlotsMixin:
         if sep in ("\\t", "tab", "TAB"):
             sep = "\t"
 
-        self._log("[DEBUG] _plot_spectra: загрузка...", color="info")
+        self._log("[DEBUG] _plot_spectra: чтение файлов в фоне...", color="info")
+        self._clear_frame(self.spectra_canvas_frame)
+        # Чтение CSV выполняется в фоновом потоке; построение графика —
+        # в главном (создание Tk-canvas не может выполняться в воркере).
+        threading.Thread(
+            target=self._plot_spectra_worker, args=(paths, sep), daemon=True
+        ).start()
+
+    def _plot_spectra_worker(self, paths, sep):
+        """Читает три CSV в фоновом потоке и кладёт данные в GUI-очередь."""
+        labels = ["Исходный", "Дейтерометилирование", "Дейтероацилирование"]
         try:
+            from src.core.spectrum import CSV_COLUMN_MAPPER
+
             dfs = {}
-            for key, path in zip(
-                ["Исходный", "Дейтерометилирование", "Дейтероацилирование"], paths
-            ):
+            for key, path in zip(labels, paths):
                 df = pd.read_csv(path, sep=sep)
                 df.columns = [c.strip() for c in df.columns]
                 # Единый маппинг из spectrum_ops
-                from src.core.spectrum import CSV_COLUMN_MAPPER
-
                 df = df.rename(columns=CSV_COLUMN_MAPPER)
                 if "mass" not in df.columns or "intensity" not in df.columns:
                     raise ValueError(
@@ -123,12 +131,19 @@ class PlotsMixin:
                         f"Доступны: {list(df.columns)}"
                     )
                 dfs[key] = df
-                self._log(f"[DEBUG]   {key}: {len(df)} строк", color="info")
+                self._log_queue.put(("log", f"[DEBUG]   {key}: {len(df)} строк\n"))
+            self._log_queue.put(("spectra_data", {"dfs": dfs}))
         except Exception as e:
-            self._log(f"[ОШИБКА] _plot_spectra: {traceback.format_exc()}", color=WARN)
-            messagebox.showerror("Ошибка чтения", str(e))
-            return
+            self._log_queue.put(
+                ("log", f"[ОШИБКА] _plot_spectra: {traceback.format_exc()}\n")
+            )
+            self._log_queue.put(("spectra_error", {"message": str(e)}))
 
+    def _on_spectra_data(self, payload: dict):
+        """Строит график по уже прочитанным DataFrame (главный поток)."""
+        dfs = payload.get("dfs") or {}
+        if not dfs:
+            return
         self._clear_frame(self.spectra_canvas_frame)
         try:
             fig, axes = plt.subplots(3, 1, figsize=(9, 7), sharex=True)
@@ -151,8 +166,13 @@ class PlotsMixin:
             embed_figure(fig, self.spectra_canvas_frame)
             self._log("[DEBUG] _plot_spectra: успешно", color=OK)
         except Exception:
-            self._log(f"[ОШИБКА] _plot_spectра: {traceback.format_exc()}", color=WARN)
+            self._log(f"[ОШИБКА] _plot_spectra: {traceback.format_exc()}", color=WARN)
             plt.close("all")
+
+    def _on_spectra_error(self, payload: dict):
+        message = payload.get("message", "Неизвестная ошибка чтения")
+        self._log(f"[ОШИБКА] _plot_spectra: {message}", color=WARN)
+        messagebox.showerror("Ошибка чтения", message)
 
     # ── Графики серий ─────────────────────────────────────────────────────────
 
