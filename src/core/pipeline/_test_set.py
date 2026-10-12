@@ -16,7 +16,7 @@ from src.core.spectrum import (
     DELTA_CD3CO,
 )
 from ._stats import TestSetResult
-from ._helpers import _debug, _match_row_by_mass, _normalize_brutto
+from ._helpers import _debug, _ion_mode_from_sign, _match_row_by_mass, _normalize_brutto
 from ._test_verify import _verify_series_against_annotations
 
 #: Tolerance (ppm) used to match annotation masses against detected peaks/series.
@@ -225,6 +225,7 @@ def _run_single_test_set(
             rel_error_ppm=rel_error,
             mass_min=assign_mass_min,
             mass_max=assign_mass_max,
+            ion_mode=_ion_mode_from_sign(sign),
         )
         _debug(f"{set_dir.name} assign_formulas: колонки={list(src_a.table.columns)}")
         if "assign" not in src_a.table.columns:

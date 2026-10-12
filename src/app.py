@@ -246,8 +246,6 @@ class App(
         self.sep_var = tk.StringVar(value=str(_GUI_DEFAULTS["sep"]))
         self.mass_min_var = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_min"]))
         self.mass_max_var = tk.StringVar(value=str(_GUI_DEFAULTS["load_mass_max"]))
-        self.noise_force_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
-        self.noise_int_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_intensity"]))
         self.noise_method_var = tk.StringVar(value="auto")
         self.noise_value_var = tk.StringVar(value=str(_GUI_DEFAULTS["noise_force"]))
         self.rel_error_var = tk.StringVar(value=str(_GUI_DEFAULTS["rel_error"]))

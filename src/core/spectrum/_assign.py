@@ -29,7 +29,6 @@ def assign_formulas(
     isotope_filter: bool = False,
     original=None,
     rel_error: float | None = None,
-    sign: str | None = None,
     progress_callback=None,
 ):
     """Assign brutto formulas by brute-force CHON enumeration.

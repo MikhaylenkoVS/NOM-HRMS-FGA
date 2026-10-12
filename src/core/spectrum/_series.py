@@ -52,6 +52,7 @@ def find_series(
     allow_gaps=True,
     min_series_length=1,
     max_consecutive_misses=3,
+    ion_mode: str | None = None,
     progress_callback=None,
 ):
     """Detect homologous derivatization series in a labelled spectrum.
@@ -84,6 +85,10 @@ def find_series(
         Stop probing the series after this many consecutive missed (gap)
         steps.  Avoids wasteful loops for molecules with few functional
         groups when ``allow_gaps=True``.  Must be >= 1.  Default 3.
+    ion_mode : str or None, optional
+        Ionization mode used to convert the assigned neutral mass to the
+        theoretical m/z of the source peak.  ``None`` falls back to
+        ``CHEM.default_ion_mode``.  Default ``None``.
 
     Returns
     -------
@@ -150,7 +155,9 @@ def find_series(
                 counts = parse_formula(brutto_str)
                 _formula_cache[brutto_str] = counts
             exact_neutral = exact_mass_from_counts(counts)
-            m0_theor = _neutral_to_ion_mass(exact_neutral, CHEM.default_ion_mode)
+            m0_theor = _neutral_to_ion_mass(
+                exact_neutral, ion_mode or CHEM.default_ion_mode
+            )
             if abs(m0_theor - m0_obs) / m0_obs > 0.001:
                 m0_theor = m0_obs
         except Exception:

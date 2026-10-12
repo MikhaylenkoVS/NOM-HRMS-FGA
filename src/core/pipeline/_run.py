@@ -1,5 +1,7 @@
 """run_pipeline — main pipeline entry point."""
 
+from __future__ import annotations
+
 import logging
 import traceback
 import pandas as pd
@@ -7,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 from src.configs import PIPELINE
 from ._cache import _result_cache
-from ._helpers import _debug, _make_sub_progress
+from ._helpers import _debug, _ion_mode_from_sign, _make_sub_progress
 from ._stats import PipelineStats, PipelineRunResult
 from ._test import _run_test_mode
 from ._stages import _load_triple, _denoise_triple, _find_series_stage
@@ -15,6 +17,26 @@ from ._export import export_result_table
 from src.core.van_krevelen import create_van_krevelen_plot
 
 logger = logging.getLogger(__name__)
+
+
+def _search_config_from_brutto(brutto_dict: Optional[dict]) -> Optional[FormulaSearchConfig]:
+    """Build a :class:`FormulaSearchConfig` from GUI/CLI element ranges.
+
+    ``brutto_dict`` uses the shape ``{"C": (min, max), ...}`` produced by
+    the GUI parameter parser and the CLI ``--element-ranges`` parser.
+    Returns ``None`` when no ranges were supplied so ``assign_formulas``
+    falls back to its configured default ranges.
+    """
+    if not brutto_dict:
+        return None
+    ranges = {el: (int(lo), int(hi)) for el, (lo, hi) in brutto_dict.items()}
+    # FormulaSearchConfig requires a range for every enumerated element
+    # (C, H, O, N).  Partially specified ranges (e.g. CLI ``--element-ranges
+    # C:1-3``) are completed from the configured defaults.
+    for el, rng in FormulaSearchConfig().ranges.items():
+        ranges.setdefault(el, rng)
+    return FormulaSearchConfig(ranges=ranges)
+
 
 # ---------------------------------------------------------------------------
 try:
@@ -24,6 +46,7 @@ try:
         visualize_series,
         DELTA_CD3,
         DELTA_CD3CO,
+        FormulaSearchConfig,
     )
 
     _IMPORT_ERROR: Optional[str] = None
@@ -306,9 +329,11 @@ def run_pipeline(
     print("=" * 60)
     print("ШАГ 2b: Назначение брутто-формул исходному спектру")
     print("=" * 60)
+    ion_mode = _ion_mode_from_sign(sign)
+    search_config = _search_config_from_brutto(brutto_dict)
     _debug(
         f"assign_formulas: rel_error={rel_error}, sign={sign}, "
-        f"mass_min={assign_mass_min}, mass_max={assign_mass_max}"
+        f"ion_mode={ion_mode}, mass_min={assign_mass_min}, mass_max={assign_mass_max}"
     )
     _debug(f"brutto_dict={'default' if brutto_dict is None else brutto_dict}")
 
@@ -321,6 +346,8 @@ def run_pipeline(
             rel_error_ppm=rel_error,
             mass_min=assign_mass_min,
             mass_max=assign_mass_max,
+            search_config=search_config,
+            ion_mode=ion_mode,
             isotope_filter=isotope_filter,
             original=src_original,
             progress_callback=_assign_cb,
@@ -373,6 +400,7 @@ def run_pipeline(
         ppm_tol,
         max_groups,
         allow_gaps,
+        ion_mode,
         stats.dmet,
         "dmet",
         "CD3",
@@ -402,6 +430,7 @@ def run_pipeline(
         ppm_tol,
         max_groups,
         allow_gaps,
+        ion_mode,
         stats.dacet,
         "dacet",
         "CD3CO",

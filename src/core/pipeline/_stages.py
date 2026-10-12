@@ -155,6 +155,7 @@ def _find_series_stage(
     ppm_tol,
     max_groups,
     allow_gaps,
+    ion_mode,
     series_stats,
     deriv_label,
     series_label,
@@ -178,6 +179,7 @@ def _find_series_stage(
             ppm_tol=ppm_tol,
             max_groups=max_groups,
             allow_gaps=allow_gaps,
+            ion_mode=ion_mode,
             progress_callback=cb,
         )
         series_stats.rows = len(df)

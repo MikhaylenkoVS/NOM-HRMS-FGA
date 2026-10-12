@@ -257,7 +257,7 @@ class TestAssignFormulasSmoke:
 
         # Single C7H6O2 peak at [M-H]- mass ≈ 137.02442
         sp = _make_spectrum([(137.024, 1000.0)])
-        result = assign_formulas(sp, rel_error_ppm=5.0, sign="-")
+        result = assign_formulas(sp, rel_error_ppm=5.0, ion_mode="[M-H]-")
         assert "assign" in result.table.columns
         assert "brutto" in result.table.columns
 
@@ -265,14 +265,14 @@ class TestAssignFormulasSmoke:
         from src.core.spectrum import assign_formulas
 
         sp = _make_spectrum([(137.024, 1000.0)])
-        result = assign_formulas(sp, rel_error_ppm=5.0, sign="-")
+        result = assign_formulas(sp, rel_error_ppm=5.0, ion_mode="[M-H]-")
         assert result.table["assign"].dtype == bool
 
     def test_empty_spectrum_no_crash(self):
         from src.core.spectrum import assign_formulas
 
         sp = _make_spectrum([])
-        result = assign_formulas(sp, rel_error_ppm=5.0, sign="-")
+        result = assign_formulas(sp, rel_error_ppm=5.0, ion_mode="[M-H]-")
         assert len(result.table) == 0
 
     def test_mass_outside_window_not_assigned(self):
@@ -281,7 +281,7 @@ class TestAssignFormulasSmoke:
         # Peak at 50 Da — too low for any reasonable CHON formula
         sp = _make_spectrum([(50.0, 1000.0)])
         result = assign_formulas(
-            sp, rel_error_ppm=5.0, sign="-", mass_min=200, mass_max=700
+            sp, rel_error_ppm=5.0, ion_mode="[M-H]-", mass_min=200, mass_max=700
         )
         # The peak may be filtered or unassigned
         assert "assign" in result.table.columns

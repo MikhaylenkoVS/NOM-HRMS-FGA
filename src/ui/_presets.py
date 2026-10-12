@@ -24,6 +24,28 @@ from src.ui._config import (
 from src.ui.plots import embed_figure
 
 
+def _noise_widget_values(params: dict):
+    """Map preset noise parameters to the GUI noise method/value pair.
+
+    Follows the same priority as ``denoise()``: explicit ``intensity`` wins
+    over ``quantile``, which wins over GMM ``force``.  Returns ``None`` when
+    the preset does not configure denoising, so callers can leave the
+    current GUI values untouched.
+    """
+    if not isinstance(params, dict):
+        return None
+    if "noise_intensity" in params:
+        return "intensity", str(params["noise_intensity"])
+    if "noise_quantile" in params:
+        return "quantile", str(params["noise_quantile"])
+    if "noise_force" in params:
+        return "auto", str(params["noise_force"])
+    return None
+
+
+_NOISE_METHOD_INDEX = {"auto": 0, "intensity": 1, "quantile": 2}
+
+
 class PresetsMixin:
     """Extracted from app.py."""
 
@@ -81,11 +103,17 @@ class PresetsMixin:
         ]:
             if key in params:
                 var.set(str(params[key]))
-        # Шумоподавление
-        if "noise_intensity" in params:
-            self.noise_int_var.set(str(params["noise_intensity"]))
-        if "noise_force" in params:
-            self.noise_force_var.set(str(params["noise_force"]))
+        # Шумоподавление: пресет должен менять реально используемые поля
+        # (метод + значение), а не невидимые переменные.
+        noise = _noise_widget_values(params)
+        if noise is not None:
+            method, value = noise
+            idx = _NOISE_METHOD_INDEX.get(method)
+            if idx is not None and hasattr(self, "_noise_cb"):
+                self._noise_cb.current(idx)
+            else:
+                self.noise_method_var.set(method)
+            self.noise_value_var.set(value)
         # Формулы
         if "rel_error" in params:
             self.rel_error_var.set(str(params["rel_error"]))

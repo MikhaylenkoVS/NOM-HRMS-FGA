@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "id": "gui-01-settings-wiring",
+  "title": "GUI-01: проброс настроек GUI (sign, диапазоны элементов, пресеты шумоподавления) в пайплайн",
+  "status": "implementation",
+  "type": "scientific",
+  "risk_level": "medium",
+  "created_at": "2026-10-12T10:00:00Z",
+  "updated_at": "2026-10-12T10:00:00Z",
+  "owners": {
+    "planner": "deepcode",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "dev",
+    "working_branch": "fix/gui-01-settings-wiring",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/core/pipeline/",
+      "src/core/spectrum/",
+      "src/ui/",
+      "src/app.py",
+      "tests/",
+      ".ai/tasks/active/gui-01-settings-wiring/",
+      ".ai/decisions/"
+    ],
+    "forbidden_paths": [
+      "src/configs/chemistry.json",
+      "src/sim/",
+      "data/",
+      "docs/Библиография",
+      ".git/"
+    ],
+    "max_changed_files": 20
+  },
+  "requirements": {
+    "must_have": [
+      "Знак иона из GUI/CLI («-» / «+») реально управляет режимом ионизации при назначении формул: «-» → [M-H]-, «+» → [M+H]+",
+      "Диапазоны элементов из GUI (brutto_dict) и CLI (--element-ranges) реально ограничивают генерацию формул-кандидатов",
+      "Пресет шумоподавления (noise_force / noise_intensity) применяется к реально используемым GUI-полям (метод + значение), а не к неиспользуемым переменным",
+      "Удалены или переподключены мёртвые переменные noise_force_var / noise_int_var",
+      "Результат на data/test_sets/set_01 с дефолтными параметрами не меняется (md5 33cde0049db29f91dfeab2c71d13b77e)",
+      "Добавлены регрессионные тесты: sign влияет на назначение; brutto_dict влияет на назначение; применение пресета шумоподавления маппится в метод/значение",
+      "ADR зафиксирован в .ai/decisions/"
+    ],
+    "must_not": [
+      "Изменять значения научных констант: массы, delta_cd3, delta_cd3co, proton_mass",
+      "Менять поведение скоринга (пороги 20 / 0.3 / N>3 и веса)",
+      "Менять формат выходной таблицы (набор и порядок колонок)",
+      "Добавлять runtime-зависимости",
+      "Пушить в main или stable"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task gui-01-settings-wiring",
+      "python -c \"from src.configs import PIPELINE, CHEM, FORMULA_SEARCH_CFG; print('OK')\""
+    ],
+    "required_test_commands": [
+      "pytest tests/ -q",
+      "python -m src.cli --input data/test_sets/set_01/original.csv --dmet data/test_sets/set_01/deutermethylated.csv --dacet data/test_sets/set_01/deuteroacylated.csv -o /tmp/gui01_set01.csv"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": true,
+    "requires_adr": true,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": "reference_validation.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": ["0002-ion-mode-and-element-ranges-wiring.md"]
+  }
+}

@@ -4,11 +4,27 @@ import logging
 import pandas as pd
 from typing import Optional
 
+from src.configs import CHEM
+
 logger = logging.getLogger(__name__)
 
 
 def _debug(msg: str) -> None:
     logger.debug(msg)
+
+
+def _ion_mode_from_sign(sign: Optional[str]) -> str:
+    """Map the user-facing ionization sign to an ion-mode string.
+
+    ``"-"`` means deprotonation (``[M-H]-``), ``"+"`` means protonation
+    (``[M+H]+``).  Any other/empty value falls back to the configured
+    default ion mode so a malformed value can never crash the pipeline.
+    """
+    if sign == "+":
+        return "[M+H]+"
+    if sign == "-":
+        return "[M-H]-"
+    return CHEM.default_ion_mode
 
 
 def _ppm_error(observed: float, theoretical: float) -> float:
