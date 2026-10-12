@@ -227,6 +227,88 @@ def average_raw_to_df(
     return pd.DataFrame({"mass": masses, "intensity": intensities})
 
 
+def average_raw_segments(
+    raw_path: str,
+    segments: list[tuple[float, float]],
+    progress_callback: Callable[[str], None] | None = None,
+) -> list[pd.DataFrame]:
+    """Average a ThermoRAW file inside each RT segment.
+
+    Opens the file once, then averages every ``(start, end)`` segment with
+    the same method as :func:`average_raw_to_df`.
+
+    Returns one DataFrame (columns ``mass``, ``intensity``) per segment;
+    segments without scans produce an empty DataFrame.
+    """
+    if not is_available():
+        raise RuntimeError(f"RawFileReader not available: {_RAW_ERROR}")
+
+    if not segments:
+        raise ValueError("segments must not be empty")
+
+    import clr
+
+    dll_dir = _thermo_dll_dir()
+    sys.path.insert(0, dll_dir)
+
+    clr.AddReference("ThermoFisher.CommonCore.Data")
+    clr.AddReference("ThermoFisher.CommonCore.RawFileReader")
+    clr.AddReference("ThermoFisher.CommonCore.BackgroundSubtraction")
+    clr.AddReference("ThermoFisher.CommonCore.MassPrecisionEstimator")
+
+    from ThermoFisher.CommonCore.Data.Business import Device
+    from ThermoFisher.CommonCore.RawFileReader import RawFileReaderAdapter
+
+    raw_file = RawFileReaderAdapter.FileFactory(raw_path)
+    try:
+        if not raw_file.IsOpen or raw_file.IsError:
+            raise RuntimeError(f"Cannot open RAW file: {raw_file.FileError}")
+
+        raw_file.SelectInstrument(Device.MS, 1)
+        first_scan = raw_file.RunHeaderEx.FirstSpectrum
+        last_scan = raw_file.RunHeaderEx.LastSpectrum
+
+        results: list[pd.DataFrame] = []
+        for idx, (rt0, rt1) in enumerate(segments, 1):
+            _log(progress_callback, f"Segment {idx}/{len(segments)}: RT {rt0:.2f}–{rt1:.2f} min")
+            start_scan = _scan_at_rt(raw_file, rt0, first_scan, last_scan, "first")
+            end_scan = _scan_at_rt(raw_file, rt1, first_scan, last_scan, "last")
+            if start_scan > end_scan:
+                results.append(pd.DataFrame({"mass": [], "intensity": []}))
+                continue
+            results.append(
+                _average_scan_range(raw_file, start_scan, end_scan)
+            )
+        return results
+    finally:
+        raw_file.Dispose()
+
+
+def _average_scan_range(raw_file, start_scan: int, end_scan: int) -> pd.DataFrame:
+    """Average scans ``[start_scan, end_scan]`` with Thermo's 5 ppm method."""
+    from ThermoFisher.CommonCore.Data import ToleranceUnits, Extensions
+    from ThermoFisher.CommonCore.Data.Interfaces import IScanFilter
+
+    options = Extensions.DefaultMassOptions(raw_file)
+    options.ToleranceUnits = ToleranceUnits.ppm
+    options.Tolerance = 5.0
+
+    scan_filter = IScanFilter(raw_file.GetFilterForScanNumber(start_scan))
+    avg_scan = Extensions.AverageScansInScanRange(
+        raw_file, start_scan, end_scan, scan_filter, options
+    )
+
+    if avg_scan.HasCentroidStream:
+        masses = np.array(list(avg_scan.CentroidScan.Masses), dtype=float)
+        intensities = np.array(list(avg_scan.CentroidScan.Intensities), dtype=float)
+    else:
+        masses = np.array(list(avg_scan.SegmentedScan.Positions), dtype=float)
+        intensities = np.array(
+            list(avg_scan.SegmentedScan.Intensities), dtype=float
+        )
+    return pd.DataFrame({"mass": masses, "intensity": intensities})
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 

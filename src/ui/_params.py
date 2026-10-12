@@ -98,9 +98,23 @@ class ParamsMixin:
             ttk.Entry(rt_frame, textvariable=rt_max_var, width=5).pack(
                 side="left", padx=2
             )
-            ttk.Label(rt_frame, text="(если .raw)", foreground="gray").pack(
+            ttk.Label(rt_frame, text="(если .raw/.mzML)", foreground="gray").pack(
                 side="left", padx=4
             )
+            if i == 0:
+                # Для исходного спектра: опциональное разбиение диапазона
+                # на отрезки (шаг = ширина отрезка в минутах).
+                ttk.Label(rt_frame, text="Шаг, мин:").pack(
+                    side="left", padx=(12, 2)
+                )
+                ttk.Entry(rt_frame, textvariable=self.segment_width_var, width=5).pack(
+                    side="left", padx=2
+                )
+                ttk.Checkbutton(
+                    rt_frame,
+                    text="разбить на отрезки",
+                    variable=self.segment_mode_var,
+                ).pack(side="left", padx=4)
         out_lf = ttk.LabelFrame(frame, text="💾  Выходной файл")
         out_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
         out_lf.columnconfigure(0, weight=1)

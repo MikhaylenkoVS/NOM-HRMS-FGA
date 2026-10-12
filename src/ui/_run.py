@@ -24,6 +24,7 @@ from src.ui._config import (
 from src.ui.plots import embed_figure
 from src.ui._deps import (
     run_pipeline,
+    run_pipeline_segmented,
     CORE_LOADED,
     _CORE_ERROR,
     average_raw_to_json,
@@ -146,6 +147,23 @@ class RunMixin:
             )
             return
 
+        seg_opts = None
+        if self.segment_mode_var.get():
+            # Сегментный режим: усреднение по RT-отрезкам выполняет
+            # run_pipeline_segmented (в фоновом потоке). Пути не разрешаем
+            # заранее — функция сама обрабатывает RAW/mzML/CSV.
+            try:
+                seg_width = float(self.segment_width_var.get())
+            except ValueError:
+                messagebox.showerror("Ошибка", "Ширина отрезка: ожидается число")
+                return
+            if seg_width <= 0:
+                messagebox.showerror("Ошибка", "Ширина отрезка должна быть > 0")
+                return
+            rt_min = self._rt_float(self.src_rt_min, 0.0)
+            rt_max = self._rt_float(self.src_rt_max, 20.0)
+            seg_opts = {"segment_width": seg_width, "rt_min": rt_min, "rt_max": rt_max}
+
         # Быстрая валидация в главном потоке: только чтение StringVar,
         # без файловых операций и конвертации.
         inputs = []
@@ -176,6 +194,8 @@ class RunMixin:
         self._structure_cache.clear()  # сброс кэша структур
         self._structure_preloading = False
         self._log("[DEBUG] ═══ Запуск анализа ═══", color="info")
+        if seg_opts:
+            self._log(f"[DEBUG]   сегментный режим: {seg_opts}", color="info")
         self._log(f"[DEBUG]   params = {params}", color="info")
 
         self.progress["value"] = 0
@@ -184,12 +204,12 @@ class RunMixin:
         # RAW/mzML-конвертация и пайплайн выполняются в фоновом потоке.
         t = threading.Thread(
             target=self._run_worker,
-            args=(inputs, params),
+            args=(inputs, params, seg_opts),
             daemon=True,
         )
         t.start()
 
-    def _run_worker(self, inputs: list, params: dict):
+    def _run_worker(self, inputs: list, params: dict, seg_opts=None):
         """
         Выполняется в фоновом потоке: разрешает пути (RAW/mzML → JSON) и
         запускает пайплайн.  Все print() из pipeline попадают в GUI-лог через
@@ -205,10 +225,14 @@ class RunMixin:
             self._log_queue.put(("progress", (stage_name, pct)))
 
         try:
-            spec_paths = []
-            for label, path, rt_min_s, rt_max_s in inputs:
-                resolved = self._resolve_path(path, rt_min_s, rt_max_s, label)
-                spec_paths.append(resolved)
+            if seg_opts:
+                # Сегментный режим: RAW/mzML/CSV обрабатывает сама функция.
+                spec_paths = [path for _, path, _, _ in inputs]
+            else:
+                spec_paths = []
+                for label, path, rt_min_s, rt_max_s in inputs:
+                    resolved = self._resolve_path(path, rt_min_s, rt_max_s, label)
+                    spec_paths.append(resolved)
         except Exception as e:
             # Ошибка подготовки входных файлов (путь/RAW/mzML) — показываем
             # пользователю понятное сообщение без длинного traceback.
@@ -219,19 +243,34 @@ class RunMixin:
             return
 
         try:
-            self._log_queue.put(("paths_resolved", tuple(spec_paths)))
+            if not seg_opts:
+                self._log_queue.put(("paths_resolved", tuple(spec_paths)))
             self._log_queue.put(("log", f"[DEBUG]   src   = {spec_paths[0]}\n"))
             self._log_queue.put(("log", f"[DEBUG]   dmet  = {spec_paths[1]}\n"))
             self._log_queue.put(("log", f"[DEBUG]   dacet = {spec_paths[2]}\n"))
 
             self._log_queue.put(("log", "[DEBUG] _run_worker: старт пайплайна\n"))
-            res = run_pipeline(
-                src_path=spec_paths[0],
-                dmet_path=spec_paths[1],
-                dacet_path=spec_paths[2],
-                progress_callback=_on_progress,
-                **params,
-            )
+            if seg_opts:
+                seg_params = {
+                    k: v for k, v in params.items()
+                    if k not in ("output_csv", "visualize")
+                }
+                res = run_pipeline_segmented(
+                    src_path=spec_paths[0],
+                    dmet_path=spec_paths[1],
+                    dacet_path=spec_paths[2],
+                    progress_callback=_on_progress,
+                    **seg_opts,
+                    **seg_params,
+                )
+            else:
+                res = run_pipeline(
+                    src_path=spec_paths[0],
+                    dmet_path=spec_paths[1],
+                    dacet_path=spec_paths[2],
+                    progress_callback=_on_progress,
+                    **params,
+                )
 
             # res — PipelineRunResult
             table = getattr(res, "table", None)

@@ -133,6 +133,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "--element-ranges",
         help="диапазоны элементов, напр. 'C:5-60,H:4-120,O:1-30,N:0-3'",
     )
+    p.add_argument(
+        "--segment-width",
+        type=float,
+        help="ширина RT-отрезка (мин); включает сегментный режим усреднения",
+    )
+    p.add_argument(
+        "--rt-min",
+        type=float,
+        default=0.0,
+        help="начало RT-диапазона (мин) для сегментного режима (по умолчанию 0)",
+    )
+    p.add_argument(
+        "--rt-max",
+        type=float,
+        default=20.0,
+        help="конец RT-диапазона (мин) для сегментного режима (по умолчанию 20)",
+    )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
 
@@ -171,27 +188,36 @@ def main(argv=None) -> int:
             print(f"Ошибка: неверный --element-ranges: {e}", file=sys.stderr)
             return 1
 
-    # ── 2. Разрешаем входы (RAW / mzML → JSON) ────────────────────────────────
-    try:
-        src_path = _resolve_input(args.input)
-        dmet_path = _resolve_input(args.dmet) if args.dmet else None
-        dacet_path = _resolve_input(args.dacet) if args.dacet else None
-    except Exception as e:
-        print(f"Ошибка загрузки входных данных: {e}", file=sys.stderr)
-        return 1
-
-    # ── 3. Запуск пайплайна (прогресс → stderr) ───────────────────────────────
-    from src.core import run_pipeline
-
+    # ── 2. Запуск пайплайна (прогресс → stderr) ────────────────────────────────
     try:
         with redirect_stdout(sys.stderr):
-            res = run_pipeline(
-                src_path=src_path,
-                dmet_path=dmet_path,
-                dacet_path=dacet_path,
-                visualize=False,
-                **kwargs,
-            )
+            if args.segment_width is not None:
+                # Сегментный режим: RAW/mzML усредняются внутри отрезков
+                # самой функцией; CSV/XLSX/JSON считаются одним сегментом.
+                from src.core import run_pipeline_segmented
+
+                res = run_pipeline_segmented(
+                    src_path=args.input,
+                    dmet_path=args.dmet,
+                    dacet_path=args.dacet,
+                    segment_width=args.segment_width,
+                    rt_min=args.rt_min,
+                    rt_max=args.rt_max,
+                    **kwargs,
+                )
+            else:
+                from src.core import run_pipeline
+
+                src_path = _resolve_input(args.input)
+                dmet_path = _resolve_input(args.dmet) if args.dmet else None
+                dacet_path = _resolve_input(args.dacet) if args.dacet else None
+                res = run_pipeline(
+                    src_path=src_path,
+                    dmet_path=dmet_path,
+                    dacet_path=dacet_path,
+                    visualize=False,
+                    **kwargs,
+                )
     except Exception as e:
         print(f"Ошибка выполнения: {e}", file=sys.stderr)
         return 1

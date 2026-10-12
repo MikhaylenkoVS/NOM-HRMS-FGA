@@ -13,7 +13,7 @@ from .chemistry.fragment_combinations import (
 )
 from .chemistry._visualize import find_and_visualize_molecules
 from .domain.molecule import Molecule
-from .pipeline import run_pipeline
+from .pipeline import run_pipeline, run_pipeline_segmented
 from .van_krevelen import (
     NOM_REGIONS,
     compute_van_krevelen_data,

@@ -254,6 +254,8 @@ class App(
         self.max_groups_var = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
         self.allow_gaps_var = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
         self.isotope_filter_var = tk.BooleanVar(value=False)
+        self.segment_mode_var = tk.BooleanVar(value=False)
+        self.segment_width_var = tk.StringVar(value="2.0")
         self.output_csv_var = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))
         # Диапазоны элементов из configs/constants/formula_search.json -> ranges
         _r = _FORMULA_RANGES

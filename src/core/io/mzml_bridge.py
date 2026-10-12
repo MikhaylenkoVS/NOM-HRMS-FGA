@@ -213,6 +213,91 @@ def mzml_to_json(
     return os.path.abspath(output)
 
 
+def mzml_segments_to_dfs(
+    mzml_path: str,
+    segments: list[tuple[float, float]],
+    min_intensity: float = 0.0,
+    progress_callback: Optional[Callable[[str], None]] = None,
+) -> list[pd.DataFrame]:
+    """Average MS1 scans inside each RT segment of an mzML file.
+
+    Reads the file once, decodes each MS1 spectrum (centroiding profile
+    data), and aggregates scans per segment with
+    :func:`src.core.io._rt_aggregate.aggregate_scans`.
+
+    Returns one DataFrame (``mass``, ``intensity``) per segment; segments
+    without scans produce an empty DataFrame.
+    """
+    from ._rt_aggregate import aggregate_scans
+
+    try:
+        from pymzml.run import Reader  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise RuntimeError(
+            "mzML bridge requires pymzml.\n"
+            f"Import error: {exc}\n\n"
+            "Install it with: pip install pymzml"
+        ) from exc
+
+    if not segments:
+        raise ValueError("segments must not be empty")
+    if not os.path.isfile(mzml_path):
+        raise FileNotFoundError(f"mzML file not found: {mzml_path}")
+
+    if progress_callback:
+        progress_callback("Чтение mzML…")
+
+    reader = Reader(mzml_path)
+    scans: list[tuple] = []
+    try:
+        for spec in reader:
+            ms_level = spec.get("ms level", 1)
+            if ms_level != 1:
+                continue
+
+            rt_min = spec.scan_time_in_minutes()
+
+            spec_elem = spec.element
+            is_profile = _spectrum_is_profile(spec_elem)
+            binary_arrays = spec_elem.findall(
+                f"{_NS}binaryDataArrayList/{_NS}binaryDataArray"
+            )
+
+            mz_arr = None
+            int_arr = None
+            for ba in binary_arrays:
+                array_type = None
+                for cp in ba.findall(f"{_NS}cvParam"):
+                    acc = cp.get("accession", "")
+                    if acc == "MS:1000514":
+                        array_type = "mz"
+                    elif acc == "MS:1000515":
+                        array_type = "intensity"
+                if array_type == "mz":
+                    mz_arr = _decode_binary(ba)
+                elif array_type == "intensity":
+                    int_arr = _decode_binary(ba)
+
+            if mz_arr is None or int_arr is None or len(mz_arr) == 0:
+                continue
+
+            if is_profile:
+                mz_arr, int_arr = _centroid_profile(mz_arr, int_arr, min_intensity)
+                if len(mz_arr) == 0:
+                    continue
+
+            scans.append((mz_arr, int_arr, float(rt_min)))
+    finally:
+        reader.close()
+
+    if not scans:
+        raise ValueError(
+            "No MS1 scans found in the mzML file (or none match the segments)."
+        )
+
+    return aggregate_scans(scans, segments)
+
+
 def is_available() -> bool:
     """Check whether mzML bridge is available (pymzml importable)."""
     try:
