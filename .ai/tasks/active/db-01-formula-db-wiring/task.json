@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "id": "db-01-formula-db-wiring",
+  "title": "DB-01: назначение формул через сжатую базу + галогенный слой, изотопы в обычном прогоне",
+  "status": "implementation",
+  "type": "scientific",
+  "risk_level": "high",
+  "created_at": "2026-10-13T17:00:00Z",
+  "updated_at": "2026-10-13T17:00:00Z",
+  "owners": {
+    "planner": "deepcode",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "feat/db-01-formula-db-wiring",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/core/formula_db/",
+      "src/core/spectrum/",
+      "src/core/pipeline/",
+      "src/configs/",
+      "src/ui/",
+      "src/app.py",
+      "src/cli.py",
+      "tools/",
+      ".github/workflows/",
+      "docs/",
+      "tests/",
+      ".ai/tasks/active/db-01-formula-db-wiring/",
+      ".ai/decisions/"
+    ],
+    "forbidden_paths": [
+      "data/formula_db/",
+      ".git/"
+    ],
+    "max_changed_files": 30
+  },
+  "requirements": {
+    "must_have": [
+      "Назначение берёт кандидатов из сжатой базы формул, если файл доступен",
+      "Автоматический откат на перебор при отсутствии базы",
+      "Галогены (F, Cl, Br, I) добавляются слоем подстановок поверх CHNOSP-базы",
+      "Слой галогенов включается по изотопному свидетельству M+2 >= 5 % или при отсутствии CHNOSP-кандидатов",
+      "Поиск изотопных вариантов доступен из pipeline, GUI и CLI",
+      "Пики-сателлиты помечаются и исключаются из отчёта",
+      "Изотопный фильтр и поиск вариантов включены по умолчанию",
+      "Отдельное окно со списком изотопов (масса + распространённость) по кнопке",
+      "Исправлены баги чтения базы (mass_u в строке формулы и в counts)",
+      "База и zstandard попадают в .exe (spec: datas + hiddenimports)",
+      "ADR-0005 зафиксирован"
+    ],
+    "must_not": [
+      "Изменять формат data/formula_db/*.fdb (пересборка базы не требуется)",
+      "Менять значения научных констант (массы, delta_cd3, delta_cd3co, proton_mass)",
+      "Терять точность на эталонном тест-сете set_01"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task db-01-formula-db-wiring",
+      "python -c \"from src.core.spectrum._formula_source import open_formula_db; print(bool(open_formula_db()))\""
+    ],
+    "required_test_commands": [
+      "pytest tests/ -q",
+      "python -m src.cli --input data/test_sets/set_01/original.csv --dmet data/test_sets/set_01/deutermethylated.csv --dacet data/test_sets/set_01/deuteroacylated.csv --sep , -o /tmp/db01_set01.xlsx"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": true,
+    "requires_adr": true,
+    "requires_human_approval": false
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": "reference_validation.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": ["0005-formula-db-wiring.md"]
+  }
+}
