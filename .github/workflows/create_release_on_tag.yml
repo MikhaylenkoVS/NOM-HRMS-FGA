@@ -1,0 +1,40 @@
+name: Create release on tag
+
+# Автоматическое создание GitHub Release при пуше тега вида vX.Y.Z.
+# После публикации релиза срабатывает workflow "Build NOM_HRMS_FGA.exe",
+# который собирает .exe и прикладывает его к релизу как asset.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release from tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Create release if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          NOTES="docs/RELEASE_NOTES_${TAG}.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG уже существует — ничего не делаем."
+            exit 0
+          fi
+          if [ -f "$NOTES" ]; then
+            echo "Создаём релиз $TAG с описанием из $NOTES"
+            gh release create "$TAG" --title "NOM-HRMS FGA $TAG" --notes-file "$NOTES"
+          else
+            echo "Файл $NOTES не найден — создаём релиз с авто-описанием."
+            gh release create "$TAG" --title "NOM-HRMS FGA $TAG" --generate-notes
+          fi
