@@ -1,8 +1,14 @@
 name: Create release on tag
 
-# Автоматическое создание GitHub Release при пуше тега вида vX.Y.Z.
-# После публикации релиза срабатывает workflow "Build NOM_HRMS_FGA.exe",
-# который собирает .exe и прикладывает его к релизу как asset.
+# Автоматический релиз при пуше тега вида vX.Y.Z:
+#   1) job create-release — создаёт GitHub Release (если ещё нет) и кладёт описание
+#      из docs/RELEASE_NOTES_<tag>.md;
+#   2) job build-exe — собирает NOM_HRMS_FGA.exe на windows-latest и
+#      прикладывает его к релизу как asset.
+#
+# Почему сборка внутри этого workflow, а не через release_exe.yml:
+# событие release, созданное с GITHUB_TOKEN, не порождает новый workflow run,
+# поэтому "Build NOM_HRMS_FGA.exe" (триггер release: published) не запускается.
 on:
   push:
     tags:
@@ -28,7 +34,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           NOTES="docs/RELEASE_NOTES_${TAG}.md"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG уже существует — ничего не делаем."
+            echo "Release $TAG уже существует — описание не трогаем."
             exit 0
           fi
           if [ -f "$NOTES" ]; then
@@ -38,3 +44,56 @@ jobs:
             echo "Файл $NOTES не найден — создаём релиз с авто-описанием."
             gh release create "$TAG" --title "NOM-HRMS FGA $TAG" --generate-notes
           fi
+
+  build-exe:
+    name: Build and attach NOM_HRMS_FGA.exe
+    needs: create-release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pyinstaller>=6.0"
+          pip install "numpy>=1.24" "pandas>=2.0" "matplotlib>=3.7" "Pillow>=9.0" "scipy>=1.10"
+          pip install "pythonnet>=3.0"
+          pip install "pymzml>=0.8"
+          pip install "rdkit>=2023.9" 2>/dev/null || pip install "rdkit-pypi>=2022.9"
+
+      - name: Build .exe
+        shell: bash
+        run: |
+          python -m PyInstaller tools/NOM_HRMS_FGA.spec --noconfirm
+          ls -lh dist/NOM_HRMS_FGA.exe
+
+      - name: Smoke-test .exe
+        shell: bash
+        run: |
+          echo "Запускаем NOM_HRMS_FGA.exe на 20 секунд..."
+          ./dist/NOM_HRMS_FGA.exe &
+          EXE_PID=$!
+          sleep 20
+          if kill -0 $EXE_PID 2>/dev/null; then
+            echo "OK: .exe запустился и работает"
+            kill $EXE_PID 2>/dev/null || true
+          else
+            echo "ПРЕДУПРЕЖДЕНИЕ: .exe завершился раньше (возможно, GUI закрыт)"
+          fi
+
+      - name: Attach .exe to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${GITHUB_REF_NAME}" dist/NOM_HRMS_FGA.exe --clobber
+          gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[] | "asset: \(.name) \(.size) bytes"'
