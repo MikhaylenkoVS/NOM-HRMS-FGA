@@ -114,15 +114,19 @@ class TestPipelineSettingsWiring:
     def test_brutto_dict_limits_pipeline_result(self):
         from src.core import run_pipeline
 
+        # Диапазоны должны быть совместимы с ограничениями плаузибельности
+        # (H/C <= 3, O/C <= 1.2, N/C <= 1.0, X/C <= 0.1): при C:1-3 достижимая
+        # масса ограничена ~135 Да, и на тест-сете (200-600 Да) формул нет.
+        # Поэтому проброс диапазона проверяем на реалистичном окне C:5-20.
         res = run_pipeline(
-            brutto_dict={"C": (1, 3), "H": (0, 100), "O": (0, 25), "N": (0, 10)},
+            brutto_dict={"C": (5, 20), "H": (0, 100), "O": (0, 25), "N": (0, 10)},
             **_base_kwargs(),
         )
-        assert len(res.table) > 0, "узкий диапазон C:1-3 дал пустую таблицу"
+        assert len(res.table) > 0, "диапазон C:5-20 дал пустую таблицу"
         for formula in res.table["brutto"].dropna():
             assert (
-                _formula_c_count(str(formula)) <= 3
-            ), f"Формула {formula} вне диапазона C:1-3"
+                5 <= _formula_c_count(str(formula)) <= 20
+            ), f"Формула {formula} вне диапазона C:5-20"
 
 
 # ── 4. preset noise parameters map to the real GUI fields ─────────────────────

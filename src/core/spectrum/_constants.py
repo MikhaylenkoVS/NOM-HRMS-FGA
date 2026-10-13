@@ -111,9 +111,15 @@ class FormulaSearchConfig:
         if self.ranges is None:
             # Default per-element count ranges (constants/formula_search.json).
             self.ranges = dict(_FS_RANGES)
-        for el in self.elements:
-            if el not in self.ranges:
-                raise ValueError(f"Для элемента {el!r} не задан диапазон в ranges")
+        else:
+            # Частично заданные диапазоны дополняются значениями из конфига:
+            # набор элементов расширен (S, P, F, Cl, Br, I), а вызывающий код
+            # (GUI, CLI --element-ranges, сегментный режим) исторически
+            # передаёт только C/H/O/N.
+            self.ranges = dict(self.ranges)
+            for el in self.elements:
+                if el not in self.ranges:
+                    self.ranges[el] = tuple(_FS_RANGES.get(el, (0, 0)))
 
     # ── удобные представления для векторизованных вычислений ────────────────
     @property
