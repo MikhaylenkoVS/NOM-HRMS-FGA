@@ -131,7 +131,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--isotope-filter", action="store_true", default=None)
     p.add_argument(
         "--element-ranges",
-        help="диапазоны элементов, напр. 'C:5-60,H:4-120,O:1-30,N:0-3'",
+        help=(
+            "диапазоны элементов, напр. 'C:5-60,H:4-120,O:1-30,N:0-3' "
+            "или с галогенами 'C:5-60,H:4-120,O:1-30,N:0-3,S:0-2,Cl:0-1'; "
+            "не указанные элементы берутся из formula_search.json"
+        ),
     )
     p.add_argument(
         "--segment-width",

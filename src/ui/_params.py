@@ -230,13 +230,19 @@ class ParamsMixin:
         ttk.Label(lf, text="Диапазоны элементов:").grid(
             row=2, column=0, columnspan=2, sticky="w", padx=6, pady=(10, 2)
         )
-        for i, (sym, mn, mx) in enumerate(
-            [
-                ("C", self.c_min, self.c_max),
-                ("H", self.h_min, self.h_max),
-                ("O", self.o_min, self.o_max),
-                ("N", self.n_min, self.n_max),
-            ]
+        # Элементы берём из self.el_vars (созданы по configs/constants/
+        # formula_search.json -> ranges), поэтому список не дублируется в коде.
+        # C, H, O, N — базовая химия; S, P, F, Cl, Br, I — расширение
+        # (см. _ratio_limits_note в том же конфиге про время поиска).
+        for i, (sym, (mn, mx)) in enumerate(
+            sorted(
+                self.el_vars.items(),
+                key=lambda kv: (
+                    ["C", "H", "O", "N", "S", "P", "F", "Cl", "Br", "I"].index(kv[0])
+                    if kv[0] in ["C", "H", "O", "N", "S", "P", "F", "Cl", "Br", "I"]
+                    else 99
+                ),
+            )
         ):
             r = 3 + i
             ttk.Label(lf, text=f"{sym}:").grid(
@@ -375,26 +381,22 @@ class ParamsMixin:
         ppm_tol = _float(self.ppm_tol_var, "Допуск поиска ppm", 0.5)
         max_groups = _int(self.max_groups_var, "Макс. групп", 20)
 
-        try:
-            c_min = int(self.c_min.get())
-            c_max = int(self.c_max.get())
-            h_min = int(self.h_min.get())
-            h_max = int(self.h_max.get())
-            o_min = int(self.o_min.get())
-            o_max = int(self.o_max.get())
-            n_min = int(self.n_min.get())
-            n_max = int(self.n_max.get())
-        except ValueError as e:
-            errors.append(f"  • Диапазон элементов: {e}")
-            _r = _FORMULA_RANGES
-            c_min = _r["C"][0]
-            c_max = _r["C"][1]
-            h_min = _r["H"][0]
-            h_max = _r["H"][1]
-            o_min = _r["O"][0]
-            o_max = _r["O"][1]
-            n_min = _r["N"][0]
-            n_max = _r["N"][1]
+        # Диапазоны всех элементов из GUI (C, H, O, N, S, P, F, Cl, Br, I).
+        brutto_dict: dict[str, tuple[int, int]] = {}
+        for el, (mn_var, mx_var) in self.el_vars.items():
+            try:
+                lo_v = int(mn_var.get())
+                hi_v = int(mx_var.get())
+            except ValueError:
+                errors.append(
+                    f"  • {el}: ожидаются целые числа, "
+                    f"получено «{mn_var.get()}»-«{mx_var.get()}»"
+                )
+                _rng = _FORMULA_RANGES.get(el, [0, 0])
+                lo_v, hi_v = int(_rng[0]), int(_rng[1])
+            if hi_v < lo_v:
+                errors.append(f"  • {el}: максимум ({hi_v}) меньше минимума ({lo_v})")
+            brutto_dict[el] = (lo_v, hi_v)
 
         if mass_min is not None and mass_max is not None and mass_min >= mass_max:
             errors.append(f"  • m/z min ({mass_min}) ≥ m/z max ({mass_max})")
@@ -404,13 +406,6 @@ class ParamsMixin:
             self._log("[DEBUG] Ошибки валидации:\n" + msg, color=WARN)
             messagebox.showerror("Ошибки параметров", msg)
             return None
-
-        brutto_dict = {
-            "C": (c_min, c_max),
-            "H": (h_min, h_max),
-            "O": (o_min, o_max),
-            "N": (n_min, n_max),
-        }
 
         return dict(
             sep=sep,

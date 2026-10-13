@@ -1,11 +1,30 @@
-"""Enumeration of CHON candidate formulas within a mass window."""
+"""Enumeration of candidate formulas (CHNOSP + halogens) within a mass window.
+
+Генератор перебирает формулы по элементам из
+``configs/constants/formula_search.json`` (по умолчанию C, H, O, N, S, P, F,
+Cl, Br, I) с учётом:
+
+* диапазонов количеств по каждому элементу;
+* предельных отношений элемент/C (H/C, O/C, N/C, S/C, P/C, X/C, где X —
+  сумма галогенов);
+* правила чётности Льюиса (сумма валентностей чётна);
+* условия существования связного графа (DBE >= 0) и потолка DBE.
+
+Реализация: цикл по углероду, затем DFS по «тяжёлым» элементам в порядке
+убывания массы с отсечением по достижимой массе; диапазон водорода
+разворачивается в конце (его вклад считаем последним — шаг по H мал,
+а ограничения по DBE и чётности задают точный интервал).
+
+Количества в результате идут в порядке ``cfg.elements`` (для конфига по
+умолчанию — C, H, O, N, S, P, F, Cl, Br, I).
+"""
 
 import logging
 import math
 from functools import lru_cache
 
 from src.configs import CHEM, FORMULA_SEARCH_CFG
-from ._constants import ATOMIC_MASS, FormulaSearchConfig
+from ._constants import ATOMIC_MASS, HALOGENS, FormulaSearchConfig
 
 logger = logging.getLogger(__name__)
 
@@ -16,102 +35,228 @@ DEFAULT_BRUTTO_DICT = {
     el: tuple(rng) for el, rng in FORMULA_SEARCH_CFG["default_brutto_dict"].items()
 }
 
+_INF = float("inf")
+_EPS = 1e-9
+
+
+def ranges_key(cfg: FormulaSearchConfig) -> tuple[tuple[str, int, int], ...]:
+    """Хэшируемое представление диапазонов: ``((элемент, min, max), …)``."""
+    return tuple(
+        (el, int(cfg.ranges[el][0]), int(cfg.ranges[el][1])) for el in cfg.elements
+    )
+
+
+def limits_key(cfg: FormulaSearchConfig) -> tuple[tuple[str, float], ...]:
+    """Хэшируемое представление предельных отношений элемент/C."""
+    limits = {
+        "H": float(cfg.max_hc),
+        "O": float(cfg.max_oc),
+        "N": float(cfg.max_nc),
+        "S": float(cfg.max_sc),
+        "P": float(cfg.max_pc),
+    }
+    for el in HALOGENS:
+        limits[el] = float(cfg.max_xc)
+    return tuple(sorted(limits.items()))
+
 
 @lru_cache(maxsize=16)
 def _generate_cached(
     mass_min: float,
     mass_max: float,
-    c_range: tuple[int, int],
-    h_range: tuple[int, int],
-    o_range: tuple[int, int],
-    n_range: tuple[int, int],
-) -> tuple[tuple[int, int, int, int, float], ...]:
-    """Enumerate candidate CHON formulas (memoized on hashable parameters)."""
-    eps = 1e-9  # защита от округления в ceil/floor
-    mass_min_abs = mass_min * 0.99
-    mass_max_abs = mass_max * 1.01
+    ranges: tuple[tuple[str, int, int], ...],
+    limits: tuple[tuple[str, float], ...],
+    min_c: int,
+    max_dbe: float,
+    mode: str = "soft",
+    slack: float = 0.01,
+) -> tuple[tuple[tuple[int, ...], ...], tuple[float, ...]]:
+    """Enumerate candidate formulas (memoized on hashable parameters).
 
-    c_min, c_max = c_range
-    h_min, h_max = h_range
-    o_min, o_max = o_range
-    n_min, n_max = n_range
+    Parameters
+    ----------
+    mass_min, mass_max : float
+        Neutral-mass window. ``slack`` задаёт относительный запас по краям
+        (по умолчанию ±1 %, чтобы не терять формулы на границах окна); при
+        поиске по отдельному пику запас можно поставить 0.
+    ranges : tuple of (str, int, int)
+        ``(элемент, минимум, максимум)`` в каноническом порядке элементов.
+    limits : tuple of (str, float)
+        Предельные отношения элемент/C. ``inf`` отключает ограничение.
+    min_c : int
+        Минимальное число атомов углерода.
+    max_dbe : float
+        Потолок DBE.
+    mode : str
+        Оставлен для совместимости API (``"soft"``/``"nom_like"``); химические
+        правила применяются всегда, поэтому значение не влияет на результат.
+    slack : float
+        Относительный запас массового окна (0.01 = ±1 %).
 
-    M_C = ATOMIC_MASS["C"]
-    M_H = ATOMIC_MASS.get("H", 0.0)
-    M_O = ATOMIC_MASS.get("O", 0.0)
-    M_N = ATOMIC_MASS.get("N", 0.0)
-    M_O_max = o_max * M_O
-    M_N_max = n_max * M_N
-    M_extra = M_O_max + M_N_max  # макс. добавка гетероатомов
+    Returns
+    -------
+    tuple of tuple of int
+        Строки количеств в порядке ``ranges``.
+    tuple of float
+        Нейтральные моноизотопные массы, параллельные строкам количеств.
+    """
+    del mode  # правила применяются всегда
 
-    result: list[tuple[int, int, int, int, float]] = []
+    elements = tuple(el for el, _, _ in ranges)
+    rng = {el: (int(lo), int(hi)) for el, lo, hi in ranges}
+    lim = {el: float(v) for el, v in limits}
+    mass = {el: ATOMIC_MASS[el] for el in elements}
 
-    for c in range(c_min, c_max + 1):
-        base_C = c * M_C
-        if base_C > mass_max_abs:
-            break
+    lo = mass_min * (1.0 - slack)
+    hi = mass_max * (1.0 + slack)
 
-        # ---------- допустимый диапазон H для этого C ----------
-        # Даже с макс. O+N масса должна достичь mass_min_abs
-        h_lo = max(
-            h_min,
-            math.ceil((mass_min_abs - base_C - M_extra) / M_H - eps),
-        )
-        # Без O+N масса не должна превысить mass_max_abs
-        h_hi = min(
-            h_max,
-            math.floor((mass_max_abs - base_C) / M_H + eps),
-        )
+    m_c = mass.get("C", 0.0)
+    m_h = mass.get("H", 0.0)
+    c_rng = rng.get("C", (1, 1))
+    h_rng = rng.get("H", (0, 0))
+
+    c_lo = max(int(min_c), int(c_rng[0]))
+    c_hi = int(c_rng[1])
+    if m_c > 0:
+        c_hi = min(c_hi, int(math.floor(hi / m_c + _EPS)))
+    if c_hi < c_lo:
+        return (), ()
+
+    heavy = [el for el in elements if el not in ("C", "H")]
+    # Тяжёлые — по убыванию массы: отсечение по массе срабатывает раньше.
+    heavy.sort(key=lambda el: -mass[el])
+    halogens = [el for el in HALOGENS if el in rng]
+    max_xc = lim.get("F", _INF)
+    max_hc = lim.get("H", _INF)
+
+    rows: list[tuple[int, ...]] = []
+    masses: list[float] = []
+    counts: dict[str, int] = {}
+
+    def _append(c: int, mass_fixed: float, x_total: int) -> None:
+        """Развернуть диапазон H и применить правила валентности/DBE."""
+        n_at = counts.get("N", 0)
+        p_at = counts.get("P", 0)
+
+        h_lo = int(h_rng[0])
+        h_hi = int(h_rng[1])
+        if max_hc != _INF:
+            h_hi = min(h_hi, int(math.floor(max_hc * c + _EPS)))
+        if m_h > 0:
+            h_lo = max(h_lo, int(math.ceil((lo - mass_fixed) / m_h - _EPS)))
+            h_hi = min(h_hi, int(math.floor((hi - mass_fixed) / m_h + _EPS)))
+
+        # DBE = (2C + 2 + N + P - H - X) / 2; H ограничен сверху условием
+        # DBE >= 0, снизу — потолком max_dbe и балансом валентностей.
+        h_dbe_max = 2 * c + 2 + n_at + p_at - x_total
+        h_hi = min(h_hi, h_dbe_max)
+        if max_dbe != _INF:
+            h_lo = max(h_lo, h_dbe_max - 2 * int(max_dbe))
         if h_lo > h_hi:
-            continue
+            return
 
-        for h in range(h_lo, h_hi + 1):
-            base_CH = base_C + h * M_H
+        # Чётность числителя DBE (правило Льюиса).
+        parity = (n_at + p_at - x_total) % 2
+        start = h_hi - ((h_hi - parity) % 2)
+        if start < h_lo:
+            return
 
-            # ---------- допустимый диапазон O ----------
-            o_lo = max(
-                o_min,
-                (
-                    math.ceil((mass_min_abs - base_CH - M_N_max) / M_O - eps)
-                    if M_O > 0
-                    else 0
-                ),
-            )
-            o_hi = min(
-                o_max,
-                math.floor((mass_max_abs - base_CH) / M_O + eps) if M_O > 0 else 0,
-            )
-            if o_lo > o_hi:
+        base_mass = mass_fixed
+        for h in range(start, h_lo - 1, -2):
+            m_total = base_mass + h * m_h
+            if m_total < lo or m_total > hi:
                 continue
-
-            for o in range(o_lo, o_hi + 1):
-                base_CHO = base_CH + o * M_O
-
-                # ---------- допустимый диапазон N ----------
-                n_lo = max(
-                    n_min,
-                    math.ceil((mass_min_abs - base_CHO) / M_N - eps) if M_N > 0 else 0,
+            rows.append(
+                tuple(
+                    c
+                    if el == "C"
+                    else (h if el == "H" else counts.get(el, 0))
+                    for el in elements
                 )
-                n_hi = min(
-                    n_max,
-                    math.floor((mass_max_abs - base_CHO) / M_N + eps) if M_N > 0 else 0,
-                )
-                for n in range(n_lo, n_hi + 1):
-                    mass = base_CHO + n * M_N
+            )
+            masses.append(m_total)
 
-                    # ── Классические химические правила (жёсткие) ──────
-                    # LEWIS: сумма валентностей должна быть чётной
-                    #   4C + H + 3N + 2O ≡ H + N (mod 2)
-                    if (h + n) % 2 != 0:
-                        continue
-                    # SENIOR: необходимое условие существования связного графа
-                    #   H ≤ 2C + N + 2  (эквивалентно DBE ≥ 0)
-                    if h > 2 * c + n + 2:
-                        continue
+    def rec(
+        k: int,
+        c: int,
+        mass_fixed: float,
+        x_total: int,
+        cap: dict[str, int],
+        x_cap: int | None,
+        suf_max: list[float],
+        suf_min: list[float],
+    ) -> None:
+        # Отсечение по достижимой массе: до lo не дотянуть / в hi уже не влезть.
+        if mass_fixed + suf_max[k] < lo or mass_fixed + suf_min[k] > hi:
+            return
+        if k == len(heavy):
+            _append(c, mass_fixed, x_total)
+            return
 
-                    result.append((c, h, o, n, mass))
+        el = heavy[k]
+        m_el = mass[el]
+        cnt_lo = int(rng[el][0])
+        cnt_hi = cap[el]
+        if el in halogens and x_cap is not None:
+            # Лимит X/C общий для всех галогенов: вычитаем уже набранное.
+            cnt_hi = min(cnt_hi, x_cap - x_total)
 
-    return tuple(result)
+        # Нижняя граница: сколько атомов нужно, чтобы дотянуть массу до lo.
+        need = lo - mass_fixed - suf_max[k + 1]
+        if need > 0 and m_el > 0:
+            cnt_lo = max(cnt_lo, int(math.ceil(need / m_el - _EPS)))
+        # Верхняя граница: больше не влезет в hi с минимальными остальными.
+        room = hi - mass_fixed - suf_min[k + 1]
+        if m_el > 0:
+            cnt_hi = min(cnt_hi, int(math.floor(room / m_el + _EPS)))
+
+        for cnt in range(cnt_lo, cnt_hi + 1):
+            counts[el] = cnt
+            rec(
+                k + 1,
+                c,
+                mass_fixed + cnt * m_el,
+                x_total + cnt if el in halogens else x_total,
+                cap,
+                x_cap,
+                suf_max,
+                suf_min,
+            )
+        counts[el] = 0
+
+    h_min_mass = int(h_rng[0]) * m_h
+    n_heavy = len(heavy)
+    for c in range(c_lo, c_hi + 1):
+        # Максимумы по элементам с учётом лимитов элемент/C для этого C.
+        cap: dict[str, int] = {}
+        for el in heavy:
+            hi_cnt = int(rng[el][1])
+            ratio = lim.get(el, _INF)
+            if ratio != _INF:
+                hi_cnt = min(hi_cnt, int(math.floor(ratio * c + _EPS)))
+            cap[el] = hi_cnt
+        x_cap = int(math.floor(max_xc * c + _EPS)) if max_xc != _INF else None
+        h_max_cnt = int(h_rng[1])
+        if max_hc != _INF:
+            h_max_cnt = min(h_max_cnt, int(math.floor(max_hc * c + _EPS)))
+
+        # Суффиксные суммы достижимой массы: max — для отсечения снизу,
+        # min — для отсечения сверху (включая вклад водорода).
+        suf_max = [0.0] * (n_heavy + 1)
+        suf_min = [0.0] * (n_heavy + 1)
+        suf_max[n_heavy] = h_max_cnt * m_h
+        suf_min[n_heavy] = h_min_mass
+        for k in range(n_heavy - 1, -1, -1):
+            el = heavy[k]
+            suf_max[k] = suf_max[k + 1] + cap[el] * mass[el]
+            suf_min[k] = suf_min[k + 1] + int(rng[el][0]) * mass[el]
+
+        c_mass = c * m_c
+        if c_mass + suf_max[0] < lo or c_mass + suf_min[0] > hi:
+            continue
+        rec(0, c, c_mass, 0, cap, x_cap, suf_max, suf_min)
+
+    return tuple(rows), tuple(masses)
 
 
 def _generate_candidate_formulas(
@@ -119,19 +264,23 @@ def _generate_candidate_formulas(
     mass_max: float,
     cfg: FormulaSearchConfig,
     mode: str = "soft",
-) -> list[tuple[int, int, int, int, float]]:
-    """Enumerate candidate CHON formulas within a neutral-mass window.
+) -> list[tuple[int, ...]]:
+    """Enumerate candidate formulas; последний элемент кортежа — масса.
 
-    Returns (c, h, o, n, mass) tuples — string building is deferred. The
-    result is memoized on the hashable parameters (mass window + count ranges).
+    Возвращает кортежи ``(count_C, count_H, …, neutral_mass)`` в порядке
+    ``cfg.elements``. Результат мемоизируется по хэшируемым параметрам
+    (массовое окно + диапазоны + лимиты).
     """
-    c_range = tuple(cfg.ranges["C"])
-    h_range = tuple(cfg.ranges["H"])
-    o_range = tuple(cfg.ranges.get("O", (0, 0)))
-    n_range = tuple(cfg.ranges.get("N", (0, 0)))
-    return list(
-        _generate_cached(mass_min, mass_max, c_range, h_range, o_range, n_range)
+    rows, masses = _generate_cached(
+        mass_min,
+        mass_max,
+        ranges_key(cfg),
+        limits_key(cfg),
+        cfg.min_c,
+        cfg.max_dbe,
+        mode,
     )
+    return [tuple(row) + (m,) for row, m in zip(rows, masses)]
 
 
 def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:

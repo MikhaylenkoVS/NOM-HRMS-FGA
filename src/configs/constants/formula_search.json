@@ -1,21 +1,42 @@
 {
-  "_description": "Formula generation defaults — single source of truth for CHON enumeration. Consumers: src/core/spectrum/_constants.py (FormulaSearchConfig), src/core/spectrum/_generate.py (DEFAULT_BRUTTO_DICT), src/ui/_config.py и src/app.py (диапазоны элементов в GUI).",
-  "elements": ["C", "H", "O", "N"],
+  "_description": "Formula generation defaults — single source of truth for CHNOSP+halogen enumeration. Consumers: src/core/spectrum/_constants.py (FormulaSearchConfig), src/core/spectrum/_generate.py (DEFAULT_BRUTTO_DICT), src/ui/_config.py и src/app.py (диапазоны элементов в GUI).",
+  "elements": ["C", "H", "O", "N", "S", "P", "F", "Cl", "Br", "I"],
   "ranges": {
     "C": [1, 50],
     "H": [4, 100],
-    "O": [0, 20],
-    "N": [0, 8]
+    "O": [0, 25],
+    "N": [0, 10],
+    "S": [0, 5],
+    "P": [0, 5],
+    "F": [0, 5],
+    "Cl": [0, 5],
+    "Br": [0, 3],
+    "I": [0, 3]
   },
   "max_hc": 3.0,
   "max_oc": 1.2,
   "max_nc": 1.0,
+  "max_sc": 0.2,
+  "max_pc": 0.1,
+  "max_xc": 0.1,
   "max_dbe": 30.0,
   "min_c": 1,
+  "penalty_s": 1.0,
+  "penalty_p": 1.5,
+  "penalty_halogen": 1.5,
+  "bonus_isotope_m2": 2.5,
+  "_ratio_limits_note": "Пределы гетероатом/C подобраны по времени поиска (замеры на окне ±5 ppm: при X/C=0.05/S/C=0.1/P/C=0.05 — 213 кандидатов и 85 мс на m/z 800; при X/C=0.5/S/C=0.5/P/C=0.5 — 21114 кандидатов и 3.9 с). Более широкие пределы требуют поиска по сжатой базе формул (см. data/formula_db), а не перебора.",
+  "_penalty_note": "Штрафы за атом S/P/галогена: без изотопного подтверждения (совпадение M+2) такие формулы проигрывают CHNO-варианту в пределах ppm-окна. Если M+2 совпадает с теоретическим, начисляется bonus_isotope_m2 — тогда галоген/S-формула может выиграть.",
   "default_brutto_dict": {
     "C": [0, 50],
     "H": [0, 100],
     "O": [0, 25],
-    "N": [0, 10]
+    "N": [0, 10],
+    "S": [0, 5],
+    "P": [0, 5],
+    "F": [0, 5],
+    "Cl": [0, 5],
+    "Br": [0, 3],
+    "I": [0, 3]
   }
 }

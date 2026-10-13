@@ -257,16 +257,22 @@ class App(
         self.segment_mode_var = tk.BooleanVar(value=False)
         self.segment_width_var = tk.StringVar(value="2.0")
         self.output_csv_var = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))
-        # Диапазоны элементов из configs/constants/formula_search.json -> ranges
+        # Диапазоны элементов из configs/constants/formula_search.json -> ranges.
+        # Список элементов берётся из того же конфига, поэтому добавление
+        # элемента (S, P, галогены) не требует правки GUI.
         _r = _FORMULA_RANGES
-        self.c_min = tk.StringVar(value=str(_r["C"][0]))
-        self.c_max = tk.StringVar(value=str(_r["C"][1]))
-        self.h_min = tk.StringVar(value=str(_r["H"][0]))
-        self.h_max = tk.StringVar(value=str(_r["H"][1]))
-        self.o_min = tk.StringVar(value=str(_r["O"][0]))
-        self.o_max = tk.StringVar(value=str(_r["O"][1]))
-        self.n_min = tk.StringVar(value=str(_r["N"][0]))
-        self.n_max = tk.StringVar(value=str(_r["N"][1]))
+        self.el_vars: dict[str, tuple[tk.StringVar, tk.StringVar]] = {}
+        for _el, (_lo, _hi) in _r.items():
+            self.el_vars[_el] = (
+                tk.StringVar(value=str(_lo)),
+                tk.StringVar(value=str(_hi)),
+            )
+        # Совместимые атрибуты для C/H/O/N (используются тестами и старым кодом)
+        _zero = lambda: tk.StringVar(value="0")  # noqa: E731
+        self.c_min, self.c_max = self.el_vars["C"]
+        self.h_min, self.h_max = self.el_vars["H"]
+        self.o_min, self.o_max = self.el_vars.get("O", (_zero(), _zero()))
+        self.n_min, self.n_max = self.el_vars.get("N", (_zero(), _zero()))
 
         self._build_ui()
 

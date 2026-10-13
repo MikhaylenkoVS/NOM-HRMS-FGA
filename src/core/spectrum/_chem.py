@@ -136,21 +136,45 @@ def _beynon_m1_ratio(counts: dict[str, int]) -> float:
 
 
 def _beynon_m1_ratio_cached(c: int, h: int, o: int, n: int) -> float:
-    """Теоретическое (M+1)/M для кортежа (C, H, O, N) — без dict-оверхеда."""
+    """Теоретическое (M+1)/M для кортежа (C, H, O, N) — без dict-оверхеда.
+
+    Оставлено для обратной совместимости; в назначении формул используется
+    изотопная таблица (:mod:`src.core.spectrum._isotopes`), которая учитывает
+    также S, P и галогены.
+    """
     return (c * 1.1 + h * 0.015 + o * 0.04 + n * 0.37) / 100.0
 
 
-def _counts_to_str(c: int, h: int, o: int, n: int) -> str:
-    """Build a Hill-order formula string from element counts."""
+# Порядок элементов в строке брутто-формулы. Совпадает с ``elements``
+# в constants/formula_search.json (C, H, O, N, S, P, затем галогены) —
+# для CHNO-формул строки остаются такими же, как раньше.
+FORMULA_ELEMENT_ORDER: tuple[str, ...] = (
+    "C", "H", "O", "N", "S", "P", "F", "Cl", "Br", "I",
+)
+
+
+def _counts_to_str(*counts, element_order: tuple[str, ...] | None = None) -> str:
+    """Собрать строку брутто-формулы из количеств элементов.
+
+    Parameters
+    ----------
+    *counts : int
+        Количества элементов в порядке ``element_order``.
+    element_order : tuple of str, optional
+        Порядок элементов. По умолчанию — ``FORMULA_ELEMENT_ORDER``
+        (C, H, O, N, S, P, F, Cl, Br, I), что для CHNO-формул даёт те же
+        строки, что и раньше.
+
+    Returns
+    -------
+    str
+        Формула, например ``"C7H6O2"`` или ``"C6H4Cl2O"``.
+    """
+    order = element_order or FORMULA_ELEMENT_ORDER
     parts = []
-    if c > 0:
-        parts.append(f"C{c}" if c > 1 else "C")
-    if h > 0:
-        parts.append(f"H{h}" if h > 1 else "H")
-    if o > 0:
-        parts.append(f"O{o}" if o > 1 else "O")
-    if n > 0:
-        parts.append(f"N{n}" if n > 1 else "N")
+    for el, n in zip(order, counts):
+        if n and n > 0:
+            parts.append(el if n == 1 else f"{el}{int(n)}")
     return "".join(parts)
 
 

@@ -173,8 +173,26 @@ csv_path = average_raw_to_csv("sample.raw", rt_min=5.0, rt_max=25.0)
 ### Сценарий 5 — только CLI (без GUI)
 
 ```bash
-python -m src.core.pipeline --help
+python -m src.cli --help
+
+# Полный прогон: исходный + дериватизованные спектры → таблица -COOH/-OH
+python -m src.cli \
+  --input data/test_sets/set_01/original.csv \
+  --dmet  data/test_sets/set_01/deutermethylated.csv \
+  --dacet data/test_sets/set_01/deuteroacylated.csv \
+  --sep , -o result_set01.xlsx
+
+# Ограничить химию поиска (по умолчанию C, H, O, N, S, P, F, Cl, Br, I)
+python -m src.cli --input original.csv --dmet dmet.csv --dacet dacet.csv \
+  --element-ranges "C:5-60,H:4-120,O:1-30,N:0-3,S:0-2,Cl:0-1" \
+  --isotope-filter -o result_cl.xlsx
 ```
+
+Набор элементов и их диапазоны живут в
+[`src/configs/constants/formula_search.json`](src/configs/constants/formula_search.json),
+изотопные данные — в
+[`src/configs/constants/isotope.json`](src/configs/constants/isotope.json);
+подробности — в [руководстве пользователя](docs/user_guide.md).
 
 ---
 
