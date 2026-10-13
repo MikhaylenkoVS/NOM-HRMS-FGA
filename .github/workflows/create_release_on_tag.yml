@@ -67,6 +67,8 @@ jobs:
           pip install "numpy>=1.24" "pandas>=2.0" "matplotlib>=3.7" "Pillow>=9.0" "scipy>=1.10"
           pip install "pythonnet>=3.0"
           pip install "pymzml>=0.8"
+          # Сжатая база формул (src/core/formula_db/_reader.py)
+          pip install "zstandard>=0.22"
           pip install "rdkit>=2023.9" 2>/dev/null || pip install "rdkit-pypi>=2022.9"
 
       - name: Build .exe

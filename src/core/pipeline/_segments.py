@@ -20,6 +20,7 @@ from src.core.spectrum import (
     denoise,
     find_series,
 )
+from src.core.spectrum._formula_source import open_formula_db
 from src.core.io.segmented import average_segments, build_rt_segments
 from src.core.pipeline._helpers import _debug
 from src.core.pipeline._stats import PipelineRunResult, PipelineStats
@@ -107,7 +108,9 @@ def run_pipeline_segmented(
     max_groups: int = PIPELINE.run_pipeline_defaults["max_groups"],
     allow_gaps: bool = PIPELINE.run_pipeline_defaults["allow_gaps"],
     # Прочее
-    isotope_filter: bool = False,
+    isotope_filter: bool = True,
+    isotope_variants: bool = True,
+    use_formula_db: bool = True,
     progress_callback=None,
 ):
     """Run the -COOH/-OH pipeline over RT-segmented chromatograms.
@@ -162,6 +165,9 @@ def run_pipeline_segmented(
     ion_mode = _ion_mode_for_sign(sign)
     search_config = _search_config_from_brutto(brutto_dict)
 
+    # Источник формул: сжатая база формул (общая для всех отрезков)
+    formula_db = open_formula_db() if use_formula_db else None
+
     src_specs: list[Spectrum] = []
     dmet_specs: list[Spectrum] = []
     dacet_specs: list[Spectrum] = []
@@ -182,8 +188,9 @@ def run_pipeline_segmented(
         )
         stats.src_loaded += len(src_spec.table)
 
-        # Копия до денойза нужна для изотопного фильтра (как в обычном пайплайне).
-        src_original = src_spec.copy() if isotope_filter else None
+        # Копия до денойза нужна для изотопного фильтра и поиска вариантов
+        # (как в обычном пайплайне).
+        src_original = src_spec.copy() if (isotope_filter or isotope_variants) else None
 
         try:
             src_spec = denoise(
@@ -206,7 +213,9 @@ def run_pipeline_segmented(
                 search_config=search_config,
                 ion_mode=ion_mode,
                 isotope_filter=isotope_filter,
+                isotope_variants=isotope_variants,
                 original=src_original,
+                formula_db=formula_db,
             )
             stats.assigned_count += int(
                 src_spec.table.get("assign", pd.Series(dtype=bool)).sum()
@@ -321,6 +330,9 @@ def run_pipeline_segmented(
 
     if progress_callback:
         progress_callback("Готово", 100)
+
+    if formula_db is not None:
+        formula_db.close()
 
     return PipelineRunResult(
         table=result, stats=stats, messages=messages, errors=errors

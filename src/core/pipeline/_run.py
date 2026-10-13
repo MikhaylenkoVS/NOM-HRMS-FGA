@@ -50,6 +50,7 @@ try:
         DELTA_CD3CO,
         FormulaSearchConfig,
     )
+    from src.core.spectrum._formula_source import open_formula_db
 
     _IMPORT_ERROR: Optional[str] = None
 except Exception as _e:
@@ -93,8 +94,13 @@ def run_pipeline(
     # Тест-режим
     test_mode: bool = False,
     test_sets_root=None,
-    # Изотопный фильтр
-    isotope_filter: bool = False,
+    # Изотопный фильтр и поиск изотопных вариантов (включены по умолчанию:
+    # паттерн M+1/M+2 учитывается при выборе формулы, а для найденных формул
+    # ищутся изотопные варианты и помечаются пики-сателлиты).
+    isotope_filter: bool = True,
+    isotope_variants: bool = True,
+    # Источник формул-кандидатов: сжатая база формул (если файл доступен)
+    use_formula_db: bool = True,
     use_cache: bool = True,
     progress_callback=None,
 ):
@@ -264,6 +270,7 @@ def run_pipeline(
             allow_gaps,
             output_csv,
             isotope_filter,
+            isotope_variants,
         )
     )
     if use_cache and _cache_key in _result_cache:
@@ -318,7 +325,8 @@ def run_pipeline(
         noise_force,
         noise_intensity,
         noise_quantile,
-        isotope_filter,
+        # Копия до денойза нужна и для фильтра, и для поиска изотопных вариантов
+        isotope_filter or isotope_variants,
         stats,
         messages,
         progress_callback,
@@ -343,17 +351,25 @@ def run_pipeline(
         if progress_callback:
             progress_callback("Генерация формул-кандидатов…", 22)
         _assign_cb = _make_sub_progress(progress_callback, 23, 28, "Формула {0}/{1}…")
-        src = assign_formulas(
-            src,
-            rel_error_ppm=rel_error,
-            mass_min=assign_mass_min,
-            mass_max=assign_mass_max,
-            search_config=search_config,
-            ion_mode=ion_mode,
-            isotope_filter=isotope_filter,
-            original=src_original,
-            progress_callback=_assign_cb,
-        )
+        # Источник формул: сжатая база (быстро, если файл доступен) или перебор
+        formula_db = open_formula_db() if use_formula_db else None
+        try:
+            src = assign_formulas(
+                src,
+                rel_error_ppm=rel_error,
+                mass_min=assign_mass_min,
+                mass_max=assign_mass_max,
+                search_config=search_config,
+                ion_mode=ion_mode,
+                isotope_filter=isotope_filter,
+                isotope_variants=isotope_variants,
+                original=src_original,
+                progress_callback=_assign_cb,
+                formula_db=formula_db,
+            )
+        finally:
+            if formula_db is not None:
+                formula_db.close()
         n_assigned = int(src.table.get("assign", pd.Series(dtype=bool)).sum())
         stats.assigned_count = n_assigned
         stats.assigned_ratio = (
@@ -538,6 +554,7 @@ def run_pipeline(
                         "max_groups": max_groups,
                         "allow_gaps": allow_gaps,
                         "isotope_filter": isotope_filter,
+                        "isotope_variants": isotope_variants,
                         "assign_mass_min": assign_mass_min,
                         "assign_mass_max": assign_mass_max,
                         "load_mass_min": load_mass_min,

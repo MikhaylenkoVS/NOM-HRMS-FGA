@@ -35,6 +35,8 @@ jobs:
           pip install pythonnet>=3.0
           # mzML bridge
           pip install pymzml>=0.8
+          # Сжатая база формул (src/core/formula_db/_reader.py)
+          pip install "zstandard>=0.22"
           # RDKit
           pip install rdkit>=2023.9 2>/dev/null || pip install rdkit-pypi>=2022.9
 

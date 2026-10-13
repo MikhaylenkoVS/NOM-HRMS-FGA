@@ -284,18 +284,99 @@ class ParamsMixin:
         lf.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
         cb = ttk.Checkbutton(
             lf,
-            text="🔬 Изотопный фильтр ¹³C (формула Бейнона)",
+            text="🔬 Изотопный фильтр (M+1/M+2 по таблице изотопов)",
             variable=self.isotope_filter_var,
         )
         cb.grid(row=0, column=0, sticky="w", padx=6, pady=4)
         ttk.Label(
             lf,
-            text="Штрафует формулы, чей изотопный паттерн M+1/M\n"
-            "отличается от теоретического более чем на 20%.\n"
-            "Проверка — по исходному спектру до шумоподавления.",
+            text="Сравнивает изотопный паттерн M+1/M+2 кандидата с исходным\n"
+            "спектром (до шумоподавления): расхождение — штраф, совпадение\n"
+            "M+2 для S/Cl/Br — бонус (изотопное подтверждение состава).",
             font=("Segoe UI", 8),
             foreground="#888",
         ).grid(row=1, column=0, sticky="w", padx=12, pady=(0, 6))
+
+        cb2 = ttk.Checkbutton(
+            lf,
+            text="🧬 Искать изотопные варианты (13C, 34S, 37Cl, 81Br, …)",
+            variable=self.isotope_variants_var,
+        )
+        cb2.grid(row=2, column=0, sticky="w", padx=6, pady=4)
+        ttk.Label(
+            lf,
+            text="Для каждой найденной формулы ищутся её изотопные варианты,\n"
+            "а пики-сателлиты помечаются и не попадают в отчёт как\n"
+            "самостоятельные соединения.",
+            font=("Segoe UI", 8),
+            foreground="#888",
+        ).grid(row=3, column=0, sticky="w", padx=12, pady=(0, 6))
+
+        ttk.Button(
+            lf,
+            text="📋 Список изотопов…",
+            command=self._show_isotope_table,
+        ).grid(row=4, column=0, sticky="w", padx=6, pady=(2, 8))
+
+    def _show_isotope_table(self):
+        """Отдельное окно со списком изотопов элементов поиска.
+
+        Таблица не висит в основной вкладке: её открывают кнопкой, когда
+        нужно посмотреть массы и природные распространённости изотопов,
+        которые использует изотопный фильтр и поиск вариантов.
+        """
+        from src.core.spectrum._isotopes import ISOTOPE_TABLE, isotope_label
+
+        win = tk.Toplevel(self)
+        win.title("Список изотопов")
+        win.transient(self)
+        win.geometry("620x620")
+
+        ttk.Label(
+            win,
+            text="Изотопы элементов поиска (масса и природная распространённость)",
+            font=("Segoe UI", 11, "bold"),
+        ).pack(anchor="w", padx=12, pady=(12, 2))
+        ttk.Label(
+            win,
+            text="M+1/M+2 считаются по этой таблице; моноизотопные элементы "
+            "(P, F, I) имеют один изотоп.",
+            font=("Segoe UI", 8),
+            foreground="#888",
+        ).pack(anchor="w", padx=12, pady=(0, 8))
+
+        holder = ttk.Frame(win)
+        holder.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        cols = ("el", "iso", "mass", "abund")
+        tv = ttk.Treeview(holder, columns=cols, show="headings", height=22)
+        widths = {"el": 90, "iso": 90, "mass": 170, "abund": 200}
+        titles = {
+            "el": "Элемент",
+            "iso": "Изотоп",
+            "mass": "Масса, Да",
+            "abund": "Распространённость, %",
+        }
+        for c in cols:
+            tv.heading(c, text=titles[c])
+            tv.column(c, width=widths[c], anchor="center")
+        for el, pairs in ISOTOPE_TABLE.items():
+            for i, (mass, abundance) in enumerate(pairs):
+                tv.insert(
+                    "",
+                    "end",
+                    values=(
+                        el,
+                        isotope_label(el, i),
+                        f"{mass:.8f}",
+                        f"{abundance * 100:.4f}",
+                    ),
+                )
+        scroll = ttk.Scrollbar(holder, orient="vertical", command=tv.yview)
+        tv.configure(yscrollcommand=scroll.set)
+        tv.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        ttk.Button(win, text="Закрыть", command=win.destroy).pack(pady=(0, 12))
 
     def _browse(self, var: tk.StringVar):
         path = filedialog.askopenfilename(
@@ -422,6 +503,7 @@ class ParamsMixin:
             max_groups=max_groups,
             allow_gaps=self.allow_gaps_var.get(),
             isotope_filter=self.isotope_filter_var.get(),
+            isotope_variants=self.isotope_variants_var.get(),
             brutto_dict=brutto_dict,
             output_csv=self.output_csv_var.get() or None,
             visualize=False,  # визуализацию делаем через GUI-вкладку

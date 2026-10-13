@@ -130,6 +130,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--allow-gaps", action="store_true", default=None)
     p.add_argument("--isotope-filter", action="store_true", default=None)
     p.add_argument(
+        "--isotope-variants",
+        action="store_true",
+        default=None,
+        help=(
+            "искать изотопные варианты (13C, 34S, 37Cl, 81Br, …) для найденных "
+            "формул и помечать пики-сателлиты"
+        ),
+    )
+    p.add_argument(
         "--element-ranges",
         help=(
             "диапазоны элементов, напр. 'C:5-60,H:4-120,O:1-30,N:0-3' "
@@ -185,6 +194,8 @@ def main(argv=None) -> int:
         kwargs["allow_gaps"] = args.allow_gaps
     if args.isotope_filter is not None:
         kwargs["isotope_filter"] = args.isotope_filter
+    if args.isotope_variants is not None:
+        kwargs["isotope_variants"] = args.isotope_variants
     if args.element_ranges:
         try:
             kwargs["brutto_dict"] = _parse_element_ranges(args.element_ranges)

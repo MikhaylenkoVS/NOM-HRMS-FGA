@@ -189,12 +189,17 @@ def decode_block(
 
 
 def formula_to_string(counts: dict[str, int]) -> str:
+    """Собрать строку формулы, игнорируя служебные ключи (например, ``mass_u``).
+
+    Раньше сюда попадал служебный ключ ``mass_u`` из записи блока, и строка
+    формулы получалась вида ``C9H10N4O2P2Smass_u29999997075040``.
+    """
     parts = []
     for el in ["C", "H"]:
         n = counts.get(el, 0)
         if n > 0:
             parts.append(el if n == 1 else f"{el}{n}")
-    for el in sorted(set(counts) - {"C", "H"}):
+    for el in sorted((set(counts) & set(MASSES)) - {"C", "H"}):
         n = counts.get(el, 0)
         if n > 0:
             parts.append(el if n == 1 else f"{el}{n}")

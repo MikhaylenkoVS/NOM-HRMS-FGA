@@ -12,6 +12,9 @@
   "pattern_max_shift": 3,
   "variant_min_probability": 0.002,
   "m2_tolerance": 0.35,
+  "variant_ppm_tol": 5.0,
+  "satellite_tolerance": 0.35,
+  "halogen_m2_evidence": 0.05,
   "isotope_table": {
     "H": [[1.00782503223, 0.999885], [2.01410177812, 0.000115]],
     "C": [[12.0, 0.9893], [13.00335483507, 0.0107]],

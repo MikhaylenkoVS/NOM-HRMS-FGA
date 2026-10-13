@@ -165,7 +165,8 @@ class FormulaDatabaseReader:
                 results.append(
                     SearchResult(
                         fstr,
-                        dict(cts),
+                        # Только элементы: служебный ключ mass_u в counts не нужен.
+                        {el: v for el, v in cts.items() if el != "mass_u"},
                         mass_u / MASS_SCALE,
                         err_ppm,
                         dbe_from_counts(cts),

@@ -39,6 +39,12 @@ _hidden: list[str] = [
     "queue", "threading", "warnings", "logging",
     "json", "csv", "io", "ast", "re", "math",
     "ctypes",
+    # Сжатая база формул: читатель подключается лениво из
+    # src/core/spectrum/_formula_source.open_formula_db, поэтому PyInstaller
+    # не видит импорт при статическом анализе.
+    "src.core.formula_db._reader",
+    "src.core.formula_db._packed",
+    "zstandard",
 ]
 
 # ---------------------------------------------------------------------------
@@ -79,6 +85,15 @@ _added_datas.extend(collect_data_files("matplotlib"))
 _icon_path = _ROOT / "assets" / "icon.ico"
 if _icon_path.is_file():
     _added_datas.append((str(_icon_path), "assets"))
+
+# Сжатая база формул (data/formula_db): *.fdb + манифест.
+# Используется назначением формул через src/core/spectrum/_formula_source.py
+# (ищется в sys._MEIPASS/data/formula_db). Без неё назначение работает
+# перебором — медленнее, но корректно.
+_db_dir = _ROOT / "data" / "formula_db"
+if _db_dir.is_dir():
+    for _f in sorted(_db_dir.glob("*.fdb")) + sorted(_db_dir.glob("*.manifest.json")):
+        _added_datas.append((str(_f), "data/formula_db"))
 
 # Merge all datas
 _all_datas: list[tuple[str, str]] = []

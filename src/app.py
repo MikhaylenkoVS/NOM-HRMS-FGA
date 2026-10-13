@@ -253,7 +253,10 @@ class App(
         self.ppm_tol_var = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
         self.max_groups_var = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
         self.allow_gaps_var = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
-        self.isotope_filter_var = tk.BooleanVar(value=False)
+        # Изотопные проверки включены по умолчанию: паттерн M+1/M+2 учитывается
+        # при выборе формулы, а для найденных формул ищутся изотопные варианты.
+        self.isotope_filter_var = tk.BooleanVar(value=True)
+        self.isotope_variants_var = tk.BooleanVar(value=True)
         self.segment_mode_var = tk.BooleanVar(value=False)
         self.segment_width_var = tk.StringVar(value="2.0")
         self.output_csv_var = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))

@@ -8,7 +8,13 @@ import numpy as np
 from ._generate import _generate_cached, _ion_shift, limits_key, ranges_key
 from ._constants import HALOGENS, FormulaSearchConfig
 from ._chem import _counts_to_str, _NOM_REGION_CENTERS
-from ._isotopes import ISOTOPE_TABLE, find_isotope_variants, nominal_shift
+from ._isotopes import (
+    ISOTOPE_TABLE,
+    find_isotope_variants,
+    nominal_shift,
+    variants,
+)
+from ._formula_source import DEFAULT_HALOGEN_ATOMS, db_candidates
 from src.configs import CHEM
 from src.configs.loader import ISOTOPE_CFG
 
@@ -17,6 +23,14 @@ logger = logging.getLogger(__name__)
 _ISOTOPE_TOLERANCE = float(ISOTOPE_CFG.tolerance)
 _ISOTOPE_PENALTY = float(ISOTOPE_CFG.penalty)
 _M2_TOLERANCE = float(getattr(ISOTOPE_CFG, "m2_tolerance", 0.35))
+#: Допуск на отношение интенсивностей при атрибуции изотопных сателлитов.
+_SATELLITE_TOLERANCE = float(getattr(ISOTOPE_CFG, "satellite_tolerance", 0.35))
+#: ppm-допуск поиска изотопных вариантов и сателлитов в спектре (шире, чем
+#: поиск самих формул: сателлит может быть смещён и по массе, и по профилю).
+_SATELLITE_PPM_TOL = float(getattr(ISOTOPE_CFG, "variant_ppm_tol", 5.0))
+#: Порог M+2/M, при котором слой галогенных подстановок включается:
+#: Cl даёт ≈32 %, Br ≈97 %, поэтому 5 % надёжно отделяет их от 13C-фона.
+_HALOGEN_M2_EVIDENCE = float(getattr(ISOTOPE_CFG, "halogen_m2_evidence", 0.05))
 
 #: Сдвиг M+2, по которому ищется наблюдаемый пик (34S/37Cl/81Br ≈ 1.996 Да).
 _M2_MASS_SHIFT = 1.9958
@@ -161,6 +175,9 @@ def assign_formulas(
     rel_error: float | None = None,
     progress_callback=None,
     isotope_variants: bool = False,
+    isotope_satellites: bool = True,
+    formula_db=None,
+    db_halogen_atoms: int = DEFAULT_HALOGEN_ATOMS,
 ):
     """Assign brutto formulas by mass-local enumeration over the element set.
 
@@ -232,15 +249,18 @@ def assign_formulas(
     shift = _ion_shift(ion_mode)
 
     # ── Изотопная проверка (подготовка) ──────────────────────────────────────
+    # Индекс исходного спектра нужен и фильтру, и поиску вариантов, и оценке
+    # изотопного свидетельства для слоя галогенов.
     q1 = q2 = m_sorted = i_sorted = None
-    if isotope_filter and original is not None:
-        q1, q2 = _isotope_coefficients(elements)
+    if original is not None:
         try:
             m_sorted, i_sorted = _sorted_mass_index(original.table)
             if not len(m_sorted):
                 m_sorted = i_sorted = None
         except Exception:  # pragma: no cover - защита от неожиданного формата
             m_sorted = i_sorted = None
+    if isotope_filter and m_sorted is not None:
+        q1, q2 = _isotope_coefficients(elements)
     m2_el_idx = [idx[el] for el in ("S", "Cl", "Br") if el in idx]
 
     brutto_col = [None] * n_rows
@@ -264,23 +284,59 @@ def assign_formulas(
             math.floor((neutral - tol) * _WINDOW_GRID) / _WINDOW_GRID,
             math.ceil((neutral + tol) * _WINDOW_GRID) / _WINDOW_GRID,
         )
-        got = window_cache.get(key)
-        if got is None:
-            got = _generate_cached(
-                key[0],
-                key[1],
-                rk,
-                lk,
-                search_config.min_c,
-                search_config.max_dbe,
-                brutto_generation_mode,
-                0.0,
-            )
+
+        def _window(win_key: tuple[float, float], with_halogens: bool):
+            """Кандидаты для окна: сжатая база (при наличии) или перебор."""
+            cache_key = (win_key, bool(with_halogens))
+            cached = window_cache.get(cache_key)
+            if cached is not None:
+                return cached
+            if formula_db is not None:
+                center = 0.5 * (win_key[0] + win_key[1])
+                half = max(0.5 * (win_key[1] - win_key[0]), 1e-9)
+                counts_arr, masses_arr = db_candidates(
+                    formula_db,
+                    search_config,
+                    center,
+                    half,
+                    include_halogens=with_halogens,
+                    max_halogen_atoms=db_halogen_atoms,
+                )
+                result = (counts_arr, masses_arr)
+            else:
+                result = _generate_cached(
+                    win_key[0],
+                    win_key[1],
+                    rk,
+                    lk,
+                    search_config.min_c,
+                    search_config.max_dbe,
+                    brutto_generation_mode,
+                    0.0,
+                )
             if len(window_cache) >= _MAX_WINDOW_CACHE:
                 window_cache.clear()
-            window_cache[key] = got
-        rows_c, masses_neutral = got
-        if not rows_c:
+            window_cache[cache_key] = result
+            return result
+
+        # Слой галогенов включаем по изотопному свидетельству: сильный M+2
+        # (Cl/Br дают десятки процентов) или отсутствие CHNOSP-кандидатов.
+        need_hal = db_halogen_atoms > 0
+        if need_hal and formula_db is not None and m_sorted is not None:
+            base_int = _peak_intensity_near(m_sorted, i_sorted, mass_obs, rel_error_ppm)
+            if base_int:
+                m2_int = _peak_intensity_near(
+                    m_sorted, i_sorted, mass_obs + _M2_MASS_SHIFT, rel_error_ppm
+                )
+                need_hal = bool(
+                    m2_int is not None and (m2_int / base_int) >= _HALOGEN_M2_EVIDENCE
+                )
+
+        rows_c, masses_neutral = _window(key, need_hal)
+        if not len(rows_c) and db_halogen_atoms > 0 and not need_hal:
+            # CHNOSP не дал вариантов — пробуем с галогенами.
+            rows_c, masses_neutral = _window(key, True)
+        if not len(rows_c):
             candidates_col[row_i] = []
             continue
 
@@ -372,7 +428,7 @@ def assign_formulas(
                     mass_obs,
                     counts_dict,
                     original.table,
-                    ppm_tol=rel_error_ppm,
+                    ppm_tol=_SATELLITE_PPM_TOL,
                 )
             except Exception:  # pragma: no cover - диагностика не ломает прогон
                 variants_col[row_i] = []
@@ -382,4 +438,102 @@ def assign_formulas(
     table["all_candidates"] = candidates_col
     if variants_col is not None:
         table["iso_variants"] = variants_col
+
+    # ── Атрибуция изотопных сателлитов ──────────────────────────────────────
+    # Пик, который на Δ (13C, 34S, 37Cl, 81Br, …) тяжелее другого пика и чьё
+    # отношение интенсивностей совпадает с теоретическим, помечается как
+    # изотопный сателлит этого (родительского) пика, чтобы в отчёте он не
+    # выглядел самостоятельным соединением.
+    if isotope_satellites:
+        sat_of, sat_label = _mark_isotope_satellites(
+            table,
+            mass_values,
+            brutto_col,
+            assign_col,
+            elements,
+            _SATELLITE_PPM_TOL,
+            _SATELLITE_TOLERANCE,
+        )
+        table["iso_satellite_of"] = sat_of
+        table["iso_satellite_label"] = sat_label
     return src
+
+
+def _mark_isotope_satellites(
+    table,
+    mass_values: np.ndarray,
+    brutto_col: list,
+    assign_col: list,
+    elements: tuple[str, ...],
+    ppm_tol: float,
+    tolerance: float,
+) -> tuple[list, list]:
+    """Пометить пики-изотопные сателлиты: ``(родительская масса, метка)``.
+
+    Для каждого назначенного пика строятся теоретические изотопные варианты
+    его формулы; если в спектре есть пик на ожидаемой m/z и отношение
+    интенсивностей совпадает с теоретическим в пределах ``tolerance``, этот
+    пик помечается как сателлит (метка вида ``13C``, ``37Cl``).
+
+    Пик может быть сателлитом только одного родителя: первое найденное
+    совпадение фиксируется, повторные не перезаписывают пометку.
+    """
+    from src.core.domain.molecule import parse_formula
+
+    n = len(mass_values)
+    sat_of: list = [None] * n
+    sat_label: list = [None] * n
+    if not len(table):
+        return sat_of, sat_label
+
+    intensities = np.asarray(table["intensity"], dtype=float)
+    assigned = [
+        i for i in range(min(n, len(brutto_col))) if assign_col[i] and brutto_col[i]
+    ]
+    if not assigned:
+        return sat_of, sat_label
+
+    # Сателлит ищем среди ВСЕХ пиков (а не только назначенных): обычно
+    # сателлитный пик своей формулы не получает, и его нужно пометить как
+    # изотопный вариант родителя, а не оставлять «самостоятельным».
+    finite = np.isfinite(mass_values) & (mass_values > 0)
+    all_idx = np.where(finite)[0]
+    order = np.argsort(mass_values[all_idx], kind="stable")
+    masses_sorted = mass_values[all_idx][order]
+    idx_sorted = [int(all_idx[i]) for i in order]
+
+    for pos, parent_i in enumerate(assigned):
+        parent_mass = float(mass_values[parent_i])
+        if not np.isfinite(parent_mass) or parent_mass <= 0:
+            continue
+        try:
+            counts = parse_formula(str(brutto_col[parent_i]))
+        except Exception:  # pragma: no cover - защита от разбора
+            continue
+        counts = {el: int(cnt) for el, cnt in counts.items() if el in elements}
+        if not counts:
+            continue
+        parent_intensity = float(intensities[parent_i])
+        if parent_intensity <= 0:
+            continue
+
+        for var in variants(counts, max_substitutions=1):
+            target = parent_mass + var["delta_mass"]
+            tol = max(abs(target) * ppm_tol * 1e-6, 1e-12)
+            lo = int(np.searchsorted(masses_sorted, target - tol, side="left"))
+            hi = int(np.searchsorted(masses_sorted, target + tol, side="right"))
+            if hi <= lo:
+                continue
+            for j_pos in range(lo, hi):
+                sat_i = idx_sorted[j_pos]
+                if sat_i == parent_i or sat_of[sat_i] is not None:
+                    continue
+                ratio = float(intensities[sat_i]) / parent_intensity
+                theor = float(var["ratio"])
+                if theor <= 0:
+                    continue
+                if abs(ratio - theor) / theor <= tolerance:
+                    sat_of[sat_i] = parent_mass
+                    sat_label[sat_i] = var["label"]
+                    break
+    return sat_of, sat_label
