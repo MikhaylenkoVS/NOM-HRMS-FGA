@@ -49,7 +49,9 @@ if str(_PROJECT_ROOT) not in sys.path:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def plot_spectra(paths: list[str], sep: str, out_png: str, max_points: int = 8000) -> None:
+def plot_spectra(
+    paths: list[str], sep: str, out_png: str, max_points: int = 8000
+) -> None:
     """Построить три масс-спектра в один PNG (без GUI)."""
     import matplotlib
 
@@ -81,11 +83,15 @@ def plot_spectra(paths: list[str], sep: str, out_png: str, max_points: int = 800
 
     fig, axes = plt.subplots(3, 1, figsize=(11, 8), sharex=True)
     for i, (ax, (label, df, total)) in enumerate(zip(axes, dfs)):
-        ax.vlines(df["mass"], 0, df["intensity"], colors=colors[i],
-                  linewidth=0.7, alpha=0.85)
+        ax.vlines(
+            df["mass"], 0, df["intensity"], colors=colors[i], linewidth=0.7, alpha=0.85
+        )
         ax.set_ylabel("Intensity", fontsize=9)
-        ax.set_title(f"{label}  ({total:,} пиков, прорежено до {len(df):,})".replace(",", " "),
-                     fontsize=10, loc="left")
+        ax.set_title(
+            f"{label}  ({total:,} пиков, прорежено до {len(df):,})".replace(",", " "),
+            fontsize=10,
+            loc="left",
+        )
         ax.grid(True, alpha=0.3)
     axes[-1].set_xlabel("m/z", fontsize=10)
     fig.suptitle("Три масс-спектра", fontsize=13)
@@ -130,7 +136,9 @@ def _structure_worker(in_q, out_q) -> None:
                 continue
             rdmol = fragment_to_rdkit(mols[0]["fragment_object"])
             if rdmol is None:
-                out_q.put((brutto, n_cooh, n_oh, None, "конвертация в RDKit не удалась"))
+                out_q.put(
+                    (brutto, n_cooh, n_oh, None, "конвертация в RDKit не удалась")
+                )
                 continue
             from rdkit import Chem
 
@@ -169,12 +177,16 @@ def export_structures(
         if key in seen:
             continue
         seen.add(key)
-        mass = float(row[mass_col]) if mass_col and pd.notna(row.get(mass_col)) else None
+        mass = (
+            float(row[mass_col]) if mass_col and pd.notna(row.get(mass_col)) else None
+        )
         triples.append((brutto, n_cooh, n_oh, mass))
 
     if max_structures and len(triples) > max_structures:
-        print(f"  ограничение --max-structures={max_structures}: "
-              f"беру первые {max_structures} из {len(triples)}")
+        print(
+            f"  ограничение --max-structures={max_structures}: "
+            f"беру первые {max_structures} из {len(triples)}"
+        )
         triples = triples[:max_structures]
 
     print(f"  уникальных (brutto, N_OH, N_COOH): {len(triples)}")
@@ -208,7 +220,9 @@ def export_structures(
             proc.join(timeout=5)
             proc = _spawn()
             report["timeout"] += 1
-            problems.append(f"{brutto} (N_OH={n_oh}, N_COOH={n_cooh}): > {mol_timeout:g} с")
+            problems.append(
+                f"{brutto} (N_OH={n_oh}, N_COOH={n_cooh}): > {mol_timeout:g} с"
+            )
             print(f"  [{i}/{len(triples)}] {brutto}: пропуск (> {mol_timeout:g} с)")
             continue
 
@@ -220,8 +234,11 @@ def export_structures(
             lines = block.rstrip("\n").splitlines()
             if lines:
                 lines[0] = name  # первая строка mol-блока — название молекулы
-            props = [f">  <brutto>\n{brutto}", f">  <N_OH>\n{n_oh}",
-                     f">  <N_COOH>\n{n_cooh}"]
+            props = [
+                f">  <brutto>\n{brutto}",
+                f">  <N_OH>\n{n_oh}",
+                f">  <N_COOH>\n{n_cooh}",
+            ]
             if mass is not None:
                 props.append(f">  <mass>\n{mass:.5f}")
             with open(out_sdf, "a", encoding="utf-8") as fh:
@@ -243,9 +260,11 @@ def export_structures(
 
     report["elapsed"] = round(time.time() - t_start, 1)
     report["problems"] = problems
-    print(f"  SDF: {out_sdf} — молекул {report['ok']}, "
-          f"без структуры {report['skipped']}, по таймауту {report['timeout']}, "
-          f"за {report['elapsed']} с")
+    print(
+        f"  SDF: {out_sdf} — молекул {report['ok']}, "
+        f"без структуры {report['skipped']}, по таймауту {report['timeout']}, "
+        f"за {report['elapsed']} с"
+    )
     return report
 
 
@@ -268,17 +287,37 @@ def main(argv=None) -> int:
     p.add_argument("--input", "-i", required=True, help="исходный спектр (.csv)")
     p.add_argument("--dmet", required=True, help="дейтерометилированный спектр (.csv)")
     p.add_argument("--dacet", required=True, help="дейтероацилированный спектр (.csv)")
-    p.add_argument("--result", required=True, help="таблица результатов от CLI (.xlsx/.csv)")
+    p.add_argument(
+        "--result", required=True, help="таблица результатов от CLI (.xlsx/.csv)"
+    )
     p.add_argument("--outdir", "-o", required=True, help="куда складывать файлы")
-    p.add_argument("--sep", default=",", help="разделитель входных CSV (по умолчанию ',')")
-    p.add_argument("--max-points", type=int, default=8000,
-                   help="максимум точек на спектр при отрисовке")
-    p.add_argument("--mol-timeout", type=float, default=15.0,
-                   help="бюджет времени на одну молекулу, секунды")
-    p.add_argument("--max-structures", type=int, default=0,
-                   help="сколько молекул максимум писать в SDF (0 = все)")
-    p.add_argument("--spectra-png", action="store_true", help="сделать картинку спектров")
-    p.add_argument("--structures-sdf", action="store_true", help="сделать SDF со структурами")
+    p.add_argument(
+        "--sep", default=",", help="разделитель входных CSV (по умолчанию ',')"
+    )
+    p.add_argument(
+        "--max-points",
+        type=int,
+        default=8000,
+        help="максимум точек на спектр при отрисовке",
+    )
+    p.add_argument(
+        "--mol-timeout",
+        type=float,
+        default=15.0,
+        help="бюджет времени на одну молекулу, секунды",
+    )
+    p.add_argument(
+        "--max-structures",
+        type=int,
+        default=0,
+        help="сколько молекул максимум писать в SDF (0 = все)",
+    )
+    p.add_argument(
+        "--spectra-png", action="store_true", help="сделать картинку спектров"
+    )
+    p.add_argument(
+        "--structures-sdf", action="store_true", help="сделать SDF со структурами"
+    )
     args = p.parse_args(argv)
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -287,16 +326,21 @@ def main(argv=None) -> int:
     if args.spectra_png:
         print("[1/2] Картинка спектров")
         png = os.path.join(args.outdir, f"spectra_{stamp}.png")
-        plot_spectra([args.input, args.dmet, args.dacet], args.sep, png,
-                     max_points=args.max_points)
+        plot_spectra(
+            [args.input, args.dmet, args.dacet],
+            args.sep,
+            png,
+            max_points=args.max_points,
+        )
 
     if args.structures_sdf:
         print("[2/2] Структуры → SDF")
         df = _read_result(args.result)
         print(f"  таблица результатов: {len(df)} строк, колонки {list(df.columns)}")
         sdf = os.path.join(args.outdir, f"structures_{stamp}.sdf")
-        report = export_structures(df, sdf, mol_timeout=args.mol_timeout,
-                                   max_structures=args.max_structures)
+        report = export_structures(
+            df, sdf, mol_timeout=args.mol_timeout, max_structures=args.max_structures
+        )
         if report.get("problems"):
             rep = os.path.join(args.outdir, f"structures_{stamp}_problems.txt")
             Path(rep).write_text("\n".join(report["problems"]), encoding="utf-8")

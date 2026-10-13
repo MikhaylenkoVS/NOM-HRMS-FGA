@@ -149,7 +149,16 @@ def _beynon_m1_ratio_cached(c: int, h: int, o: int, n: int) -> float:
 # в constants/formula_search.json (C, H, O, N, S, P, затем галогены) —
 # для CHNO-формул строки остаются такими же, как раньше.
 FORMULA_ELEMENT_ORDER: tuple[str, ...] = (
-    "C", "H", "O", "N", "S", "P", "F", "Cl", "Br", "I",
+    "C",
+    "H",
+    "O",
+    "N",
+    "S",
+    "P",
+    "F",
+    "Cl",
+    "Br",
+    "I",
 )
 
 

@@ -111,9 +111,6 @@ def _candidate_scores(
     hc_arr = np.where(valid, h_arr / safe_c, 0.0)
     oc_arr = np.where(valid, o_arr / safe_c, 0.0)
     nc_arr = np.where(valid, n_arr / safe_c, 0.0)
-    sc_arr = np.where(valid, s_arr / safe_c, 0.0)
-    pc_arr = np.where(valid, p_arr / safe_c, 0.0)
-    xc_arr = np.where(valid, x_arr / safe_c, 0.0)
 
     # DBE = (2C + 2 + N + P - H - X) / 2.
     # (Раньше здесь вместо N использовался O — исправлено вместе с
@@ -135,7 +132,8 @@ def _candidate_scores(
         + np.where(dbe > 20, (dbe - 20) * 0.5, 0.0)
         + np.where(nc_arr > 0.3, nc_arr * 2.0, 0.0)
         + np.where(
-            (n_arr > 3) & ((o_arr == 0) | (o_arr / np.where(n_arr > 0, n_arr, 1.0) < 0.5)),
+            (n_arr > 3)
+            & ((o_arr == 0) | (o_arr / np.where(n_arr > 0, n_arr, 1.0) < 0.5)),
             (n_arr - 3) * 2.0,
             0.0,
         )
@@ -344,7 +342,9 @@ def assign_formulas(
                             # S/Cl/Br-формула получает бонус и может
                             # выиграть у CHNO-варианта — это и есть проверка
                             # "нестандартного изотопа" по паттерну.
-                            n_m2_atoms = counts_win[:, m2_el_idx].sum(axis=1).astype(float)
+                            n_m2_atoms = (
+                                counts_win[:, m2_el_idx].sum(axis=1).astype(float)
+                            )
                             scores_win = scores_win - np.where(
                                 has_m2 & (m2_theor > 0) & (dev2 <= _M2_TOLERANCE),
                                 search_config.bonus_isotope_m2 * n_m2_atoms,

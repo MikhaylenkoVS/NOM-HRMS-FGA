@@ -168,9 +168,7 @@ def _generate_cached(
                 continue
             rows.append(
                 tuple(
-                    c
-                    if el == "C"
-                    else (h if el == "H" else counts.get(el, 0))
+                    c if el == "C" else (h if el == "H" else counts.get(el, 0))
                     for el in elements
                 )
             )
