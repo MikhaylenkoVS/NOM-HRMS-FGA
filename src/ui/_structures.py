@@ -27,20 +27,47 @@ from src.ui.plots import embed_figure
 class StructuresMixin:
     """Extracted from app.py."""
 
+    # Автоматический прогрев кэша структур ОТКЛЮЧЁН.
+    #
+    # Причина: find_fragment_combinations() для тяжёлых формул комбинаторно
+    # взрывается — замерено ~140 млн обращений к dict.get и ~49 млн min() на
+    # несколько формул, т.е. десятки секунд чистого Python на одну формулу.
+    # Такой фоновый поток держит GIL, и главный поток, который перерисовывает
+    # вкладки («Спектры», «Van Krevelen», «Серии», «Гистограммы»), замедляется
+    # в десятки раз: замерено 73.8 с против 0.21 с при выключенном прогреве.
+    #
+    # Структуры и так генерируются по запросу: клик по строке таблицы
+    # результатов (_load_structure_preview) или выбор пика во вкладке
+    # «Структуры» — в отдельном потоке, со статусом «Поиск структуры…».
+    # Чтобы вернуть прогрев, достаточно поставить PRELOAD_ENABLED = True.
+    PRELOAD_ENABLED = False
+    MAX_PRELOAD_FORMULAS = 100
+
     def _start_structure_preload(self, df: pd.DataFrame):
-        """Запустить фоновую предзагрузку структур для всех уникальных формул."""
+        """Прогрев кэша структур. По умолчанию выключен (см. PRELOAD_ENABLED)."""
+        if not self.PRELOAD_ENABLED:
+            return
         if self._structure_preloading:
             return  # уже идёт
         formulas = list(
-            set(str(r.get("brutto", "")) for _, r in df.iterrows() if r.get("brutto"))
+            dict.fromkeys(
+                str(r.get("brutto", "")) for _, r in df.iterrows() if r.get("brutto")
+            )
         )
         if not formulas:
             return
+        total = len(formulas)
+        if total > self.MAX_PRELOAD_FORMULAS:
+            formulas = formulas[: self.MAX_PRELOAD_FORMULAS]
         self._structure_preloading = True
-        self._log(
-            f"🔍 Предзагрузка структур для {len(formulas)} формул…",
-            color="info",
-        )
+        if total > len(formulas):
+            self._log(
+                f"🔍 Предзагрузка структур: {len(formulas)} из {total} формул "
+                f"(остальные — по клику на строку результатов)…",
+                color="info",
+            )
+        else:
+            self._log(f"🔍 Предзагрузка структур для {total} формул…", color="info")
         t = threading.Thread(
             target=self._preload_structures_worker,
             args=(formulas,),
@@ -49,7 +76,10 @@ class StructuresMixin:
         t.start()
 
     def _preload_structures_worker(self, formulas: list[str]):
-        """Фоновый поток: генерация структур для списка формул."""
+        """Фоновый поток: генерация структур для списка формул.
+
+        tkinter из этого потока не трогаем — только ``_log_queue``.
+        """
         try:
             from src.core import find_and_visualize_molecules
         except Exception:
@@ -76,9 +106,8 @@ class StructuresMixin:
             done += 1
 
         self._structure_preloading = False
-        self._log(
-            f"✅ Предзагрузка структур завершена ({done}/{len(formulas)}).",
-            color=OK,
+        self._log_queue.put(
+            ("log", f"✅ Предзагрузка структур завершена ({done}/{len(formulas)}).\n")
         )
 
     # ── Выбор строки таблицы → структура ──────────────────────────────────────

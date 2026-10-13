@@ -61,14 +61,43 @@ class _QueueWriter:
 class LogMixin:
     """Extracted from app.py."""
 
+    # Сколько сообщений лога разбираем за один тик опроса очереди.
+    # Вставка строк в Tk Text должна идти пакетами: поштучная вставка с
+    # see("end") стоит ~2 мс/строка, и пара тысяч сообщений (например,
+    # предупреждений при генерации структур) вешает UI на десятки секунд.
+    MAX_LOG_MSGS_PER_TICK = 5000
+    MAX_LOG_CHUNK_CHARS = 500_000
+
     def _poll_log_queue(self):
         """Вызывается из главного потока каждые 50 мс."""
+        buf: list[str] = []
+        buf_len = 0
+        processed = 0
         try:
-            while True:
-                kind, data = self._log_queue.get_nowait()
+            while processed < self.MAX_LOG_MSGS_PER_TICK:
+                try:
+                    kind, data = self._log_queue.get_nowait()
+                except queue.Empty:
+                    break
+                processed += 1
+
                 if kind == "log":
-                    self._append_log_raw(data)
-                elif kind == "success":
+                    buf.append(data)
+                    buf_len += len(data)
+                    if buf_len >= self.MAX_LOG_CHUNK_CHARS:
+                        self._append_log_raw("".join(buf))
+                        buf.clear()
+                        buf_len = 0
+                    continue
+
+                # Перед не-log сообщением (success/error/progress/...) сначала
+                # сбрасываем накопленный текст, чтобы порядок в логе не ломался.
+                if buf:
+                    self._append_log_raw("".join(buf))
+                    buf.clear()
+                    buf_len = 0
+
+                if kind == "success":
                     self._on_run_success_data(data)
                 elif kind == "error":
                     self._on_run_error_data(data)
@@ -87,9 +116,9 @@ class LogMixin:
                     self._on_spectra_data(data)
                 elif kind == "spectra_error":
                     self._on_spectra_error(data)
-        except queue.Empty:
-            pass
         finally:
+            if buf:
+                self._append_log_raw("".join(buf))
             self._poll_id = self.after(50, self._poll_log_queue)
 
     def _on_close(self):

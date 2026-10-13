@@ -97,7 +97,10 @@ _excludes: list[str] = [
     "sympy", "xlrd", "xlsxwriter",
     "lxml", "html5lib", "bs4", "sphinx",
     "pytest", "setuptools", "pip", "wheel", "Cython",
-    "distutils",
+    # "distutils" НЕ исключается: на Python >=3.12 PyInstaller-хук
+    # hook-distutils алиасит setuptools._distutils -> distutils, и исключение
+    # приводит к ValueError: Target module "distutils" already imported
+    # as ExcludedModule('distutils').
 ]
 
 # ---------------------------------------------------------------------------
