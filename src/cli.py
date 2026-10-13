@@ -128,14 +128,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ppm-tol", type=float)
     p.add_argument("--max-groups", type=int)
     p.add_argument("--allow-gaps", action="store_true", default=None)
-    p.add_argument("--isotope-filter", action="store_true", default=None)
+    p.add_argument(
+        "--isotope-filter",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "изотопный фильтр M+1/M+2 (включён по умолчанию; "
+            "--no-isotope-filter выключает)"
+        ),
+    )
     p.add_argument(
         "--isotope-variants",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=None,
         help=(
             "искать изотопные варианты (13C, 34S, 37Cl, 81Br, …) для найденных "
-            "формул и помечать пики-сателлиты"
+            "формул и помечать пики-сателлиты (включено по умолчанию; "
+            "--no-isotope-variants выключает)"
         ),
     )
     p.add_argument(
