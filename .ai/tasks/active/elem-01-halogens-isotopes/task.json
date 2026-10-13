@@ -74,7 +74,7 @@
     "implementation_report": "implementation_report.md",
     "benchmark_report": null,
     "rollback_plan": "rollback_plan.md",
-    "reference_validation": null
+    "reference_validation": "reference_validation.md"
   },
   "links": {
     "issue": null,
