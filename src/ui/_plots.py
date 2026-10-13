@@ -30,6 +30,10 @@ from src.ui.plots import embed_figure
 class PlotsMixin:
     """Extracted from app.py."""
 
+    # Максимум пиков на спектр при отрисовке в GUI: полный набор HRMS
+    # (сотни тысяч vlines) вешает canvas.draw() в UI-потоке на минуты.
+    MAX_SPECTRA_PLOT_POINTS = 8000
+
     def _plot_van_krevelen(self):
         if self.result_df is None or self.result_df.empty:
             messagebox.showinfo(
@@ -130,8 +134,16 @@ class PlotsMixin:
                         f"{key}: колонки mass/intensity не найдены. "
                         f"Доступны: {list(df.columns)}"
                     )
+                df = df[["mass", "intensity"]]
+                # Прореживание: рисуем не более MAX_SPECTRA_PLOT_POINTS пиков,
+                # иначе canvas.draw() в UI-потоке зависает на больших спектрах.
+                if len(df) > self.MAX_SPECTRA_PLOT_POINTS:
+                    step = len(df) // self.MAX_SPECTRA_PLOT_POINTS
+                    df = df.iloc[::step]
                 dfs[key] = df
-                self._log_queue.put(("log", f"[DEBUG]   {key}: {len(df)} строк\n"))
+                self._log_queue.put(
+                    ("log", f"[DEBUG]   {key}: {len(df)} пиков для отображения\n")
+                )
             self._log_queue.put(("spectra_data", {"dfs": dfs}))
         except Exception as e:
             self._log_queue.put(
