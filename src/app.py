@@ -252,11 +252,48 @@ class App(
         self.sign_var = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
         self.ppm_tol_var = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
         self.max_groups_var = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
-        self.allow_gaps_var = tk.BooleanVar(value=bool(_GUI_DEFAULTS["allow_gaps"]))
+        # Правило проекта: не более 1 пропуска в серии (0 — без пропусков).
+        # Поле числовое: пользователь может выключить пропуски (0) или
+        # разрешить другое их количество.
+        self.max_gaps_var = tk.StringVar(value=str(_GUI_DEFAULTS.get("max_gaps", 1)))
+        # Шумоподавление дериватизатов и вычитание исходника из них
+        self.denoise_derivatives_var = tk.BooleanVar(
+            value=bool(_GUI_DEFAULTS.get("denoise_derivatives", False))
+        )
+        self.subtract_source_var = tk.BooleanVar(
+            value=bool(_GUI_DEFAULTS.get("subtract_source", False))
+        )
+        self.subtract_ppm_var = tk.StringVar(
+            value=str(_GUI_DEFAULTS.get("subtract_ppm", 5.0))
+        )
         # Изотопные проверки включены по умолчанию: паттерн M+1/M+2 учитывается
         # при выборе формулы, а для найденных формул ищутся изотопные варианты.
         self.isotope_filter_var = tk.BooleanVar(value=True)
         self.isotope_variants_var = tk.BooleanVar(value=True)
+        # Фильтр X/C — пользовательская настройка, по умолчанию выключен.
+        self.max_xc_enabled_var = tk.BooleanVar(value=False)
+        self.max_xc_var = tk.StringVar(value="0.1")
+        # Предел числа атомов галогенов в брутто-формуле (пользовательский).
+        self.halogen_max_atoms_var = tk.StringVar(value="5")
+        # Полный перебор комбинаций галогенов (по умолчанию выключен:
+        # в обычном режиме проверяются самые приоритетные комбинации).
+        # По требованию заказчика полный перебор комбинаций включён по
+        # умолчанию; значение по умолчанию берётся из formula_search.json
+        # (halogen_search.exhaustive).
+        try:
+            from src.configs import FORMULA_SEARCH_CFG as _FS
+
+            _hs = getattr(_FS, "halogen_search", None) or {}
+            _exh_default = bool(_hs.get("exhaustive", True))
+        except Exception:
+            _exh_default = True
+        self.halogen_exhaustive_var = tk.BooleanVar(value=_exh_default)
+        # Шумоподавление дериватизатов: по умолчанию выключено (пики
+        # продуктов низкоинтенсивные и теряются вместе с шумом).
+        self.denoise_derivatives_var = tk.BooleanVar(value=False)
+        # Шумоподавление исходного спектра (можно выключить, если пиклист
+        # уже отфильтрован прибором/исследователем).
+        self.denoise_source_var = tk.BooleanVar(value=True)
         self.segment_mode_var = tk.BooleanVar(value=False)
         self.segment_width_var = tk.StringVar(value="2.0")
         self.output_csv_var = tk.StringVar(value=str(_PATHS_CFG.default_output_csv))

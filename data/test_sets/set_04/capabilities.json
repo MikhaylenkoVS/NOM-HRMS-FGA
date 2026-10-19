@@ -1,0 +1,14 @@
+{
+  "test_set_version": "v0.4",
+  "has_isotope_satellites": false,
+  "has_halogenated_compounds": false,
+  "has_sulfur_or_phosphorus": false,
+  "has_derivatization_intermediates": true,
+  "elements_in_annotations": [
+    "C",
+    "H",
+    "N",
+    "O"
+  ],
+  "note": "Наборы сгенерированы до v0.8: изотопных сателлитов и галоген-/S/P-соединений в них нет. Поэтому изотопные фильтры к этим наборам НЕ применяются (проверять на них нечего), а галогенные формулы здесь всегда ложные. Регенерация — задача ts-02."
+}

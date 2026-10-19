@@ -67,9 +67,7 @@ def test_generated_formulas_satisfy_chemistry_rules():
         dbe_num = 2 * c + 2 + n + p - h - x
         assert dbe_num >= 0 and dbe_num % 2 == 0
         # лимиты отношений
-        assert h / c <= cfg.max_hc + 1e-9
-        assert o / c <= cfg.max_oc + 1e-9
-        assert n / c <= cfg.max_nc + 1e-9
-        assert s / c <= cfg.max_sc + 1e-9
-        assert p / c <= cfg.max_pc + 1e-9
-        assert x / c <= cfg.max_xc + 1e-9
+        # лимиты отношений: выключенные лимиты (None) в проверку не попадают
+        # (например, X/C по умолчанию выключен — см. FormulaSearchConfig.max_xc)
+        for el, limit in cfg.ratio_limits().items():
+            assert counts[idx[el]] / c <= limit + 1e-9, el

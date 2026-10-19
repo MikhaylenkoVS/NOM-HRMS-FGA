@@ -1,6 +1,8 @@
 """Homologous-series detection for isotope-labelled (CD3 / CD3CO) spectra."""
 
 import logging
+from functools import lru_cache
+
 import numpy as np
 import pandas as pd
 from src.configs import CHEM
@@ -43,13 +45,41 @@ def _find_peak(mz_array, target_mz, ppm_tol):
     return int(np.argmin(valid))
 
 
+def _find_peak_sorted(mz_sorted: np.ndarray, target_mz: float, ppm_tol: float):
+    """Бинарный поиск ближайшего пика в ОТСОРТИРОВАННОМ массиве, O(log M).
+
+    Возвращает позицию в ``mz_sorted`` или ``None``.
+    """
+    if mz_sorted.size == 0:
+        return None
+    pos = int(np.searchsorted(mz_sorted, target_mz))
+    best = None
+    best_dev = None
+    for j in (pos - 1, pos):
+        if 0 <= j < mz_sorted.size:
+            dev = abs(mz_sorted[j] - target_mz) / target_mz * 1e6
+            if dev <= ppm_tol and (best_dev is None or dev < best_dev):
+                best, best_dev = j, dev
+    return best
+
+
+@lru_cache(maxsize=200_000)
+def _theor_ion_mass_cached(brutto_str: str, ion_mode: str) -> float:
+    """Теоретическая m/z по брутто-формуле (кэш между вызовами и прогонами)."""
+    counts = parse_formula(brutto_str)
+    return _neutral_to_ion_mass(exact_mass_from_counts(counts), ion_mode)
+
+
 def find_series(
     src,
     deriv,
     delta,
     ppm_tol=5.0,
     max_groups=20,
-    allow_gaps=True,
+    max_gaps=1,
+    require_first_step: bool = True,
+    significance_level: float = 0.95,
+    allow_gaps: bool | None = None,
     min_series_length=1,
     max_consecutive_misses=3,
     ion_mode: str | None = None,
@@ -76,15 +106,32 @@ def find_series(
     max_groups : int, optional
         Maximum number of functional groups (series steps) to probe.
         Default 20.
-    allow_gaps : bool, optional
-        If ``True`` (recommended), keep searching past a missing step;
-        if ``False``, stop the series at the first gap. Default ``True``.
+    max_gaps : int, optional
+        Максимальное число пропущенных ступеней внутри серии (правило по
+        умолчанию — **не более 1**). ``0`` — серия обрывается на первом
+        пропуске (пропуски запрещены). При исчерпании бюджета серия
+        обрывается на последней найденной ступени, поэтому в результате
+        всегда ``len(missing) <= max_gaps``. Должно быть >= 0. Default 1.
+    allow_gaps : bool or None, optional
+        Устаревший синоним: ``False`` эквивалентно ``max_gaps=0``, ``True``
+        и ``None`` — используется ``max_gaps`` (число пропусков ограничено).
+        Оставлен для совместимости. Default ``None``.
+    significance_level : float, optional
+        Уровень доверия для длины серии (0.95 → порог p < 0.05).
+        Значимость считается по локальной плотности пиков (ADR-0009).
+        Должно быть в (0, 1). Default 0.95.
+    require_first_step : bool, optional
+        Требовать подтверждения первой ступени (n=1). Приоритет проекта —
+        точность: без монодериватизированного продукта нет доказательства
+        дериватизации, а «ступени» 2..n могут быть случайными совпадениями,
+        из-за которых N_COOH/N_OH завышается. Default ``True``.
     min_series_length : int, optional
         Minimum series length required to emit a record. Default 1.
     max_consecutive_misses : int, optional
         Stop probing the series after this many consecutive missed (gap)
         steps.  Avoids wasteful loops for molecules with few functional
-        groups when ``allow_gaps=True``.  Must be >= 1.  Default 3.
+        groups.  Must be >= 1.  Default 3.  При ``max_gaps <= 2`` бюджет
+        пропусков срабатывает раньше.
     ion_mode : str or None, optional
         Ionization mode used to convert the assigned neutral mass to the
         theoretical m/z of the source peak.  ``None`` falls back to
@@ -120,6 +167,13 @@ def find_series(
             f"и max_consecutive_misses ({max_consecutive_misses}) "
             "должны быть >= 1"
         )
+    # Совместимость: allow_gaps=False — это max_gaps=0 (без пропусков).
+    # allow_gaps=True больше не означает «пропусков сколько угодно»: их число
+    # ограничено max_gaps (правило по умолчанию — не более 1).
+    if allow_gaps is False:
+        max_gaps = 0
+    if max_gaps < 0:
+        raise ValueError(f"max_gaps должно быть >= 0, получено {max_gaps}")
     required_src = ["brutto", "mass", "assign"]
     missing_src = [c for c in required_src if c not in src.table.columns]
     if missing_src:
@@ -135,8 +189,16 @@ def find_series(
     mz_deriv = deriv.table["mass"].values
     records = []
 
-    # Кэш parse_formula — одни и те же формулы повторяются между пиками
-    _formula_cache: dict[str, dict] = {}
+    # Вероятность случайного попадания в окно на одном шаге: отношение
+    # ширины окна к среднему шагу между пиками производного спектра.
+    _mz_sorted = np.sort(np.asarray(mz_deriv, dtype=float))
+    _span = float(_mz_sorted[-1] - _mz_sorted[0]) if _mz_sorted.size > 1 else 0.0
+    _spacing = _span / max(1, _mz_sorted.size - 1) if _span > 0 else 0.0
+    if not 0.0 < float(significance_level) < 1.0:
+        raise ValueError(
+            f"significance_level должно быть в (0, 1), получено {significance_level}"
+        )
+    p_threshold = 1.0 - float(significance_level)
 
     n_total = len(src.table)
     for i, row in enumerate(src.table.itertuples(index=False), start=1):
@@ -144,19 +206,20 @@ def find_series(
             progress_callback(i, n_total)
         if not getattr(row, "assign", False):
             continue
+        # Изотопный сателлит — не самостоятельное соединение: он прикреплён
+        # к материнскому пику и не должен искать собственную серию
+        # дериватизации (иначе один и тот же продукт засчитывается дважды).
+        satellite_of = getattr(row, "iso_satellite_of", None)
+        if satellite_of is not None and not pd.isna(satellite_of):
+            continue
 
         m0_obs = row.mass
         brutto = getattr(row, "brutto", "") or ""
         # Compute theoretical m/z from assigned brutto formula
         try:
             brutto_str = str(brutto)
-            counts = _formula_cache.get(brutto_str)
-            if counts is None:
-                counts = parse_formula(brutto_str)
-                _formula_cache[brutto_str] = counts
-            exact_neutral = exact_mass_from_counts(counts)
-            m0_theor = _neutral_to_ion_mass(
-                exact_neutral, ion_mode or CHEM.default_ion_mode
+            m0_theor = _theor_ion_mass_cached(
+                brutto_str, str(ion_mode or CHEM.default_ion_mode)
             )
             if abs(m0_theor - m0_obs) / m0_obs > 0.001:
                 m0_theor = m0_obs
@@ -165,21 +228,27 @@ def find_series(
         found_steps = []
         series_mz = []
         consecutive_misses = 0
+        gaps = 0
 
         for step in range(1, max_groups + 1):
             target = m0_theor + step * delta
-            idx = _find_peak(mz_deriv, target, ppm_tol)
+            idx = _find_peak_sorted(_mz_sorted, target, ppm_tol)
 
             if idx is not None:
                 found_steps.append(step)
-                series_mz.append(float(mz_deriv[idx]))
+                series_mz.append(float(_mz_sorted[idx]))
                 consecutive_misses = 0
             else:
                 series_mz.append(None)
                 consecutive_misses += 1
-                if consecutive_misses >= max_consecutive_misses:
+                gaps += 1
+                # Правило по умолчанию: в серии допускается не более max_gaps
+                # пропусков (0 — без пропусков). Бюджет исчерпан — серия
+                # обрывается на последней найденной ступени, поэтому
+                # len(missing) <= max_gaps всегда.
+                if gaps > max_gaps:
                     break
-                if not allow_gaps and found_steps:
+                if consecutive_misses >= max_consecutive_misses:
                     break
 
         if not found_steps:
@@ -192,6 +261,22 @@ def find_series(
             missing_steps = sorted(all_steps - set(found_steps))
             trimmed = series_mz[:n_groups]
 
+        if require_first_step and 1 not in found_steps:
+            # Первая ступень не подтверждена — серия не считается
+            # (точность важнее полноты: см. ADR-0008/0009).
+            continue
+
+        # Статистическая значимость длины: сколько шагов подтверждено и
+        # насколько это выше случайного фона (см. ADR-0009).
+        if _spacing > 0:
+            p_step = min(1.0, 2.0 * float(m0_obs) * float(ppm_tol) * 1e-6 / _spacing)
+            n_confirmed = len(found_steps)
+            p_value = min(1.0, float(max_groups) * p_step ** max(1, n_confirmed))
+        else:
+            p_step = 1.0
+            p_value = 1.0
+        significant = bool(p_value < p_threshold)
+
         if n_groups >= min_series_length:
             records.append(
                 {
@@ -201,6 +286,8 @@ def find_series(
                     "steps_found": found_steps,
                     "missing": missing_steps,
                     "series_mz": trimmed,
+                    "p_value": p_value,
+                    "significant": significant,
                 }
             )
 
@@ -216,6 +303,8 @@ def find_series(
             "steps_found",
             "missing",
             "series_mz",
+            "p_value",
+            "significant",
         ],
     )
 

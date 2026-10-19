@@ -1,0 +1,278 @@
+{
+ "projects": [
+  {
+   "project": "corems",
+   "git_commit": "59af367b8268679a414939e8f322b49b61d54c1b",
+   "git_commit_date": "2026-07-13T17:32:24Z",
+   "remote": "https://github.com/EMSL-Computing/CoreMS.git",
+   "license": "BSD",
+   "license_file": "LICENSE",
+   "license_files_found": [
+    "LICENSE",
+    "license",
+    "ext_lib/RawFileReaderLicense.doc"
+   ],
+   "files": 124,
+   "lines": 53720,
+   "bytes": 1984757,
+   "by_language": {
+    "python": 124
+   },
+   "symbols": 1599,
+   "skipped_source_files_by_dir": {
+    "examples": 13,
+    "tests": 22
+   },
+   "operations_with_hits": 26,
+   "operations_total": 29
+  },
+  {
+   "project": "formultitude",
+   "git_commit": "310ffdf53c3a70059801c52225d49cb4ed83233c",
+   "git_commit_date": "2025-10-22T18:23:26-07:00",
+   "remote": "https://github.com/PNNL-Comp-Mass-Spec/Formultitude.git",
+   "license": "NO_LICENSE_FILE",
+   "license_file": null,
+   "license_files_found": [],
+   "files": 70,
+   "lines": 24301,
+   "bytes": 1082024,
+   "by_language": {
+    "csharp": 70
+   },
+   "symbols": 721,
+   "skipped_source_files_by_dir": {},
+   "operations_with_hits": 23,
+   "operations_total": 29
+  },
+  {
+   "project": "icbmocean",
+   "git_commit": "b74efa3fb8734dc3f7c3c8360887e87f35960736",
+   "git_commit_date": "2020-06-18T11:09:06+02:00",
+   "remote": "https://github.com/JulianMerder/ICBM-OCEAN--Supplementary-Code-Modules.git",
+   "license": "GPL-3",
+   "license_file": "LICENSE",
+   "license_files_found": [
+    "LICENSE",
+    "license"
+   ],
+   "files": 5,
+   "lines": 343,
+   "bytes": 16578,
+   "by_language": {
+    "r": 5
+   },
+   "symbols": 3,
+   "skipped_source_files_by_dir": {},
+   "operations_with_hits": 11,
+   "operations_total": 29
+  },
+  {
+   "project": "mfassignr",
+   "git_commit": "0cde01bac19e044d368883d49f6296d7ebdb7864",
+   "git_commit_date": "2023-05-25T08:38:14-05:00",
+   "remote": "https://github.com/skschum/MFAssignR.git",
+   "license": "GPL-2",
+   "license_file": "LICENSE",
+   "license_files_found": [
+    "LICENSE",
+    "license",
+    "MFAssignR/LICENSE.txt"
+   ],
+   "files": 15,
+   "lines": 12163,
+   "bytes": 531072,
+   "by_language": {
+    "r": 15
+   },
+   "symbols": 33,
+   "skipped_source_files_by_dir": {},
+   "operations_with_hits": 20,
+   "operations_total": 29
+  },
+  {
+   "project": "msdial",
+   "git_commit": "1cb207a443be761324f6455d0a2752f2aeb9b9ac",
+   "git_commit_date": "2026-10-15T00:24:05+09:00",
+   "remote": "https://github.com/systemsomicslab/MsdialWorkbench.git",
+   "license": "LGPL-2.1",
+   "license_file": "THIRD-PARTY-LICENSE-README.md",
+   "license_files_found": [
+    "THIRD-PARTY-LICENSE-README.md"
+   ],
+   "files": 3668,
+   "lines": 839441,
+   "bytes": 39075331,
+   "by_language": {
+    "csharp": 3666,
+    "r": 2
+   },
+   "symbols": 42985,
+   "skipped_source_files_by_dir": {
+    "tests": 451
+   },
+   "operations_with_hits": 28,
+   "operations_total": 29
+  },
+  {
+   "project": "mzmine",
+   "git_commit": "d8dcef0b1eedc8a7c505782403223c38f8523647",
+   "git_commit_date": "2026-10-14T12:55:15Z",
+   "remote": "https://github.com/mzmine/mzmine.git",
+   "license": "MIT",
+   "license_file": "LICENSE.txt",
+   "license_files_found": [
+    "LICENSE.txt",
+    "license_header",
+    "license_header_intellij.xml",
+    "mzmine-community/LICENSE.txt"
+   ],
+   "files": 4110,
+   "lines": 658745,
+   "bytes": 24751203,
+   "by_language": {
+    "java": 4110
+   },
+   "symbols": 55157,
+   "skipped_source_files_by_dir": {
+    "test": 320,
+    "data": 39
+   },
+   "operations_with_hits": 29,
+   "operations_total": 29
+  },
+  {
+   "project": "nomspectra",
+   "git_commit": "13a9aa759fbe831178a3f76999a76ac4a29c8fd0",
+   "git_commit_date": "2023-08-04T13:33:48+02:00",
+   "remote": "https://github.com/NOMspectra/NOMspectra.git",
+   "license": "GPL-3",
+   "license_file": "LICENSE.txt",
+   "license_files_found": [
+    "LICENSE.txt"
+   ],
+   "files": 14,
+   "lines": 6738,
+   "bytes": 250935,
+   "by_language": {
+    "python": 14
+   },
+   "symbols": 180,
+   "skipped_source_files_by_dir": {
+    "docs": 1,
+    "tests": 9
+   },
+   "operations_with_hits": 18,
+   "operations_total": 29
+  },
+  {
+   "project": "openms",
+   "git_commit": "f148628a0f9fd4ebec66a4f95066cca6dcbc330c",
+   "git_commit_date": "2026-10-15T15:24:37+02:00",
+   "remote": "https://github.com/OpenMS/OpenMS.git",
+   "license": "BSD",
+   "license_file": "LICENSE",
+   "license_files_found": [
+    "LICENSE",
+    "LICENSE.txt",
+    "LICENSE.md",
+    "license",
+    "cmake/third_party_licenses.cmake"
+   ],
+   "files": 3446,
+   "lines": 1418370,
+   "bytes": 53880085,
+   "by_language": {
+    "python": 55,
+    "cpp": 3386,
+    "c": 2,
+    "r": 3
+   },
+   "symbols": 13579,
+   "skipped_source_files_by_dir": {
+    "test": 27,
+    "tests": 1093,
+    "examples": 11,
+    "docs": 217
+   },
+   "operations_with_hits": 29,
+   "operations_total": 29
+  },
+  {
+   "project": "pyc2mc",
+   "git_commit": "856d92c114e66e6814ba18a1a81def0cafd52e60",
+   "git_commit_date": "2026-10-02T11:46:28+02:00",
+   "remote": "https://github.com/iC2MC/PyC2MC_viewer.git",
+   "license": "GPL-3",
+   "license_file": "LICENSE",
+   "license_files_found": [
+    "LICENSE",
+    "license"
+   ],
+   "files": 48,
+   "lines": 492616,
+   "bytes": 30914111,
+   "by_language": {
+    "python": 48
+   },
+   "symbols": 244,
+   "skipped_source_files_by_dir": {
+    "tests": 1,
+    "docs": 1
+   },
+   "operations_with_hits": 21,
+   "operations_total": 29
+  },
+  {
+   "project": "ume",
+   "git_commit": "e59b8eb447e140c8c3c4e4349eace4786fe380b0",
+   "git_commit_date": "2026-07-13T22:38:37+02:00",
+   "remote": "https://github.com/boriskoch/ume.git",
+   "license": "unknown",
+   "license_file": "LICENSE",
+   "license_files_found": [
+    "LICENSE",
+    "LICENSE.md",
+    "license"
+   ],
+   "files": 82,
+   "lines": 13322,
+   "bytes": 427594,
+   "by_language": {
+    "r": 82
+   },
+   "symbols": 163,
+   "skipped_source_files_by_dir": {
+    "tests": 29
+   },
+   "operations_with_hits": 25,
+   "operations_total": 29
+  },
+  {
+   "project": "xcms",
+   "git_commit": "b781f8b0c39a3310d74aebe5ae59d24f7e818431",
+   "git_commit_date": "2026-10-08T10:06:49+02:00",
+   "remote": "https://git.bioconductor.org/packages/xcms",
+   "license": "GPL-2",
+   "license_file": "LICENSE",
+   "license_files_found": [
+    "LICENSE",
+    "license"
+   ],
+   "files": 115,
+   "lines": 60777,
+   "bytes": 2372223,
+   "by_language": {
+    "r": 83,
+    "cpp": 26,
+    "c": 6
+   },
+   "symbols": 1404,
+   "skipped_source_files_by_dir": {
+    "tests": 34
+   },
+   "operations_with_hits": 24,
+   "operations_total": 29
+  }
+ ]
+}

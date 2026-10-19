@@ -70,3 +70,15 @@ test_sets.zip
 
 # Сгенерированные PDF-отчёты тест-наборов (см. REPORT-01)
 data/test_sets/*/report.pdf
+
+# Одноразовые скрипты (не переносятся другим разработчикам).
+# Правила размещения вспомогательного кода — tools/README.md
+tools/_scratch/
+# Сырые данные аудита конкурентов (77 МБ выгрузок чужого кода; сводки —
+# в docs/competitors/operations_matrix.md и combined_summary.json)
+docs/competitors/raw/
+# Крупные артефакты вариантов базы формул (v3, ~538 МБ) — не в git;
+# распространяются как ассет релиза / кладутся вручную в data/formula_db.
+data/formula_db/chorsphal_*
+# Исходные реальные данные (RAW, сотни МБ) — не в git; кладутся вручную
+data/real_sets/

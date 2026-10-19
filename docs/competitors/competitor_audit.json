@@ -1,0 +1,1006 @@
+{
+  "meta": {
+    "title": "Конкурентный аудит открытых программ для HRMS/NOM: реализация операций по реальному коду",
+    "date": "2026-10-15",
+    "author": "автоматический аудит по репозиториям (Deep Code CLI)",
+    "method": {
+      "principle": "Сравнение по реальному исходному коду, а не по документации. Репозитории клонированы, ключевые реализации прочитаны, LOC измерены локально.",
+      "clone_dir": "D:/Temp/User/competitors",
+      "commands": [
+        "git clone --depth 1 <repo>",
+        "git clone --depth 1 --filter=blob:none --sparse (для крупных C++/Java/C# проектов)",
+        "curl api.github.com (список файлов, если полный клон нецелесообразен)"
+      ],
+      "verification_levels": {
+        "code_read": "файл прочитан, факты (имя функции/класса, параметры, алгоритм) взяты из кода",
+        "file_list": "получен список файлов репозитория (GitHub API), содержимое не читалось",
+        "license_read": "файл лицензии прочитан",
+        "report_only": "факт взят из внешнего отчёта и НЕ подтверждён кодом"
+      }
+    },
+    "scope": {
+      "included": "программы с открытым исходным кодом, доступным для клонирования",
+      "excluded_closed_source": [
+        "Composer (Sierra Analytics)",
+        "PetroOrg",
+        "Bruker DataAnalysis / SmartFormula",
+        "Thermo FreeStyle",
+        "Thermo Compound Discoverer"
+      ],
+      "excluded_no_public_source": [
+        {
+          "name": "ICBM-OCEAN (основное веб-приложение)",
+          "reason": "код веб-приложения не опубликован; найдены и добавлены в аудит официальные дополнительные модули (fastjoin, precisejoin, isotope_ratio_deviance, create_homologous_series_network, ResPow_outlier)"
+        }
+      ]
+    },
+    "my_project": {
+      "root": "C:/Users/mvs/PycharmProjects/NOM-HRMS-FGA",
+      "version": "0.9.x",
+      "modules_inventoried": true
+    },
+    "full_raw_data": {
+      "dir": "docs/competitors/raw/",
+      "per_project_index": "<project>_index.json — инвентарь файлов и индекс символов",
+      "per_project_operations": "<project>_operations.json — вхождения ключевых слов по операциям",
+      "combined_summary": "_combined_summary.json — метрики по всем проектам",
+      "operations_matrix": "_operations_matrix.json / _operations_matrix.md — матрица операций",
+      "tool": "tools/diagnostics/audit_competitors.py + merge_competitor_audit.py"
+    },
+    "completeness": {
+      "cloned_projects": 11,
+      "note": "Сканирование сплошное: индексируются ВСЕ исходные файлы и ВСЕ символы, поиск идёт по 29 наборам ключевых слов без отбора «важного».",
+      "skipped_dirs": [
+        "tests",
+        "test",
+        "data",
+        "docs",
+        "examples",
+        "build",
+        "dist",
+        "target",
+        "bin",
+        "obj",
+        "node_modules",
+        "packages",
+        "__pycache__"
+      ],
+      "skipped_reason": "тесты/данные/примеры/сборочные каталоги не являются реализацией; число пропущенных исходных файлов по каталогам сохранено в поле skipped_source_files_by_dir каждого <project>_index.json"
+    }
+  },
+  "excluded_closed_source_details": [
+    {
+      "product": "Composer",
+      "vendor": "Sierra Analytics",
+      "why_excluded": "закрытый код, LOC/реализация недоступны"
+    },
+    {
+      "product": "PetroOrg",
+      "why_excluded": "закрытый код; бесплатен только для noncommercial facility users"
+    },
+    {
+      "product": "Bruker DataAnalysis/SmartFormula",
+      "why_excluded": "проприетарный; SmartFormula использует exact mass + isotope masses/abundances + valence constraints (по документации, код недоступен)"
+    },
+    {
+      "product": "Thermo FreeStyle",
+      "why_excluded": "проприетарный raw reviewer"
+    },
+    {
+      "product": "Thermo Compound Discoverer",
+      "why_excluded": "проприетарный workflow engine"
+    }
+  ],
+  "products": [
+    {
+      "id": "nomspectra",
+      "name": "NOMspectra",
+      "repo": "https://github.com/NOMspectra/NOMspectra",
+      "language": "Python",
+      "license": {
+        "id": "GPL-3.0",
+        "verified": "license_read"
+      },
+      "metrics_measured": {
+        "python_loc_total": 6679,
+        "per_file": {
+          "nomspectra/spectrum.py": 1812,
+          "nomspectra/gui.py": 1396,
+          "nomspectra/gui_design.py": 1086,
+          "nomspectra/draw.py": 531,
+          "nomspectra/brutto.py": 477,
+          "nomspectra/recal.py": 455,
+          "nomspectra/spectra.py": 364,
+          "nomspectra/diff.py": 352,
+          "nomspectra/metadata.py": 112,
+          "nomspectra/gui_dialog.py": 86
+        },
+        "note": "LOC вместе с GUI; ядро обработки — spectrum.py + brutto.py + recal.py + spectra.py + diff.py ≈ 3460 строк"
+      },
+      "operations": {
+        "bulk_formulas": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectrum.py:272 Spectrum.assign()",
+          "how": [
+            "таблица формул строится brutto_gen(brutto_dict) — по умолчанию C:4-50, H:4-100, O:0-25, N:0-3, S:0-2",
+            "на пик: np.searchsorted по отсортированным массам, берётся ближайшая формула; допуск rel_error (по умолчанию 0.5 ppm) или abs_error",
+            "массовый сдвиг по режиму: '-' → -0.00054858 + 1.007825 (электрон + H), '+' → +m(e), '0' → 0",
+            "поддержан заряд: charge_max (по умолчанию 1), допуск делится на заряд (rel_error/charge)",
+            "фильтры по окну массы и интенсивности",
+            "сохраняется ОДИН результат на пик: assign (bool) + столбцы элементов + charge; таблицы кандидатов/неоднозначностей нет"
+          ],
+          "params": {
+            "rel_error_default": 0.5,
+            "abs_error": "альтернатива",
+            "charge_max": 1,
+            "rules": "brutto_gen(rules=True)"
+          },
+          "my_equivalent": "src/core/spectrum/_assign.py + _formula_source.py (сжатая база 79.6 млн CHNOSP + слой галогенов), кандидаты и all_candidates сохраняются",
+          "gap": "у NOMspectra есть цикл по зарядам и режимы '+'/'0'; у меня один режим [M-H]- и нет таблицы неоднозначностей в виде полноценного candidate-объекта"
+        },
+        "formula_generation": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/brutto.py:39 brutto_gen(elems, rules=True), :111 _merge_isotopes, :130 get_elements_masses, :157 gen_from_brutto, :179 elements_table",
+          "how": "генерация таблицы брутто-формул с химическими правилами (rules=True); поддержаны изотопные «элементы» вида C_13 (учёт изотопологов как отдельных формул)"
+        },
+        "noise_estimation": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectrum.py:426 Spectrum.noise_filter(force=1.5, intensity=None, quantile=None)",
+          "how": [
+            "режим intensity: жёсткий порог по интенсивности",
+            "режим quantile: порог = квантиль интенсивностей",
+            "авторежим (force): 100 порогов linspace(0, mean(intensity)); для каждого считается число выживших пиков; берётся точка минимума градиента (перегиб кривой выживания) × force — адаптивная оценка уровня шума"
+          ],
+          "my_equivalent": "src/core/spectrum/_denoise.py — GMM-фильтр (EM + BIC, порог по пересечению гауссиан) + защита по квантилю + quantile/intensity режимы",
+          "comparison": "у меня статистическая модель (смесь гауссиан) со строгой математикой; у NOMspectra — эвристика по перегибу кривой выживания; у CoreMS — минимумы лог-распределения + байесовский вариант"
+        },
+        "isotope_filter": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectrum.py:525 Spectrum.filter_by_C13(rel_error=0.5, remove=False)",
+          "how": "бинарный флаг: есть ли пик на массу + 1.003355 в пределах ppm; remove=True оставляет только пики, у которых есть 13C-сосед И назначена формула",
+          "my_equivalent": "src/core/spectrum/_isotopes.py (теоретические паттерны свёрткой, M+1/M+2, статусы confirmed/inconsistent/uninformative, поиск вариантов, атрибуция сателлитов) + _assign.py (штраф/бонус за паттерн)",
+          "comparison": "у меня заметно строже: сравнение измеренного и теоретического паттерна, отдельные статусы и учёт измеримости; у NOMspectra — только наличие соседа"
+        },
+        "merge_isotopes": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectrum.py:609 Spectrum.merge_isotopes()",
+          "how": "столбцы изотопных элементов (C_13 и т. п.) прибавляются к базовому элементу (C) и удаляются",
+          "note": "это работа с изотопологами как с формулами, а не с паттернами"
+        },
+        "recalibration": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/recal.py:30 recallibrate(); :94 class ErrorTable; :115 md_error_map; :175 fit_kernel; :229 kernel_density_map; :271 assign_error; :317 massdiff_error; :352 etalon_error; :418 extrapolate; :445 show_error",
+          "how": [
+            "строится таблица ошибок масс; ошибка моделируется ядерной оценкой плотности (KDE) по m/z",
+            "варианты источников ошибки: масс-дефект (massdiff_error), эталонные пики (etalon_error)",
+            "extrapolate() переносит модель ошибки за пределы диапазона калибрантов",
+            "вспомогательный assign_error() применяет модель"
+          ],
+          "my_equivalent": "НЕТ (в моём проекте нет пост-рекалибровки; в chemistry.json остались только заготовки adducts со status='future')",
+          "gap_type": "отсутствует_полностью"
+        },
+        "spectrum_arithmetic_and_similarity": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectrum.py:754 __or__, :788 __xor__, :808 __and__, :841 __add__, :853 __sub__, :890 intens_sub, :939 simmilarity(mode='cosine'|Callable)",
+          "how": "операции над спектрами как над множествами пиков (объединение/пересечение/симметричная разность), вычитание по массе и по интенсивности, косинусная близость (и произвольная функция)",
+          "my_equivalent": "частично: в пайплайне есть операции над таблицами/сериями, но нет объектной алгебры спектров и функции близости",
+          "gap_type": "меньше_чем_у_аналога"
+        },
+        "descriptors_and_metrics": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectrum.py:1005 brutto, :1039 cram, :1077 ai, :1110 cai, :1135 dbe_ai, :1160 dbe, :1185 dbe_o, :1205 dbe_oc, :1225 hc_oc, :1246 kendrick, :1267 nosc, :1305 mol_class, :1417 get_mol_class, :1490 get_dbe_vs_o, :1565 get_squares_vk, :1646 get_mol_metrics, :1697 calc_all_metrics",
+          "how": "набор молекулярных дескрипторов: DBE и его варианты, ароматичность (AI, CAI, DBE_AI), H/C-O/C, Kendrick mass defect, NOSC, классификация молекулярных классов, метрики по образцу",
+          "my_equivalent": "src/core/statistics.py (dbe, aromaticity_index, compute_distribution_metrics), src/core/van_krevelen.py (H/C, O/C, области NOM), гистограммы",
+          "gap": "у NOMspectra/UME/PyC2MC шире: Kendrick (KMD) карты, CAI/DBE_AI, «squares» Ван-Кревелена, mol_class; у меня Kendrick отсутствует"
+        },
+        "dataset_level_operations": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectra.py:33 class SpectrumList; :152 get_simmilarity; :188 get_mol_metrics; :222 get_square_vk; :252 get_mol_density; :285 draw_mol_density; :323 draw_simmilarity",
+          "how": "список спектров как единый объект: матрица близости, метрики по набору, плотности на диаграмме Ван-Кревелена, графики"
+        },
+        "metadata_provenance": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/metadata.py (112 строк), вызовы self.metadata.add({...}) в каждой операции",
+          "how": "журнал операций над спектром (что применено: sign, noise filter, filter_C13, merge_isotopes и т. п.), сохраняется в JSON вместе со спектром"
+        },
+        "io_formats": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "nomspectra/spectrum.py:64 read_csv, :168 to_csv, :189 read_json, :210 to_json; spectra.py:59/83/102/117 (наборы)",
+          "how": "CSV и JSON для спектра и наборов; чтения vendor RAW/transient НЕТ"
+        },
+        "vendor_raw_and_transient": {
+          "implemented": false,
+          "evidence": "code_read",
+          "note": "в коде нет чтения RAW/mzML и обработки transient"
+        },
+        "chromatography": {
+          "implemented": false,
+          "evidence": "code_read",
+          "note": "хроматографических фич/RT-выравнивания нет"
+        },
+        "msms": {
+          "implemented": false,
+          "evidence": "code_read",
+          "note": "MS/MS отсутствует"
+        },
+        "ion_mobility": {
+          "implemented": false,
+          "evidence": "code_read"
+        },
+        "adducts": {
+          "implemented": false,
+          "evidence": "code_read",
+          "note": "есть только сдвиг по знаку иона; таблицы аддуктов нет"
+        }
+      },
+      "importability": {
+        "verdict": "ядро импортируется легко (чистый Python, pandas/numpy), но лицензия GPL-3.0",
+        "useful_modules": [
+          "nomspectra/recal.py (KDE-рекалибровка)",
+          "nomspectra/brutto.py (генерация формул с правилами)",
+          "nomspectra/spectrum.py (дескрипторы: kendrick, mol_class, cai)",
+          "nomspectra/metadata.py (журнал операций)"
+        ]
+      }
+    },
+    {
+      "id": "mfassignr",
+      "name": "MFAssignR",
+      "repo": "https://github.com/skschum/MFAssignR",
+      "language": "R",
+      "license": {
+        "id": "GPL-2.0",
+        "verified": "license_read"
+      },
+      "metrics_measured": {
+        "r_files": 13,
+        "note": "измерено на клоне; крупнейшие: MFAssign.R, MFAssignCHO.R, FindCoreFormulae2.R, RecalFunctions.R"
+      },
+      "operations": {
+        "noise_kmd": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "MFAssignR/R/KMDNoise.R:82 KMDNoise(df, upper.y=0.2, lower.y=0.05, upper.x=NA, lower.x=NA); :157 SNplot(df, cut, mass, window.x=0.5, window.y=10)",
+          "how": "оценка уровня шума по разделению в координатах Kendrick mass defect: интенсивные аналитные пики образуют «полосу», шум — облако; параметры задают границы области отсечения; SNplot показывает выбранный порог в локальном окне спектра"
+        },
+        "noise_histogram": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "MFAssignR/R/HistNoise.R:36 HistNoise(df, SN=0, bin=0.01); :103 SNplot",
+          "how": "альтернативная оценка шума по гистограмме (bin=0.01)"
+        },
+        "isotope_filter_mono_iso": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "MFAssignR/R/IsoFiltR.R:54 IsoFiltR(peaks, SN=0, Carbrat=60, Sulfrat=30, Sulferr=5, Carberr=5)",
+          "how": "поиск пар 13C (ожидаемое отношение C/Carb ≈ 60) и 34S (Sulfrat ≈ 30) с отдельными допусками (Carberr, Sulferr); список делится на таблицы Mono и Iso — изотопные пики исключаются из моноизотопного назначения заранее",
+          "my_equivalent": "_isotopes.py + _assign.py: теоретические M+1/M+2 по каждому элементу, штраф/бонус, статусы и сателлиты; разделения Mono/Iso как отдельных таблиц нет"
+        },
+        "formula_assignment_cho": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "MFAssignR/R/MFAssignCHO.R:108 MFAssignCHO(peaks, isopeaks='none', ionMode, lowMW=100, highMW=1000, POEx=0, NOEx=0, Ex=0, Mx=0, NH4x=0, Zx=1, Ox=30, ...)",
+          "how": "быстрое CHO-назначение по low-mass/core-стратегии; используется для поиска надёжных гомологических серий перед рекалибровкой; параметры аддуктов/ионов (POE, NOE, E, M, NH4, Z, O)"
+        },
+        "formula_assignment_full": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "MFAssignR/R/MFAssign.R:154 MFAssign(peaks, isopeaks='none', ionMode, lowMW=100, highMW=1000, POEx=0, NOEx=0, Nx=0, Sx=0, Px=0, S34x=0, ...)",
+          "how": [
+            "многоэлементное назначение (C,H,O,N,S,P + изотопные оси C13/S34)",
+            "ионные формы/аддукты задаются параметрами (POE/NOE/E/M/NH4/Z/O)",
+            "явно считаются массы изотопных вариантов (в коде C13_mass, C13_mass_2, S34_mass, Iso_mass/Iso_mass_2 и т. д.)",
+            "результаты разделяются на однозначные, неоднозначные (ambiguous) и неназначенные"
+          ]
+        },
+        "core_formulae_halogen": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "MFAssignR/R/FindCoreFormulae2.R:20 FindCoreFormulae2(env); MFAssignR/R/FindCoreFormulae2_Halogen.R:20 FindCoreFormulae2_Halo(env)",
+          "how": "перечисление ядровых формул (включая галогенный вариант) для расширения по гомологическим сериям"
+        },
+        "recalibration": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "MFAssignR/R/RecalFunctions.R (RecalList / FindRecalSeries / Recal)",
+          "how": "из CHO-назначений строятся гомологические серии-калибранты; пользователь выбирает серии (или автопоиск), затем модель ошибки применяется к mono- и iso-спискам; калибранты распределены по диапазону масс и химически связаны (не одна lock mass)"
+        },
+        "vendor_raw": {
+          "implemented": false,
+          "evidence": "code_read",
+          "note": "работа только со списками масс"
+        },
+        "msms": {
+          "implemented": false,
+          "evidence": "code_read"
+        },
+        "chromatography": {
+          "implemented": false,
+          "evidence": "code_read"
+        }
+      },
+      "importability": {
+        "verdict": "R-код, прямое копирование в Python невозможно без переписывания; лицензия GPL-2.0 (copyleft)",
+        "useful_algorithms": [
+          "KMDNoise",
+          "IsoFiltR (Mono/Iso)",
+          "RecalList/Recal (гомологические калибранты)",
+          "разделение ambiguous/unambiguous"
+        ]
+      }
+    },
+    {
+      "id": "corems",
+      "name": "CoreMS",
+      "repo": "https://github.com/EMSL-Computing/CoreMS",
+      "language": "Python",
+      "license": {
+        "id": "BSD-2-Clause",
+        "verified": "license_read",
+        "note": "BSD-2-Clause (текст «Redistribution and use in source and binary forms»; слова «BSD» в файле нет — определено по формуле лицензии)"
+      },
+      "operations": {
+        "transient_ft": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "corems/transient/calc/TransientCalc.py:26 class TransientCalculations; :88 zero_fill; :126 truncation; :157 apodization; :216 calculate_frequency_domain; :244 cut_freq_domain; :295 phase_and_absorption_mode_ft",
+          "how": "полный путь обработки FT-транзиента: аподизация, zero filling, усечение, магнитудный/абсорбционный спектр, обрезка частотной области"
+        },
+        "noise": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "corems/mass_spectrum/calc/NoiseCalc.py:13 class NoiseThresholdCalc; :59 get_noise_threshold; :220 get_noise_average; :245 get_abundance_minima_centroid; :278 run_log_noise_threshold_calc; :342 run_noise_threshold_calc; а также NoiseCalc_Bayes.py",
+          "how": "оценка порога по минимумам распределения амплитуд (в лог-шкале) + отдельная байесовская реализация; порог применяется к m/z-домену"
+        },
+        "peak_picking": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "corems/mass_spectrum/calc/PeakPicking.py:23 class PeakPicking; :270 do_peak_picking; :295 find_minima(apex_index, abundance, len_abundance, right=True); :225 extrapolate_axes_for_pp",
+          "how": "поиск апексов и разделяющих минимумов, экстраполяция осей, обрезка диапазона"
+        },
+        "calibration": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "corems/mass_spectrum/calc/Calibration.py:22 class MzDomainCalibration; :80 load_ref_mass_list; :158 gen_ref_mass_list_from_assigned(min_conf=0.7); :190 find_calibration_points; :347 robust_calib; :409 recalibrate_mass_spectrum; :563 run; + AutoRecalibration.py",
+          "how": "калибровка в m/z-домене: точки калибровки из reference list или из уже назначенных формул с confidence ≥ 0.7; робастная подгонка; автоматический режим"
+        },
+        "formula_search": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "corems/molecular_id/search/molecularFormulaSearch.py:26 class SearchMolecularFormulas; :403 search_mol_formulas; :495 class SearchMolecularFormulaWorker(find_isotopologues=True); :665 find_formulas; :721 mass_by_ion_type; :622 calc_error(mz_exp, mz_calc, method='ppm')",
+          "how": "поиск по динамической базе формул (SQLite/PostgreSQL) с многопоточным воркером; поиск изотопологов включён (find_isotopologues); массы по типу иона (аддукты/заряды); ошибка в ppm"
+        },
+        "priority_assignment_oxygen": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "corems/molecular_id/search/priorityAssignment.py:20 class OxygenPriorityAssignment; :163 check_adduct_class; :183 set_min_max_dbe_by_oxygen; :211 run_search; :656 add_adducts; + corems/molecular_id/search/findOxygenPeaks.py",
+          "how": "назначение по классам кислорода в заданном порядке, с проверкой класса аддуктов, ограничениями DBE по кислороду и добавлением аддуктов — это и есть «priority assignment»"
+        },
+        "kendrick_grouping": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "corems/mass_spectrum/calc/KendrickGroup.py:1 class KendrickGrouping; :21 mz_odd_even_index_lists; :59 populate_kendrick_index_dict_error; :127 populate_kendrick_index_dict_rounding; :177 sort_abundance_kendrick_dict; :213 kendrick_groups_indexes",
+          "how": "группировка пиков по Kendrick mass defect (по ошибке и по округлению), сортировка по интенсивности — используется для фильтрации/нормализации"
+        }
+      },
+      "importability": {
+        "verdict": "BSD-2-Clause — самый удобный для заимствования архитектуры; Python; но тянет SQLAlchemy/БД",
+        "useful_modules": [
+          "transient/calc",
+          "mass_spectrum/calc (Noise, PeakPicking, Calibration, KendrickGroup)",
+          "molecular_id/search/priorityAssignment"
+        ]
+      }
+    },
+    {
+      "id": "ume",
+      "name": "UltraMassExplorer (R package)",
+      "repo": "https://github.com/boriskoch/ume",
+      "language": "R",
+      "license": {
+        "id": "AGPL-3.0 (по данным репозитория; в файле LICENSE текст не приведён — версия не подтверждена кодом)",
+        "verified": "license_read",
+        "note": "в файле LICENSE текст лицензии отсутствует (заглушка R-пакета); по данным репозитория AGPL-3.0 — кодом не подтверждено"
+      },
+      "metrics_measured": {
+        "r_files": 82
+      },
+      "operations": {
+        "assign_formulas": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "ume/R/assign_formulas.R:82 assign_formulas(pl, formula_library, verbose=FALSE, ...)",
+          "how": "назначение по заранее построенной библиотеке формул (formula_library) для таблицы пиков"
+        },
+        "isotope_pattern": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "ume/R/calc_isotope_pattern.R:121 calc_isotope_pattern(mf, ...); ume/R/build_isotope_map.R",
+          "how": "расчёт и карта изотопных паттернов по формулам"
+        },
+        "recalibration": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "ume/R/calc_recalibrate_ms.R:70 calc_recalibrate_ms(pl, ...)",
+          "how": "рекалибровка списка масс"
+        },
+        "metrics_suite": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "ume/R/: calc_dbe.R, calc_indeces.R, calc_exact_mass.R, calc_neutral_mass.R, calc_norm_int.R, calc_number_assignment.R, calc_number_occurrence.R, calc_eval_params.R, calc_ma.R, calc_logratio.R, calc_data_summary.R, add_known_mf.R",
+          "how": "набор метрик формулы/образца: DBE, индексы, точные/нейтральные массы, нормировка интенсивностей, число назначений/вхождений, оценочные параметры"
+        },
+        "ion_mobility": {
+          "implemented": false,
+          "evidence": "report_only",
+          "note": "по внешнему отчёту не заявлено"
+        }
+      },
+      "importability": {
+        "verdict": "R; AGPL-3.0 — сетевые обязательства раскрытия; заимствовать идеи, не код"
+      }
+    },
+    {
+      "id": "pyc2mc",
+      "name": "PyC2MC viewer",
+      "repo": "https://github.com/iC2MC/PyC2MC_viewer",
+      "language": "Python",
+      "license": {
+        "id": "GPL-3.0",
+        "verified": "license_read"
+      },
+      "metrics_measured": {
+        "note": "в репозитории есть автоматически сгенерированные resource/UI-файлы (Image.py, pyc2mc_ui.py), которые сильно завышают LOC; содержательная часть — modules/*.py"
+      },
+      "operations": {
+        "molecular_maps": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "pyc2mc/modules/molecular_maps.py:4 plot_molecular_carto_DBE; :388 plot_molecular_carto_VK; :672 plot_molecular_carto_KMD; :1032 plot_molecular_carto_MD; :1374 plot_DBE_compare; :1645 plot_VK_compare; :2003 plot_KMD_compare; :2305 plot_ACOS_compare; :2531 plot_MAI_compare; :2821 plot_MCR_compare",
+          "how": "карты (DBE, Ван-Кревелен, Kendrick, mass defect) и их попарные сравнения между образцами; индексы ACOS/MAI/MCR"
+        },
+        "comparison_stats": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "pyc2mc/modules/comparison.py:4 pl_comp_KMD; :326 pl_comp_MD; :623 kendrick_motif_calculation; :641 kendrick_motif_compare_calculation; :661 kendrick_motif_stats_calculation",
+          "how": "сравнение образцов, статистика по Kendrick-мотивам"
+        },
+        "formula_assignment": {
+          "implemented": false,
+          "evidence": "code_read",
+          "note": "работает с уже назначенными формулами (внешнее назначение)"
+        }
+      },
+      "importability": {
+        "verdict": "GPL-3.0; полезны UX-паттерны и набор карт, код копировать нельзя при несовместимой лицензии"
+      }
+    },
+    {
+      "id": "formultitude",
+      "name": "Formultitude (Formularity)",
+      "repo": "https://github.com/PNNL-Comp-Mass-Spec/Formultitude",
+      "language": "C#/.NET",
+      "license": {
+        "id": "НЕ НАЙДЕН файл лицензии в репозитории (LICENSE/COPYING отсутствуют)",
+        "verified": "license_read",
+        "risk": "повторное использование кода юридически небезопасно: по умолчанию «все права защищены»",
+        "note": "файла лицензии нет вообще — код использовать нельзя"
+      },
+      "metrics_measured": {
+        "projects": [
+          "CIA",
+          "CiaUi",
+          "FileReader",
+          "FindChains",
+          "Data",
+          "Distribution",
+          "Documents"
+        ]
+      },
+      "operations": {
+        "cia": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "formultitude/CIA/CIAProgramStart.cs, formultitude/CIA/FormultitudeProgram.cs",
+          "how": "Compound Identification Algorithm: поиск по библиотеке формул для CHONSP, tie-break по меньшему числу некислородных гетероатомов и меньшей ошибке массы (по публикации Formularity), отсечение выбросов по распределению ошибок"
+        },
+        "ipa": {
+          "implemented": true,
+          "evidence": "file_list",
+          "note": "Isotopic Pattern Algorithm для элементов вне CHONSP, включая галогены (по публикации и структуре проекта)"
+        },
+        "chains_alignment": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "formultitude/FindChains/",
+          "note": " поиск цепочек/гомологических серий — вероятный аналог alignment"
+        },
+        "file_reader": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "formultitude/FileReader/FileReader.cs"
+        }
+      },
+      "importability": {
+        "verdict": "C#; лицензия отсутствует — код не переносить; полезны только идеи разделения CIA/IPA"
+      }
+    },
+    {
+      "id": "xcms",
+      "name": "xcms (Bioconductor)",
+      "repo": "https://git.bioconductor.org/packages/xcms",
+      "language": "R",
+      "license": {
+        "id": "GPL (>=2) + отдельный LICENSE (Scripps copyright)",
+        "verified": "license_read"
+      },
+      "metrics_measured": {
+        "r_files": 40,
+        "note": "измерено на клоне"
+      },
+      "operations": {
+        "peak_detection": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "xcms/R/functions-OnDiskMSnExp.R:95 findPeaks_MSW_OnDiskMSnExp; xcms/R/MPI.R:10 findPeaksPar",
+          "how": "параметризованное детектирование хроматографических пиков (в т. ч. параллельное)"
+        },
+        "grouping_alignment": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "xcms/R/functions-utils.R:704 groupOverlaps; xcms/R/functions-xcmsSet.R:6 xcmsSet",
+          "how": "группировка/выравнивание признаков по образцам"
+        },
+        "fillpeaks": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "xcms/R/MPI.R:76 fillPeaksChromPar",
+          "how": "заполнение пропущенных значений в матрице признаков"
+        }
+      },
+      "importability": {
+        "verdict": "R/Bioconductor; GPL; полезно как эталон параметров LC-MS обработки, не для NOM-назначения"
+      }
+    },
+    {
+      "id": "mzmine",
+      "name": "MZmine",
+      "repo": "https://github.com/mzmine/mzmine",
+      "language": "Java",
+      "license": {
+        "id": "MIT (текст 'Permission is hereby granted...') для исходников; отдельные условия для официальных сборок",
+        "verified": "license_read"
+      },
+      "metrics_measured": {
+        "java_files_in_repo": 4469,
+        "note": "полный клон не делался: получено дерево файлов через GitHub API; по ключевым темам найдено: Formula* 60 файлов, IonIdentity* 28, GapFill* 18, Isotope* 115, Kendrick* 30"
+      },
+      "operations": {
+        "formula_prediction": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "Java-типы FormulaType/FormulaListType/ConsensusFormulaListType (id_spectra_chem_formula)",
+          "how": "предсказание формул с оценкой по изотопному паттерну; по документации также MS/MS нейтральные потери"
+        },
+        "ion_identity_networking": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "IonIdentity.java, IonIdentityListType.java, MSMSIonIdentity.java, MSMSIonRelationIdentity.java",
+          "how": "связывание аддуктов, изотопологов, in-source фрагментов и кластеров вокруг нейтральной массы — объект IonIdentity"
+        },
+        "isotope_pattern": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "IsotopePattern.java, SimpleIsotopePattern.java, MultiChargeStateIsotopePattern.java, IsotopePatternScoreType.java",
+          "how": "паттерн изотопов как объект + тип оценки (score), поддержка нескольких зарядов"
+        },
+        "gap_filling": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "GapFill* (18 файлов), Gap.java, GapDataPoint.java, PeakFinderModule.java",
+          "how": "поиск пропущенных сигналов в сырых данных (не заполнение нулём)"
+        },
+        "kendrick": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "KendrickMassDefectFilter*, KendrickFalseNegativeDetector, KendrickFalsePositiveUtils",
+          "how": "фильтрация и детекция ложных срабатываний в координатах Kendrick mass defect"
+        }
+      },
+      "importability": {
+        "verdict": "Java, MIT для исходников; для Python-проекта — источник архитектурных решений (объекты Feature/IonIdentity/IsotopePattern), не код"
+      }
+    },
+    {
+      "id": "openms",
+      "name": "OpenMS",
+      "repo": "https://github.com/OpenMS/OpenMS",
+      "language": "C++/Python (pyOpenMS)",
+      "license": {
+        "id": "BSD-3-Clause (copyright OpenMS Inc./Tuebingen/ETH/FU Berlin)",
+        "verified": "license_read"
+      },
+      "metrics_measured": {
+        "source_files_in_chemistry": "AAIndex, AASequence, AdductInfo, Element, ElementDB, EmpiricalFormula, ISOTOPEDISTRIBUTION/, MASSDECOMPOSITION/, ...",
+        "note": "получен список файлов каталога CHEMISTRY (GitHub API)"
+      },
+      "operations": {
+        "empirical_formula": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "src/openms/source/CHEMISTRY/EmpiricalFormula.cpp (+ include/OpenMS/CHEMISTRY/EmpiricalFormula.h)",
+          "how": "класс брутто-формулы: разбор, арифметика, моноизотопная/средняя масса"
+        },
+        "isotope_distribution": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "src/openms/source/CHEMISTRY/ISOTOPEDISTRIBUTION/",
+          "how": "расчёт изотопного распределения (свёртка распределений элементов), fine isotope structure"
+        },
+        "mass_decomposition": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "src/openms/source/CHEMISTRY/MASSDECOMPOSITION/",
+          "how": "разложение масс на возможные составы элементов (MassDecomposition, MassDecompositionAlgorithm) — движок поиска формул"
+        },
+        "adduct_info": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "src/openms/source/CHEMISTRY/AdductInfo.cpp",
+          "how": "описание аддуктов (ионных форм) как объектов"
+        },
+        "element_db": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "src/openms/source/CHEMISTRY/Element.cpp, ElementDB.cpp",
+          "how": "база элементов с изотопами и распространённостями"
+        }
+      },
+      "importability": {
+        "verdict": "BSD-3 — самый удобный лицензионно; но C++/большая платформа: переносить идеи (MassDecomposition, IsotopeDistribution), не всю библиотеку"
+      }
+    },
+    {
+      "id": "msdial",
+      "name": "MS-DIAL (MsdialWorkbench)",
+      "repo": "https://github.com/systemsomicslab/MsdialWorkbench",
+      "language": "C#/.NET",
+      "license": {
+        "id": "LGPL-3.0 для исходников; готовые сборки — CC-BY 4.0 (по данным репозитория)",
+        "verified": "report_only",
+        "note": "в репозитории НЕТ файла лицензии проекта; есть только THIRD-PARTY-LICENSE-README.md (лицензии сторонних компонентов, там LGPL-2.1). Собственная лицензия заявлена на странице проекта (LGPL-3.0 + CC-BY для сборок)"
+      },
+      "metrics_measured": {
+        "algorithm_files_sample": [
+          "CcsEstimator.cs",
+          "IsotopeEstimator.cs",
+          "IsotopeTracking.cs",
+          "MolecularNetworking.cs",
+          "PeakSpottingCore.cs",
+          "PeakCharacterEstimator.cs",
+          "FragmentSearcher.cs",
+          "Alignment/",
+          "Annotation/"
+        ]
+      },
+      "operations": {
+        "isotope_estimation": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "src/MSDIAL5/MsdialCore/Algorithm/IsotopeEstimator.cs, IsotopeTracking.cs",
+          "how": "оценка и трекинг изотопов"
+        },
+        "ccs_ion_mobility": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "src/MSDIAL5/MsdialCore/Algorithm/CcsEstimator.cs",
+          "how": "оценка CCS (ионная подвижность)"
+        },
+        "peak_spotting_deconvolution": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "PeakSpottingCore.cs, PeakCharacterEstimator.cs",
+          "how": "детекция/деконволюция пиков"
+        },
+        "molecular_networking": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "MolecularNetworking.cs, CytoscapeMolecularNetworkClient.cs",
+          "how": "молекулярные сети (в т. ч. экспорт в Cytoscape)"
+        },
+        "msms_search": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "FragmentSearcher.cs, Annotation/",
+          "how": "поиск по фрагментам/MS2-библиотекам"
+        },
+        "alignment": {
+          "implemented": true,
+          "evidence": "file_list",
+          "where": "Alignment/",
+          "how": "выравнивание признаков между образцами"
+        }
+      },
+      "importability": {
+        "verdict": "C#/LGPL; vendor RAW закрыт лицензиями производителей; переносить нечего напрямую"
+      }
+    },
+    {
+      "id": "icbmocean",
+      "name": "ICBM-OCEAN (дополнительные модули)",
+      "repo": "https://github.com/JulianMerder/ICBM-OCEAN--Supplementary-Code-Modules",
+      "language": "R",
+      "license": {
+        "id": "GPL-3.0",
+        "verified": "license_read"
+      },
+      "found_via": "поиск по GitHub API (search/repositories?q=ICBM-OCEAN+in:name); основное веб-приложение не опубликовано, но доп. модули — да",
+      "metrics_measured": {
+        "r_files": 5,
+        "lines": 341
+      },
+      "operations": {
+        "sample_junction_fastjoin": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "icbmocean/fastjoin.R (49 строк)",
+          "how": "tolp <- 0.5 (допуск); данные сортируются по mz; однопроходная жадная группировка: начиная с наименьшей массы следующая масса проверяется на попадание в допуск, иначе начинается новый «массовый кластер»"
+        },
+        "sample_junction_precisejoin": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "icbmocean/precisejoin.R (75 строк)",
+          "how": "tolp <- 0.5; цикл слияния масс с индексом уже объединённых; внутри кластера считается ВЗВЕШЕННОЕ среднее mz (weighted.mean(dxg[x,], dg[x,]^1)) и sd; строки без единого измерения отбрасываются — то есть точное слияние с оценкой разброса"
+        },
+        "isotope_deviance_statistics": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "icbmocean/isotope_ratio_deviance_function.R (68 строк)",
+          "how": "isotope_deviance(intensity_parent, intensity_child, number_of_atoms, q=0.0108, p=0.9892, number_of_isotopes=1, group=..., color_by=...) — отклонение измеренного отношения 13C/12C от биномиального (q = природная доля 13C 1.08 %, p = 98.92 %) — статистическая проверка изотопов, а не просто порог по отношению"
+        },
+        "homologous_series_network": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "icbmocean/create_homologous_series_network.R (81 строка)",
+          "how": "get_network(i, r, B, indexf, homcheck) — построение сети гомологических серий по разностям масс с проверкой homcheck"
+        },
+        "resolving_power_outliers": {
+          "implemented": true,
+          "evidence": "code_read",
+          "where": "icbmocean/ResPow_outlier.R (68 строк)",
+          "how": "ResPow_outlier(dataset, column_mass=1, column_respow=4, method=1) — поиск выбросов по зависимости массы и разрешающей способности"
+        },
+        "raw_io": {
+          "implemented": false,
+          "evidence": "code_read",
+          "note": "вход — уже откалиброванные списки масс"
+        },
+        "formula_assignment": {
+          "implemented": false,
+          "evidence": "file_list",
+          "note": "в опубликованных доп. модулях назначения формул нет (оно в закрытом веб-приложении)"
+        }
+      },
+      "importability": {
+        "verdict": "GPL-3.0; алгоритмы простые и воспроизводимые — переносить идею, код не копировать",
+        "useful_algorithms": [
+          "sample junction до назначения формул (fast: жадная группировка; precise: взвешенное среднее + sd)",
+          "биномиальное отклонение изотопного отношения (q=0.0108, p=0.9892)",
+          "сеть гомологических серий",
+          "отсев выбросов по разрешающей способности"
+        ]
+      }
+    }
+  ],
+  "comparison_with_my_project": {
+    "legend": {
+      "less_than_analogues": "операция у меня есть, но реализована слабее/уже, чем у аналогов",
+      "absent_in_mine": "операции в моём проекте нет вообще"
+    },
+    "less_than_analogues": [
+      {
+        "operation": "Явные неоднозначные кандидаты (candidate table)",
+        "my_state": "assign + all_candidates (строка с лучшей формулой и списком кандидатов в одной колонке), без объектной модели кандидата и без отдельных оценок-компонент",
+        "best_analogues": [
+          "MFAssignR: разделение unambiguous/ambiguous/unassigned как отдельные результаты",
+          "CoreMS: возможные формулы + priority assignment по классам",
+          "NOMspectra: сохраняет один результат (assign) и charge"
+        ],
+        "gap": "нужны отдельные сущности AssignmentCandidate с полями mass_score, isotope_score, series_score, hard_filter_reason и итоговым рангом; сейчас неоднозначность видна, но не структурирована"
+      },
+      {
+        "operation": "Изотопный анализ",
+        "my_state": "есть теоретические паттерны свёрткой (M+1/M+2), статусы confirmed/inconsistent/uninformative, поиск изотопных вариантов, атрибуция сателлитов, учёт измеримости по уровню шума",
+        "best_analogues": [
+          "CoreMS: fine isotopic structure + find_isotopologues при поиске",
+          "MFAssignR: заблаговременное разделение Mono/Iso (чтобы изотоп не получил свою формулу)",
+          "UME: calc_isotope_pattern как отдельный расчёт",
+          "MZmine/MS-DIAL: IsotopePattern как объект с оценкой и учётом заряда"
+        ],
+        "gap": "нет изотопного кластера как объекта (с гипотезами заряда, моделью отсутствующих изотопов, разрешением), нет разделения набора Mono/Iso как таблиц, нет учёта перекрытия пиков по разрешающей способности"
+      },
+      {
+        "operation": "Ионные формы / аддукты",
+        "my_state": "фиксированный режим [M-H]- и сдвиги дериватизации; таблица аддуктов в chemistry.json помечена status='future' и не подключена",
+        "best_analogues": [
+          "MFAssignR: параметры POE/NOE/E/M/NH4/Z/O в MFAssign и MFAssignCHO",
+          "CoreMS: mass_by_ion_type + add_adducts в priority assignment",
+          "MZmine: Ion Identity Networking (объект IonIdentity)",
+          "OpenMS: AdductInfo"
+        ],
+        "gap": "нет модели ионной формы и группировки аддуктов; один режим ионизации"
+      },
+      {
+        "operation": "Заряды",
+        "my_state": "расчёт исходит из одного заряда; в назначении параметра заряда нет",
+        "best_analogues": [
+          "NOMspectra: assign(charge_max=…) с допуском ppm/charge",
+          "MZmine: MultiChargeStateIsotopePattern",
+          "CoreMS: ion_type/ion_charge в поиске"
+        ],
+        "gap": "нет перебора зарядов (для NOM direct infusion это реже нужно, но для m/z-ионов выше 1000 Да — существенно)"
+      },
+      {
+        "operation": "Молекулярные дескрипторы и карты",
+        "my_state": "DBE, aromaticity_index, H/C, O/C, NOSC-подобные метрики?, диаграмма Ван-Кревелена с областями NOM, гистограммы",
+        "best_analogues": [
+          "NOMspectra: kendrick(), cram(), ai/cai/dbe_ai, mol_class(), get_squares_vk()",
+          "UME: calc_dbe, calc_indeces, calc_eval_params + карты",
+          "PyC2MC: карты DBE/VK/KMD/MD, ACOS/MAI/MCR, Kendrick-мотивы"
+        ],
+        "gap": "отсутствуют Kendrick mass defect (KMD-карты), CAI/DBE_AI, классификация молекулярных классов, «квадраты» Ван-Кревелена"
+      },
+      {
+        "operation": "Метаданные и журнал операций (provenance)",
+        "my_state": "лог пайплайна, PipelineStats, параметры в xlsx, кэш результатов",
+        "best_analogues": [
+          "NOMspectra: metadata.add({...}) в каждой операции, сохраняется с спектром в JSON",
+          "CoreMS: HDF5 + JSON metadata рядом с результатами",
+          "OpenMS: CTD-параметры и workflow-описания"
+        ],
+        "gap": "нет версионируемого pipeline-recipe с хешами входов и параметров, который можно перезапустить одной командой и приложить к публикации"
+      },
+      {
+        "operation": "QC-диагностика",
+        "my_state": "базовые счётчики стадий, предупреждения, отчёт PDF, материалы для статьи (рисунки/таблицы)",
+        "best_analogues": [
+          "OpenMS: QC tools, mzQC/QcML",
+          "ICBM-OCEAN: валидация на каждом этапе (по публикации)",
+          "MZmine/MS-DIAL: диагностические графики стадий"
+        ],
+        "gap": "нет распределений ошибок масс, residual-графиков калибровки, CV по QC-образцам, карты пропусков"
+      },
+      {
+        "operation": "Работа с наборами образцов",
+        "my_state": "одиночный образец + производные спектры; серии CD3/CD3CO; батч-обработка (core/batch.py)",
+        "best_analogues": [
+          "NOMspectra: SpectrumList с матрицей близости и метриками набора",
+          "ICBM-OCEAN: sample junction (слияние масс образцов до назначения)",
+          "PyC2MC: попарные сравнения образцов и статистика"
+        ],
+        "gap": "нет выравнивания масс между образцами и общей матрицы формул образцов × соединений"
+      }
+    ],
+    "absent_in_mine": [
+      {
+        "operation": "Обработка transient / FFT (аподизация, zero filling, магнитудный спектр)",
+        "best_analogue": "CoreMS (TransientCalc: apodization, zero_fill, truncation, calculate_frequency_domain, phase_and_absorption_mode_ft)",
+        "note": "у меня RAW читается через vendor DLL и усредняется по RT, но транзиент не обрабатывается"
+      },
+      {
+        "operation": "Профильная обработка: baseline, сглаживание, центроидирование с контролем формы пика",
+        "best_analogue": "CoreMS (PeakPicking: do_peak_picking, find_minima), OpenMS/MZmine/MS-DIAL",
+        "note": "у меня вход — уже центроидные списки"
+      },
+      {
+        "operation": "Пост-рекалибровка масс (KDE/еталон/робастная)",
+        "best_analogue": "NOMspectra (recal.py: ErrorTable, fit_kernel, kernel_density_map, etalon_error), CoreMS (robust_calib, gen_ref_mass_list_from_assigned), MFAssignR (RecalList/Recal), UME (calc_recalibrate_ms)",
+        "note": "в моём проекте калибровки нет вообще — это самый заметный пробел в научной надёжности"
+      },
+      {
+        "operation": "Mono/Iso как раздельные представления пиков",
+        "best_analogue": "MFAssignR (IsoFiltR с Carbrat/Sulfrat)"
+      },
+      {
+        "operation": "Хроматографические признаки, RT-выравнивание, gap filling по сырым данным",
+        "best_analogue": "MZmine (GapFill*, align_*), xcms (findPeaks, groupOverlaps, fillPeaksChromPar), MS-DIAL (Alignment/)"
+      },
+      {
+        "operation": "Ионная подвижность / CCS",
+        "best_analogue": "MS-DIAL (CcsEstimator.cs), MZmine (IMS)"
+      },
+      {
+        "operation": "MS/MS-скоринг формул (фрагменты, нейтральные потери)",
+        "best_analogue": "MZmine (formula prediction + MS/MS), MS-DIAL (FragmentSearcher), OpenMS (AccurateMassSearch/MS-MS)"
+      },
+      {
+        "operation": "Молекулярные сети",
+        "best_analogue": "MZmine (MolecularNetworking), MS-DIAL (MolecularNetworking.cs)"
+      },
+      {
+        "operation": "Объекты Feature/Scan/Experiment с acquisition metadata",
+        "best_analogue": "OpenMS (data structures + PSI formats), MZmine (raw workflows), MS-DIAL",
+        "note": "у меня Spectrum это таблица масс/интенсивностей + метаданные словарём"
+      },
+      {
+        "operation": "Kendrick-группировка как инструмент фильтрации/группировки",
+        "best_analogue": "CoreMS (KendrickGrouping), MZmine (KendrickMassDefectFilter), MFAssignR (KMDNoise)"
+      },
+      {
+        "operation": "Blank/QC-роли образцов и фильтры по ним",
+        "best_analogue": "MZmine/xcms/MS-DIAL (study design), ICBM-OCEAN (диагностика по образцам)"
+      },
+      {
+        "operation": "Воспроизводимый pipeline-recipe (YAML/JSON) с перезапуском",
+        "best_analogue": "OpenMS (TOPP workflow + CTD), MZmine (batch step lists)"
+      },
+      {
+        "operation": "Шум как объект с диагностикой (график S/N-порога)",
+        "best_analogue": "MFAssignR (SNplot + KMDNoise/HistNoise), CoreMS (NoiseThresholdCalc + байесовский вариант)"
+      },
+      {
+        "operation": "Выравнивание масс между образцами ДО назначения формул (sample junction)",
+        "best_analogue": "ICBM-OCEAN: fastjoin.R (жадная группировка, tolp=0.5) и precisejoin.R (взвешенное среднее mz + sd внутри кластера)",
+        "note": "даёт согласованную структуру масс и позволяет подтверждать формулы изотопологами между образцами"
+      },
+      {
+        "operation": "Статистическая проверка изотопного отношения по биномиальному распределению",
+        "best_analogue": "ICBM-OCEAN: isotope_deviance(...) с q=0.0108 (доля 13C) и p=0.9892",
+        "note": "у меня сравнение измеренного и теоретического паттерна по допуску, без оценки значимости отклонения"
+      },
+      {
+        "operation": "Диагностика разрешающей способности и выбросов по ней",
+        "best_analogue": "ICBM-OCEAN: ResPow_outlier(column_mass, column_respow, method=1)"
+      }
+    ]
+  },
+  "licenses_summary": {
+    "verified_by_file": {
+      "NOMspectra": "GPL-3.0",
+      "MFAssignR": "GPL-2.0",
+      "CoreMS": "BSD-2-Clause (Battelle)",
+      "PyC2MC": "GPL-3.0",
+      "xcms": "GPL (>=2) + Scripps copyright",
+      "MZmine (исходники)": "MIT-текст (плюс отдельные условия для официальных сборок)",
+      "OpenMS": "BSD-3-Clause (copyright OpenMS Inc./Tuebingen/ETH/FU Berlin)",
+      "Formultitude": "ФАЙЛ ЛИЦЕНЗИИ ОТСУТСТВУЕТ — код использовать нельзя без разрешения авторов",
+      "UME": "в файле LICENSE текст лицензии не приведён; по данным репозитория AGPL-3.0 (не подтверждено кодом)"
+    },
+    "practical": {
+      "safe_to_borrow_ideas_and_code": [
+        "OpenMS (BSD-3)",
+        "CoreMS (BSD-2)",
+        "MZmine (MIT для исходников)"
+      ],
+      "ideas_only": [
+        "NOMspectra (GPL-3)",
+        "PyC2MC (GPL-3)",
+        "MFAssignR (GPL-2)",
+        "xcms (GPL)",
+        "UME (AGPL-3)"
+      ],
+      "do_not_touch": [
+        "Formultitude (лицензия отсутствует)"
+      ]
+    }
+  },
+  "unverified_or_limited": [
+    "MZmine: полный клон не делался (крупные тестовые RAW-ассеты); факты взяты из списка файлов репозитория (GitHub API), содержимое файлов не читалось",
+    "OpenMS: прочитан только список файлов каталога CHEMISTRY; алгоритмы — по названиям классов/файлов",
+    "MS-DIAL: получен список файлов Algorithm/; содержимое C#-файлов не читалось; LOC не измерялся",
+    "ICBM-OCEAN: исходный код не найден; алгоритм sample junction описан по публикации",
+    "Formultitude: прочитаны имена проектов/файлов; алгоритмы CIA/IPA — по публикации и названиям",
+    "Composer/PetroOrg/Bruker/Thermo: закрытый код, исключены из рассмотрения"
+  ]
+}

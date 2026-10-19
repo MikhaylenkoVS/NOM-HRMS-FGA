@@ -45,6 +45,58 @@ def _preset_to_kwargs(params: dict) -> dict:
     return kwargs
 
 
+def _halogen_warning(kwargs: dict) -> str | None:
+    """Предупреждение о числе галогенных комбинаций и замедлении (до анализа)."""
+    try:
+        from src.configs import FORMULA_SEARCH_CFG
+        from src.core.spectrum._constants import FormulaSearchConfig
+        from src.core.spectrum._formula_source import halogen_search_plan
+
+        cfg = FormulaSearchConfig()
+        ranges = dict(cfg.ranges or {})
+        brutto = kwargs.get("brutto_dict")
+        if brutto:
+            for el, rng in brutto.items():
+                ranges[el] = (int(rng[0]), int(rng[1]))
+        cfg.ranges = ranges
+
+        hs = getattr(FORMULA_SEARCH_CFG, "halogen_search", None) or {}
+        plan = halogen_search_plan(
+            cfg,
+            max_combinations=int(
+                kwargs.get("halogen_max_combinations", hs.get("max_combinations", 16))
+            ),
+            exhaustive=bool(
+                kwargs.get("halogen_exhaustive", hs.get("exhaustive", True))
+            ),
+            max_atoms_total=int(kwargs.get("halogen_max_atoms", 5)),
+        )
+    except Exception:
+        return None
+    # Предупреждение показывается только при включённом флаге конфига
+    # (halogen_search.show_warning); код оставлен для будущего использования.
+    if not (plan.get("warn") and plan.get("warn_enabled")):
+        return None
+    limits = plan.get("limits", {})
+    window = (
+        ", ".join(
+            f"{el}<={limits[el]}" for el in ("F", "Cl", "Br", "I") if limits.get(el)
+        )
+        or "галогены выключены"
+    )
+    return (
+        "[ВНИМАНИЕ] Проверка комбинаций галогенов: "
+        f"{plan['selected']} из {plan['allowed']} допустимых (окна: {window}).\n"
+        "           Ориентировочное замедление назначения формул: "
+        f"x{plan['slowdown']:.2f} (база — 16 комбинаций; замерено на "
+        "set_01/set_02).\n"
+        "           Уменьшить: --halogen-max-combinations N, "
+        "--no-halogen-exhaustive или сузить окна через --element-ranges.\n"
+        "           В GUI то же настраивается в окне "
+        "«Настройки поиска по галогенам…» (вкладка «Параметры», блок «Фильтры»)."
+    )
+
+
 def _parse_element_ranges(spec: str) -> dict:
     """Parse ``'C:5-60,H:4-120,O:1-30,N:0-3'`` → ``{'C': (5, 60), ...}``.
 
@@ -127,7 +179,110 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sign")
     p.add_argument("--ppm-tol", type=float)
     p.add_argument("--max-groups", type=int)
-    p.add_argument("--allow-gaps", action="store_true", default=None)
+    p.add_argument(
+        "--significance-level",
+        type=float,
+        default=None,
+        help="уровень доверия для длины серии (0.95 → p<0.05; чем выше, тем строже)",
+    )
+    p.add_argument(
+        "--subtract-source",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="исключать из производных спектров пики, дублирующие исходник "
+        "(только по m/z, без учёта интенсивностей)",
+    )
+    p.add_argument(
+        "--require-first-step",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="требовать подтверждённую первую ступень серии (по умолчанию включено; "
+        "--no-require-first-step — разрешить серии без первой ступени)",
+    )
+    p.add_argument(
+        "--subtract-ppm",
+        type=float,
+        default=None,
+        help="окно совпадения по m/z для вычитания исходника, ppm (по умолчанию 5)",
+    )
+    p.add_argument(
+        "--max-gaps",
+        type=int,
+        default=None,
+        help="допустимое число пропущенных ступеней внутри серии "
+        "(по умолчанию 1; 0 — без пропусков)",
+    )
+    p.add_argument(
+        "--allow-gaps",
+        action="store_true",
+        default=None,
+        help="устаревший синоним: разрешить пропуски (число по умолчанию — 1)",
+    )
+    p.add_argument(
+        "--no-allow-gaps",
+        dest="allow_gaps",
+        action="store_false",
+        default=None,
+        help="устаревший синоним: запретить пропуски (то же, что --max-gaps 0)",
+    )
+    p.add_argument(
+        "--db-variants",
+        action="store_true",
+        help="показать варианты базы формул (объём, ускорение, что установлено) и выйти",
+    )
+    p.add_argument(
+        "--halogen-exhaustive",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "проверять ВСЕ комбинации галогенов в заданных окнах элементов "
+            "(по умолчанию проверяются только самые приоритетные — "
+            "значительно быстрее)"
+        ),
+    )
+    p.add_argument(
+        "--halogen-max-combinations",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "сколько комбинаций галогенов проверять в обычном режиме "
+            "(по умолчанию 16; комбинации выбираются по приоритету)"
+        ),
+    )
+    p.add_argument(
+        "--denoise-source",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "шумоподавление исходного спектра (по умолчанию включено; "
+            "--no-denoise-source — если пиклист уже отфильтрован)"
+        ),
+    )
+    p.add_argument(
+        "--denoise-derivatives",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "шумоподавление спектров дериватизатов (по умолчанию выключено: "
+            "пики продуктов низкоинтенсивные)"
+        ),
+    )
+    p.add_argument(
+        "--max-xc",
+        type=float,
+        default=None,
+        help=(
+            "жёсткий фильтр (F+Cl+Br+I)/C, напр. 0.1; по умолчанию выключен "
+            "(фильтр — пользовательская настройка)"
+        ),
+    )
+    p.add_argument(
+        "--halogen-max-atoms",
+        type=int,
+        default=None,
+        help="предел числа атомов галогенов в брутто-формуле (по умолчанию 5)",
+    )
     p.add_argument(
         "--isotope-filter",
         action=argparse.BooleanOptionalAction,
@@ -181,6 +336,29 @@ def main(argv=None) -> int:
     # (ANSI-кодировка) иначе приводят к UnicodeEncodeError.
     ensure_utf8_stdio()
 
+    # --db-variants отвечает до разбора остальных аргументов: --input для него
+    # не нужен (пользователь может просто посмотреть варианты баз).
+    if argv is None:
+        argv = sys.argv[1:]
+    if "--db-variants" in argv:
+        from src.core.formula_db._variants import (
+            describe_choice,
+            installer_plan,
+            variants_report,
+        )
+
+        print(f"{'вариант':36s} {'объём':>9s} {'ускорение':>11s}  установлен")
+        for row in variants_report():
+            mark = "да" if row["installed"] else "нет"
+            print(
+                f"{row['title']:36s} {row['size_mb']:8.1f}М "
+                f"{row['speedup']:>11s}  {mark}"
+            )
+        plan = installer_plan()
+        print(f"\nинсталлер: {plan['summary']}")
+        print(f"будет использовано: {describe_choice()}")
+        return 0
+
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -199,12 +377,34 @@ def main(argv=None) -> int:
             kwargs[key] = val
     if args.sep is not None:
         kwargs["sep"] = args.sep
+    if args.max_gaps is not None:
+        kwargs["max_gaps"] = args.max_gaps
+    if args.subtract_source is not None:
+        kwargs["subtract_source"] = args.subtract_source
+    if args.subtract_ppm is not None:
+        kwargs["subtract_ppm"] = args.subtract_ppm
+    if args.require_first_step is not None:
+        kwargs["require_first_step"] = args.require_first_step
+    if args.significance_level is not None:
+        kwargs["significance_level"] = args.significance_level
     if args.allow_gaps is not None:
         kwargs["allow_gaps"] = args.allow_gaps
     if args.isotope_filter is not None:
         kwargs["isotope_filter"] = args.isotope_filter
     if args.isotope_variants is not None:
         kwargs["isotope_variants"] = args.isotope_variants
+    if args.max_xc is not None:
+        kwargs["max_xc"] = args.max_xc
+    if args.halogen_max_atoms is not None:
+        kwargs["halogen_max_atoms"] = args.halogen_max_atoms
+    if args.halogen_exhaustive is not None:
+        kwargs["halogen_exhaustive"] = args.halogen_exhaustive
+    if args.halogen_max_combinations is not None:
+        kwargs["halogen_max_combinations"] = args.halogen_max_combinations
+    if args.denoise_source is not None:
+        kwargs["denoise_source"] = args.denoise_source
+    if args.denoise_derivatives is not None:
+        kwargs["denoise_derivatives"] = args.denoise_derivatives
     if args.element_ranges:
         try:
             kwargs["brutto_dict"] = _parse_element_ranges(args.element_ranges)
@@ -231,6 +431,10 @@ def main(argv=None) -> int:
                 )
             else:
                 from src.core import run_pipeline
+
+                warning = _halogen_warning(kwargs)
+                if warning:
+                    print(warning)
 
                 src_path = _resolve_input(args.input)
                 dmet_path = _resolve_input(args.dmet) if args.dmet else None

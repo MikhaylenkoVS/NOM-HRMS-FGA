@@ -38,14 +38,34 @@ from src.ui._log import _QueueWriter
 class RunMixin:
     """Extracted from app.py."""
 
+    def _finish_run(self):
+        """Снять блокировку кнопки запуска (после успеха или ошибки)."""
+        self._run_in_progress = False
+        if getattr(self, "_run_button", None) is not None:
+            self._run_button.configure(state="normal")
+
     def _on_run_success_data(self, payload: dict):
         self.progress["value"] = 100
         result_df = payload.get("result")
         self.result_df = result_df
-        self._last_stats = payload.get("stats")
+        stats = payload.get("stats")
+        self._last_stats = stats
         n = len(result_df) if result_df is not None else 0
-        self._set_status(f"Готово. Найдено {n} соединений.")
-        self._log("✅ Анализ завершён успешно.", color=OK)
+        stage_errors = list(getattr(stats, "errors", []) or [])
+        if stage_errors:
+            # Этапы конвейера могли упасть, а результат — частичный.
+            self._set_status(
+                f"Завершено с ошибками ({len(stage_errors)} этап(ов)). " f"Строк: {n}."
+            )
+            self._log(
+                f"⚠️ Анализ завершён с ошибками этапов ({len(stage_errors)}):",
+                color=WARN,
+            )
+            for msg in stage_errors[:10]:
+                self._log(f"   • {str(msg).splitlines()[0][:300]}", color=WARN)
+        else:
+            self._set_status(f"Готово. Найдено {n} соединений.")
+            self._log("✅ Анализ завершён успешно.", color=OK)
         if result_df is not None and not result_df.empty:
             self._fill_result_table(result_df)
             self._auto_plot_hist()
@@ -55,9 +75,11 @@ class RunMixin:
             self._start_structure_preload(result_df)
         else:
             self._log("[WARN] Результирующая таблица пуста.", color=WARN)
+        self._finish_run()
 
     def _on_run_error_data(self, payload: dict):
         self.progress["value"] = 100
+        self._finish_run()
         tb = payload["traceback"]
         self._set_status("Ошибка! Смотри лог.")
         self._log("[ОШИБКА ВЫПОЛНЕНИЯ]\n" + tb, color=WARN)
@@ -74,6 +96,7 @@ class RunMixin:
         self.dacet_var.set(dacet)
 
     def _on_run_error_message(self, payload: dict):
+        self._finish_run()
         """Показывает понятную ошибку подготовки входных файлов (главный поток)."""
         message = payload.get("message", "Неизвестная ошибка")
         self.progress["value"] = 100
@@ -147,6 +170,12 @@ class RunMixin:
         return path
 
     def _run(self):
+        if getattr(self, "_run_in_progress", False):
+            messagebox.showwarning(
+                "Анализ уже выполняется",
+                "Дождитесь завершения текущего прогона или остановите его.",
+            )
+            return
         if not CORE_LOADED:
             messagebox.showerror(
                 "Ошибка", f"src.core не загружен:\n{_CORE_ERROR[:800]}"
@@ -196,6 +225,21 @@ class RunMixin:
             return
         self._last_params = params
 
+        # Предупреждение о числе галогенных комбинаций выводится ДО старта
+        # анализа: при полном переборе это заметно дольше.
+        plan = getattr(self, "_halogen_plan_from_ui", lambda: None)()
+        # Показ предупреждения управляется флагом halogen_search.show_warning
+        # (сейчас выключен: замедление оказалось незначительным). Механика
+        # сохранена — включить можно конфигом, без правки кода.
+        if plan and plan.get("warn") and plan.get("warn_enabled"):
+            messagebox.showwarning(
+                "Проверка комбинаций галогенов",
+                self._halogen_warning_text(plan),
+            )
+
+        self._run_in_progress = True
+        if getattr(self, "_run_button", None) is not None:
+            self._run_button.configure(state="disabled")
         self._clear_log()
         self._structure_cache.clear()  # сброс кэша структур
         self._structure_preloading = False

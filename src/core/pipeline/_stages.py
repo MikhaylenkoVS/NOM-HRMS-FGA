@@ -97,16 +97,37 @@ def _denoise_triple(
     stats,
     messages,
     progress_callback,
+    denoise_derivatives: bool = False,
+    denoise_source: bool = True,
+    subtract_source: bool = False,
+    subtract_ppm: float = 5.0,
 ):
-    """Denoise the three spectra in place; return (src, dmet, dacet, src_original)."""
+    """Denoise the source spectrum; derivatives — только по явному запросу.
+
+    ``subtract_source=True`` дополнительно исключает из производных спектров
+    пики, совпадающие по m/z с (уже отшумоподавлённым) исходником: это
+    непрореагировавшие соединения, а не продукты дериватизации. Сравнение —
+    только по m/z в окне ``subtract_ppm``, интенсивности не учитываются.
+
+    Дериватизаты дают низкоинтенсивные пики, и шумоподавление вырезает их
+    вместе с полезным сигналом (сателлиты продуктов вообще могут быть ниже
+    порога чувствительности прибора). Поэтому по умолчанию dmet/dacet не
+    фильтруются: ``denoise_derivatives=False``.
+    """
     try:
         # Сохранить копию до денойза для изотопного фильтра
         src_original = src.copy() if isotope_filter else None
-        if progress_callback:
-            progress_callback("Шумоподавление src…", 12)
-        src = denoise(
-            src, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
-        )
+        if denoise_source:
+            if progress_callback:
+                progress_callback("Шумоподавление src…", 12)
+            src = denoise(
+                src,
+                force=noise_force,
+                intensity=noise_intensity,
+                quantile=noise_quantile,
+            )
+        else:
+            _debug("src: шумоподавление отключено пользователем")
         stats.src_denoised = len(src.table) if hasattr(src, "table") else 0
         _debug(f"src после денойса: {stats.src_denoised} пиков")
     except Exception as e:
@@ -115,26 +136,36 @@ def _denoise_triple(
         messages.append(msg)
 
     try:
-        if progress_callback:
-            progress_callback("Шумоподавление dmet…", 15)
-        dmet = denoise(
-            dmet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
-        )
+        if denoise_derivatives:
+            if progress_callback:
+                progress_callback("Шумоподавление dmet…", 15)
+            dmet = denoise(
+                dmet,
+                force=noise_force,
+                intensity=noise_intensity,
+                quantile=noise_quantile,
+            )
+        else:
+            _debug("dmet: шумоподавление отключено (дериватизат)")
         stats.dmet_denoised = len(dmet.table) if hasattr(dmet, "table") else 0
-        _debug(f"dmet после денойса: {stats.dmet_denoised} пиков")
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА денойса dmet: {e}\n{traceback.format_exc()}"
         logger.error(msg)
         messages.append(msg)
 
     try:
-        if progress_callback:
-            progress_callback("Шумоподавление dacet…", 18)
-        dacet = denoise(
-            dacet, force=noise_force, intensity=noise_intensity, quantile=noise_quantile
-        )
+        if denoise_derivatives:
+            if progress_callback:
+                progress_callback("Шумоподавление dacet…", 18)
+            dacet = denoise(
+                dacet,
+                force=noise_force,
+                intensity=noise_intensity,
+                quantile=noise_quantile,
+            )
+        else:
+            _debug("dacet: шумоподавление отключено (дериватизат)")
         stats.dacet_denoised = len(dacet.table) if hasattr(dacet, "table") else 0
-        _debug(f"dacet после денойса: {stats.dacet_denoised} пиков")
     except Exception as e:
         msg = f"[PIPELINE] ОШИБКА денойса dacet: {e}\n{traceback.format_exc()}"
         logger.error(msg)
@@ -143,6 +174,30 @@ def _denoise_triple(
     print(
         f"  После шумоподавления: src={stats.src_denoised},  dmet={stats.dmet_denoised},  dacet={stats.dacet_denoised}"
     )
+
+    # Вычитание исходника из производных спектров (опционально):
+    # исключаем все пики, дублирующиеся по m/z, без учёта интенсивностей.
+    if subtract_source:
+        from src.core.spectrum._overlap import subtract_matching_peaks
+
+        for label, deriv_obj in (("dmet", dmet), ("dacet", dacet)):
+            if deriv_obj is None or not hasattr(deriv_obj, "table"):
+                continue
+            cleaned, st = subtract_matching_peaks(deriv_obj, src, ppm_tol=subtract_ppm)
+            if label == "dmet":
+                dmet, stats.dmet_overlap_removed = cleaned, st["removed"]
+                stats.dmet_denoised = len(cleaned.table)
+            else:
+                dacet, stats.dacet_overlap_removed = cleaned, st["removed"]
+                stats.dacet_denoised = len(cleaned.table)
+            msg = (
+                f"  Вычитание исходника ({label}): удалено {st['removed']} из "
+                f"{st['total']} пиков ({st['removed_frac']:.1%}) при "
+                f"{subtract_ppm:g} ppm"
+            )
+            print(msg)
+            messages.append(msg.strip())
+
     if progress_callback:
         progress_callback("Шумоподавление завершено", 20)
     return src, dmet, dacet, src_original
@@ -154,7 +209,9 @@ def _find_series_stage(
     delta,
     ppm_tol,
     max_groups,
-    allow_gaps,
+    max_gaps,
+    require_first_step,
+    significance_level,
     ion_mode,
     series_stats,
     deriv_label,
@@ -178,7 +235,9 @@ def _find_series_stage(
             delta=delta,
             ppm_tol=ppm_tol,
             max_groups=max_groups,
-            allow_gaps=allow_gaps,
+            max_gaps=max_gaps,
+            require_first_step=require_first_step,
+            significance_level=significance_level,
             ion_mode=ion_mode,
             progress_callback=cb,
         )

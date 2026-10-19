@@ -57,6 +57,11 @@ class PipelineStats:
     dmet_denoised: int = 0
     dacet_denoised: int = 0
 
+    # Сколько пиков производных спектров совпало с исходником и исключено
+    # (вычитание исходного спектра, без учёта интенсивностей)
+    dmet_overlap_removed: int = 0
+    dacet_overlap_removed: int = 0
+
     assigned_count: int = 0
     assigned_ratio: float = 0.0
 

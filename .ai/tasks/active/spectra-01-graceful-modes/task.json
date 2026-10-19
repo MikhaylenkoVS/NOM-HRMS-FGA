@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "spectra-01-graceful-modes",
+  "title": "SPECTRA-01: мягкие режимы — без обязательных трёх спектров и с проверкой наложений дериватизатов",
+  "status": "draft",
+  "type": "scientific",
+  "risk_level": "medium",
+  "created_at": "2026-10-16T00:00:00Z",
+  "updated_at": "2026-10-16T00:00:00Z",
+  "owners": {
+    "planner": "human",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "feat/spectra-01-graceful-modes",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/core/pipeline/",
+      "src/core/spectrum/",
+      "src/ui/",
+      "src/cli.py",
+      "tests/",
+      "docs/",
+      ".ai/tasks/active/spectra-01-graceful-modes/"
+    ],
+    "forbidden_paths": [
+      "dist/",
+      "build/",
+      "data/formula_db/",
+      "src/core/formula_db/_builder.py"
+    ],
+    "max_changed_files": 14
+  },
+  "requirements": {
+    "must_have": [
+      "Пайплайн работает при неполном наборе входов (исходник без dmet/dacet)",
+      "Стадии, которые нельзя выполнить, помечаются как пропущенные с причиной в PipelineStats и в отчёте",
+      "Жёсткая ошибка остаётся только при отсутствии исходного спектра",
+      "Для каждого найденного соединения проверяется наличие сигнала дериватизата в исходном спектре (m + 17.03448 / + 45.02939 в пределах ppm-окна)",
+      "Наложения помечаются в таблице и учитываются по решению заказчика"
+    ],
+    "should_have": [
+      "Диагностический рисунок с отмеченными наложениями в материалах для статьи",
+      "Отдельный столбец-статус полноты результата (полный/сокращённый)"
+    ],
+    "out_of_scope": [
+      "Изменение химической модели дериватизации",
+      "Пересборка сжатых баз формул"
+    ],
+    "must_not": [
+      "Молча выдавать сокращённый результат как полный (обязательна пометка)",
+      "Падать при отсутствии dmet/dacet, если исходный спектр задан"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task spectra-01-graceful-modes",
+      "python -c \"import json,pathlib; print(json.loads(pathlib.Path('.ai/tasks/active/spectra-01-graceful-modes/task.json').read_text(encoding='utf-8'))['id'])\""
+    ],
+    "required_test_commands": [
+      "pytest tests/unit -q",
+      "python -m src.cli --input data/test_sets/set_01/original.csv --output /tmp/only_src.csv"
+    ],
+    "acceptance_file": "acceptance.md",
+    "requires_benchmark": false,
+    "requires_reference_equivalence": true,
+    "requires_adr": false,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": "reference_validation.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": []
+  }
+}

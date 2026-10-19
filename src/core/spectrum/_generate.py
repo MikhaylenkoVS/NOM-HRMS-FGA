@@ -23,6 +23,8 @@ import logging
 import math
 from functools import lru_cache
 
+import numpy as np
+
 from src.configs import CHEM, FORMULA_SEARCH_CFG
 from ._constants import ATOMIC_MASS, HALOGENS, FormulaSearchConfig
 
@@ -55,8 +57,9 @@ def limits_key(cfg: FormulaSearchConfig) -> tuple[tuple[str, float], ...]:
         "S": float(cfg.max_sc),
         "P": float(cfg.max_pc),
     }
+    x_limit = float("inf") if cfg.max_xc is None else float(cfg.max_xc)
     for el in HALOGENS:
-        limits[el] = float(cfg.max_xc)
+        limits[el] = x_limit
     return tuple(sorted(limits.items()))
 
 
@@ -324,18 +327,64 @@ def _neutral_to_ion_mass(neutral_mass: float, ion_mode: str) -> float:
     raise ValueError(f"Unknown ion_mode: {ion_mode}")
 
 
+#: Алиасы режимов ионизации (как их могут писать GUI/CLI/конфиги).
+_ION_MODE_ALIASES = {
+    "m-h": "[m-h]-",
+    "mh-": "[m-h]-",
+    "m+": "[m]+",
+    "[m+]": "[m]+",
+    "m+h": "[m+h]+",
+    "mh+": "[m+h]+",
+}
+
+
+def _adduct_table() -> dict:
+    """Таблица аддуктов из chemistry.json (пустая, если её нет)."""
+    return dict(getattr(CHEM, "adducts", {}) or {})
+
+
+def _adduct_entry(ion_mode: str):
+    """Найти запись аддукта по имени режима (с учётом алиасов)."""
+    key = (ion_mode or "").strip().lower()
+    if key in ("neutral", ""):
+        return None
+    key = _ION_MODE_ALIASES.get(key, key)
+    table = {name.lower(): entry for name, entry in _adduct_table().items()}
+    return table.get(key)
+
+
 def _ion_shift(ion_mode: str) -> float:
-    """Return the constant mass shift (Da) for vectorised ion conversion.
+    """Постоянный сдвиг (Да) для перевода нейтральной массы в m/z.
 
     ``neutral_mass + _ion_shift(mode) == observed m/z``.
+    Значения берутся из таблицы аддуктов (chemistry.json): для [M-H]-
+    это −m(протона), что эквивалентно −m(H) + m(e).
+
+    Режимы со ``status="future"`` ещё не подключены к научным стадиям и
+    вызывают явную ошибку, чтобы их нельзя было использовать «вслепую».
     """
-    ion_mode = ion_mode.lower() if ion_mode else ""
-    if ion_mode in ("neutral", None, ""):
+    key = (ion_mode or "").strip().lower()
+    if key in ("neutral", "") or ion_mode is None:
         return 0.0
-    if ion_mode in ("[m-h]-", "m-h", "mh-"):
-        return -CHEM.proton_mass
-    if ion_mode in ("[m]+", "m+", "[m+]"):
-        return -CHEM.electron_mass
-    if ion_mode in ("[m+h]+", "m+h", "mh+"):
-        return +CHEM.proton_mass
-    raise ValueError(f"Unknown ion_mode: {ion_mode}")
+    entry = _adduct_entry(key)
+    if entry is None:
+        raise ValueError(f"Unknown ion_mode: {ion_mode}")
+    status = str(entry.get("status", "supported")).lower()
+    if status != "supported":
+        raise ValueError(
+            f"Режим ионизации {ion_mode!r} помечен как '{status}': "
+            "он зарезервирован на будущее и пока не подключён. "
+            "Используйте [M-H]-."
+        )
+    return float(entry["mass_shift"])
+
+
+def neutral_masses(mz_values, ion_mode: str):
+    """Перевести массив m/z в нейтральные массы (векторно, один раз).
+
+    Пункт 3: все пики спектра заранее переводятся в нейтральные массы,
+    и только после этого ищутся по базе формул.
+    """
+    shift = _ion_shift(ion_mode)
+    array = np.asarray(mz_values, dtype=float)
+    return array - shift

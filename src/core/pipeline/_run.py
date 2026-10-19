@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import logging
 import traceback
 import pandas as pd
@@ -17,6 +18,18 @@ from ._export import export_result_table
 from src.core.van_krevelen import create_van_krevelen_plot
 
 logger = logging.getLogger(__name__)
+
+
+def _file_signature(path) -> tuple:
+    """Быстрый признак содержимого файла для ключа кэша: (mtime_ns, size).
+
+    Без него перезапись файла с тем же именем возвращала бы старый результат.
+    """
+    try:
+        st = os.stat(path)
+        return (int(st.st_mtime_ns), int(st.st_size))
+    except OSError:
+        return (0, 0)
 
 
 def _search_config_from_brutto(
@@ -82,7 +95,10 @@ def run_pipeline(
     # Поиск серий
     ppm_tol: float = PIPELINE.run_pipeline_defaults["ppm_tol"],
     max_groups: int = PIPELINE.run_pipeline_defaults["max_groups"],
-    allow_gaps: bool = PIPELINE.run_pipeline_defaults["allow_gaps"],
+    # Правило по умолчанию: не более 1 пропуска в серии (0 — без пропусков)
+    max_gaps: int = PIPELINE.run_pipeline_defaults.get("max_gaps", 1),
+    # Устаревший синоним: allow_gaps=False эквивалентно max_gaps=0
+    allow_gaps: bool | None = None,
     # Визуализация
     visualize: bool = True,
     save_dmet=None,
@@ -101,6 +117,37 @@ def run_pipeline(
     isotope_variants: bool = True,
     # Источник формул-кандидатов: сжатая база формул (если файл доступен)
     use_formula_db: bool = True,
+    # Шумоподавление спектров дериватизатов (по умолчанию выключено:
+    # пики продуктов низкоинтенсивные и теряются вместе с шумом)
+    denoise_derivatives: bool = PIPELINE.run_pipeline_defaults.get(
+        "denoise_derivatives", True
+    ),
+    # Шумоподавление исходного спектра: можно отключить, если пиклист уже
+    # отфильтрован прибором/исследователем (пункт 11).
+    denoise_source: bool = True,
+    # Вычитание исходника из производных спектров: исключить все пики,
+    # дублирующиеся по m/z (без учёта интенсивностей).
+    subtract_source: bool = PIPELINE.run_pipeline_defaults.get("subtract_source", True),
+    subtract_ppm: float = PIPELINE.run_pipeline_defaults.get("subtract_ppm", 2.0),
+    # Точность прежде полноты: без подтверждённой первой ступени серия
+    # не считается (см. ADR-0008).
+    require_first_step: bool = PIPELINE.run_pipeline_defaults.get(
+        "require_first_step", True
+    ),
+    significance_level: float = PIPELINE.run_pipeline_defaults.get(
+        "significance_level", 0.95
+    ),
+    # Пользовательский фильтр X/C = (F+Cl+Br+I)/C. None — фильтр выключен
+    # (по умолчанию); значение задаётся в GUI/CLI.
+    max_xc: float | None = None,
+    # Предельное число атомов галогенов в брутто-формуле (пользовательский
+    # предел, по умолчанию 5).
+    halogen_max_atoms: int = 5,
+    #: Полный перебор комбинаций галогенов (галочка в GUI, заметно медленнее).
+    halogen_exhaustive: bool = True,
+    #: Число комбинаций в обычном режиме; выбираются по приоритету:
+    #: сначала варианты с большим числом атомов одного галогена.
+    halogen_max_combinations: int = 16,
     use_cache: bool = True,
     progress_callback=None,
 ):
@@ -133,8 +180,11 @@ def run_pipeline(
         Tolerance (ppm) for series matching. Default 5.0.
     max_groups : int, keyword-only, optional
         Maximum functional groups per molecule to probe. Default 20.
-    allow_gaps : bool, keyword-only, optional
-        Whether to tolerate gaps within a series. Default ``True``.
+    max_gaps : int, keyword-only, optional
+        Максимальное число пропущенных ступеней внутри серии. По умолчанию
+        **1** (правило проекта); ``0`` — без пропусков. Default 1.
+    allow_gaps : bool or None, keyword-only, optional
+        Устаревший синоним: ``False`` эквивалентно ``max_gaps=0``. Default ``None``.
     visualize : bool, keyword-only, optional
         Whether to render series plots. Default ``True``.
     save_dmet, save_dacet : optional
@@ -160,6 +210,15 @@ def run_pipeline(
         A :class:`PipelineRunResult` for a normal run, or a list of
         :class:`TestSetResult` when ``test_mode=True``.
     """
+
+    # -----------------------------------------------------------------------
+    # Правило по умолчанию: не более 1 пропуска в серии (0 — без пропусков).
+    # Устаревший синоним allow_gaps=False означает «пропуски запрещены».
+    # -----------------------------------------------------------------------
+    if allow_gaps is False:
+        max_gaps = 0
+    if max_gaps < 0:
+        raise ValueError(f"max_gaps должно быть >= 0, получено {max_gaps}")
 
     # -----------------------------------------------------------------------
     # Проверка импорта
@@ -210,8 +269,8 @@ def run_pipeline(
             max_groups=_reference(
                 tm["series"]["max_groups"], max_groups, prod["max_groups"]
             ),
-            allow_gaps=_reference(
-                tm["series"]["allow_gaps"], allow_gaps, prod["allow_gaps"]
+            max_gaps=_reference(
+                tm["series"].get("max_gaps", 1), max_gaps, prod.get("max_gaps", 1)
             ),
         )
 
@@ -254,6 +313,11 @@ def run_pipeline(
             src_path,
             dmet_path,
             dacet_path,
+            # Содержимое файлов: перезапись с тем же именем должна
+            # инвалидировать кэш.
+            _file_signature(src_path),
+            _file_signature(dmet_path),
+            _file_signature(dacet_path),
             sep,
             load_mass_min,
             load_mass_max,
@@ -267,10 +331,21 @@ def run_pipeline(
             assign_mass_max,
             ppm_tol,
             max_groups,
-            allow_gaps,
+            max_gaps,
             output_csv,
             isotope_filter,
             isotope_variants,
+            use_formula_db,
+            denoise_derivatives,
+            denoise_source,
+            subtract_source,
+            subtract_ppm,
+            require_first_step,
+            significance_level,
+            max_xc,
+            halogen_max_atoms,
+            halogen_exhaustive,
+            halogen_max_combinations,
         )
     )
     if use_cache and _cache_key in _result_cache:
@@ -330,6 +405,10 @@ def run_pipeline(
         stats,
         messages,
         progress_callback,
+        denoise_derivatives,
+        denoise_source,
+        subtract_source,
+        subtract_ppm,
     )
 
     # -----------------------------------------------------------------------
@@ -341,6 +420,11 @@ def run_pipeline(
     print("=" * 60)
     ion_mode = _ion_mode_from_sign(sign)
     search_config = _search_config_from_brutto(brutto_dict)
+    if search_config is not None:
+        # X/C — пользовательская настройка (None = выключен)
+        search_config.max_xc = max_xc
+    elif max_xc is not None:
+        search_config = FormulaSearchConfig(max_xc=max_xc)
     _debug(
         f"assign_formulas: rel_error={rel_error}, sign={sign}, "
         f"ion_mode={ion_mode}, mass_min={assign_mass_min}, mass_max={assign_mass_max}"
@@ -366,6 +450,9 @@ def run_pipeline(
                 original=src_original,
                 progress_callback=_assign_cb,
                 formula_db=formula_db,
+                db_halogen_atoms=halogen_max_atoms,
+                db_halogen_exhaustive=halogen_exhaustive,
+                db_halogen_max_combinations=halogen_max_combinations,
             )
         finally:
             if formula_db is not None:
@@ -408,7 +495,7 @@ def run_pipeline(
     print("ШАГ 3: Серии дейтерометилирования (-> N_COOH)")
     print("=" * 60)
     _debug(
-        f"find_series: delta={DELTA_CD3:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}"
+        f"find_series: delta={DELTA_CD3:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, max_gaps={max_gaps}"
     )
 
     df_dmet = _find_series_stage(
@@ -417,7 +504,9 @@ def run_pipeline(
         DELTA_CD3,
         ppm_tol,
         max_groups,
-        allow_gaps,
+        max_gaps,
+        require_first_step,
+        significance_level,
         ion_mode,
         stats.dmet,
         "dmet",
@@ -438,7 +527,7 @@ def run_pipeline(
     print("ШАГ 4: Серии дейтероацилирования (-> N_OH)")
     print("=" * 60)
     _debug(
-        f"find_series: delta={DELTA_CD3CO:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, allow_gaps={allow_gaps}"
+        f"find_series: delta={DELTA_CD3CO:.5f}, ppm_tol={ppm_tol}, max_groups={max_groups}, max_gaps={max_gaps}"
     )
 
     df_dacet = _find_series_stage(
@@ -447,7 +536,9 @@ def run_pipeline(
         DELTA_CD3CO,
         ppm_tol,
         max_groups,
-        allow_gaps,
+        max_gaps,
+        require_first_step,
+        significance_level,
         ion_mode,
         stats.dacet,
         "dacet",
@@ -552,7 +643,7 @@ def run_pipeline(
                         "noise_quantile": noise_quantile,
                         "ppm_tol": ppm_tol,
                         "max_groups": max_groups,
-                        "allow_gaps": allow_gaps,
+                        "max_gaps": max_gaps,
                         "isotope_filter": isotope_filter,
                         "isotope_variants": isotope_variants,
                         "assign_mass_min": assign_mass_min,
@@ -589,7 +680,9 @@ def run_pipeline(
     result_obj = PipelineRunResult(
         table=result, stats=stats, messages=messages, errors=errors
     )
-    if use_cache:
+    if use_cache and not errors:
+        # Результат с ошибками этапов не кэшируем: иначе повторный запуск
+        # «прилипает» к неполной таблице.
         _result_cache[_cache_key] = result_obj
     if progress_callback:
         progress_callback("Готово", 100)

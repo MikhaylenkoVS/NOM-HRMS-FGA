@@ -11,12 +11,62 @@
     "Br": 78.9183376,
     "I": 126.9044719
   },
-  "atomic_mass_elements": ["H", "C", "N", "O", "S", "P", "F", "Cl", "Br", "I"],
+  "atomic_mass_elements": [
+    "H",
+    "C",
+    "N",
+    "O",
+    "S",
+    "P",
+    "F",
+    "Cl",
+    "Br",
+    "I"
+  ],
   "proton_mass": 1.007276466812,
   "electron_mass": 0.0005485654179999688,
   "derivatization_shifts": {
     "delta_cd3": 17.03448,
     "delta_cd3co": 45.02939
   },
-  "default_ion_mode": "[M-H]-"
+  "default_ion_mode": "[M-H]-",
+  "adducts": {
+    "[M-H]-": {
+      "mass_shift": -1.007276466812,
+      "charge": -1,
+      "status": "supported",
+      "note": "основной режим: m/z = M - m(H) + m(e)"
+    },
+    "[M+H]+": {
+      "mass_shift": 1.007276466812,
+      "charge": 1,
+      "status": "future",
+      "note": "запланировано; пока не используется"
+    },
+    "[M]+": {
+      "mass_shift": -0.000548565418,
+      "charge": 1,
+      "status": "future",
+      "note": "запланировано; пока не используется"
+    },
+    "[M+Na]+": {
+      "mass_shift": 22.989220714582,
+      "charge": 1,
+      "status": "future",
+      "note": "запланировано; пока не используется"
+    },
+    "[M+Cl]-": {
+      "mass_shift": 34.969401247418,
+      "charge": -1,
+      "status": "future",
+      "note": "запланировано; пока не используется"
+    },
+    "[M+NH4]+": {
+      "mass_shift": 18.033825567932,
+      "charge": 1,
+      "status": "future",
+      "note": "запланировано; пока не используется"
+    }
+  },
+  "adducts_note": "Таблица аддуктов. Сейчас поддержан только [M-H]- (default_ion_mode). Остальные помечены status=future: значения рассчитаны, но режимы не подключены — отдельная будущая задача."
 }

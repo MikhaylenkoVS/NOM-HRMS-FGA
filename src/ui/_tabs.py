@@ -90,6 +90,11 @@ class TabsMixin:
         ttk.Button(ctrl, text="📄 Экспорт PDF", command=self._export_pdf).pack(
             side="left", padx=4
         )
+        ttk.Button(
+            ctrl,
+            text="🖼 Материалы для статьи",
+            command=self._export_article_materials,
+        ).pack(side="left", padx=4)
         ttk.Button(ctrl, text="📂 Импорт CSV", command=self._import_csv).pack(
             side="left", padx=4
         )

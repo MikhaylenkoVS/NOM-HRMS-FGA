@@ -28,12 +28,81 @@ _SATELLITE_TOLERANCE = float(getattr(ISOTOPE_CFG, "satellite_tolerance", 0.35))
 #: ppm-допуск поиска изотопных вариантов и сателлитов в спектре (шире, чем
 #: поиск самих формул: сателлит может быть смещён и по массе, и по профилю).
 _SATELLITE_PPM_TOL = float(getattr(ISOTOPE_CFG, "variant_ppm_tol", 5.0))
-#: Порог M+2/M, при котором слой галогенных подстановок включается:
-#: Cl даёт ≈32 %, Br ≈97 %, поэтому 5 % надёжно отделяет их от 13C-фона.
+#: Порог M+2/M, при котором слой галогенных подстановок включается.
+#: Значение — нижняя граница наблюдаемого M+2: Cl даёт ≈32 % (1 атом),
+#: Br ≈97 %, S ≈4.4 %, поэтому 5 % отделяет галогены от 13C-фона.
 _HALOGEN_M2_EVIDENCE = float(getattr(ISOTOPE_CFG, "halogen_m2_evidence", 0.05))
+#: Порог теоретического M+1/M, при котором для галогенного кандидата
+#: требуется наблюдаемый M+1 (13C-сателлит): иначе состав не подтверждён.
+_HALOGEN_M1_EVIDENCE = float(getattr(ISOTOPE_CFG, "halogen_m1_evidence", 0.05))
+#: Абсолютный «необъяснённый» избыток M+2: если наблюдается M+2 на 5 % и
+#: более, а кандидат объясняет заметно меньше, он отбрасывается
+#: (формула без Cl/Br/S такой сателлит не объясняет).
+_M2_UNEXPLAINED_ABS = float(getattr(ISOTOPE_CFG, "m2_unexplained_abs", 0.05))
+#: Минимальный наблюдаемый M+1/M, при котором считаем, что изотопные пики
+#: вообще измеримы. Если M+1 не виден, сателлиты ниже порога чувствительности
+#: и отрицательные изотопные проверки не применяются.
+_SATELLITE_VISIBLE_MIN = float(getattr(ISOTOPE_CFG, "satellite_visible_min", 0.05))
+#: Теоретический M+2/M, начиная с которого отсутствие сателлита считается
+#: противоречием. 5 % (один атом S) слишком близко к уровню шума синтетических
+#: и «уже отфильтрованных» спектров, поэтому порог выше — 10 %.
+_M2_REQUIRED = float(getattr(ISOTOPE_CFG, "m2_required", 0.10))
+#: Порог «сильного» наблюдаемого M+2/M, который кандидат обязан объяснить.
+#: 13C2 даёт максимум ~10–20 % даже для больших молекул, а Cl — 32 %,
+#: Br — 97 %, 2 Cl — 64 %. Поэтому проверка «необъяснённого» M+2 включается
+#: только с 20 %, чтобы случайный соседний пик не сносил верные формулы.
+_M2_STRONG = float(getattr(ISOTOPE_CFG, "m2_strong", 0.20))
+#: Процентиль интенсивностей исходного спектра, принимаемый за уровень
+#: шума: предсказанный сателлит ниже этого уровня не мог быть измерен.
+_NOISE_FLOOR_QUANTILE = float(getattr(ISOTOPE_CFG, "noise_floor_quantile", 0.10))
+#: Во сколько раз измеренный сателлит может превышать максимальный
+#: теоретический по всем кандидатам окна, чтобы считаться измерением
+#: изотопного паттерна: выше — это, скорее всего, соседний пик другого
+#: соединения (плотные спектры), и жёсткие проверки отключаются.
+_PATTERN_RELIABLE_MARGIN = float(getattr(ISOTOPE_CFG, "pattern_reliable_margin", 1.5))
 
-#: Сдвиг M+2, по которому ищется наблюдаемый пик (34S/37Cl/81Br ≈ 1.996 Да).
-_M2_MASS_SHIFT = 1.9958
+
+def _deltas_for_shift(shift: int) -> tuple[float, ...]:
+    """Точные сдвиги массы для номинального M+``shift`` по всем изотопам.
+
+    Единого сдвига не существует: 34S — 1.99580, 37Cl — 1.99705,
+    81Br — 1.99795, 18O — 2.00425; для M+1 — 13C 1.00335, 2H 1.00628,
+    15N 0.99703, 17O 1.00422, 33S 0.99939. Поиск по одному «сдвигу серы»
+    с допуском 1 ppm не находит пики Cl/Br, поэтому перебираем все.
+    """
+    deltas: set[float] = set()
+    for element, isotopes in ISOTOPE_TABLE.items():
+        base = isotopes[0][0]
+        for idx in range(1, len(isotopes)):
+            if nominal_shift(element, idx) == shift:
+                deltas.add(round(isotopes[idx][0] - base, 6))
+    return tuple(sorted(deltas))
+
+
+_M1_DELTAS = _deltas_for_shift(1)
+_M2_DELTAS = _deltas_for_shift(2)
+
+
+def _measure_satellite(
+    m_sorted: np.ndarray | None,
+    i_sorted: np.ndarray | None,
+    mass: float,
+    deltas: tuple[float, ...],
+    ppm_tol: float,
+) -> float | None:
+    """Интенсивность сателлита: максимум по пикам на позициях ``mass + Δ``.
+
+    Δ перебираются по всем изотопам соответствующего номинального сдвига.
+    """
+    if m_sorted is None or i_sorted is None:
+        return None
+    best: float | None = None
+    for delta in deltas:
+        value = _peak_intensity_near(m_sorted, i_sorted, mass + delta, ppm_tol)
+        if value is not None and (best is None or value > best):
+            best = value
+    return best
+
 
 #: Шаг сетки кэша массовых окон (0.001 Да).
 _WINDOW_GRID = 1000.0
@@ -178,6 +247,10 @@ def assign_formulas(
     isotope_satellites: bool = True,
     formula_db=None,
     db_halogen_atoms: int = DEFAULT_HALOGEN_ATOMS,
+    #: Полный перебор комбинаций галогенов (значительно медленнее).
+    db_halogen_exhaustive: bool = False,
+    #: Сколько комбинаций проверять в обычном режиме (по приоритету).
+    db_halogen_max_combinations: int = 16,
 ):
     """Assign brutto formulas by mass-local enumeration over the element set.
 
@@ -262,6 +335,27 @@ def assign_formulas(
     if isotope_filter and m_sorted is not None:
         q1, q2 = _isotope_coefficients(elements)
     m2_el_idx = [idx[el] for el in ("S", "Cl", "Br") if el in idx]
+    status_col = [""] * len(mass_values)
+    halogen_unconfirmed_col = [False] * len(mass_values)
+
+    # Заранее переведённые нейтральные массы всех пиков (векторно).
+    neutral_values = np.asarray(mass_values, dtype=float) - shift
+
+    # Уровень шума спектра: нижний процентиль интенсивностей исходного
+    # (неденоизованного) пиклиста. Предсказанный сателлит с абсолютной
+    # интенсивностью ниже этого уровня физически не мог быть измерен, и
+    # требовать его присутствия нельзя.
+    noise_floor = 0.0
+    if original is not None and hasattr(original, "table"):
+        ints = np.asarray(original.table["intensity"], dtype=float)
+        ints = ints[np.isfinite(ints) & (ints > 0)]
+        if len(ints) >= 20:
+            noise_floor = float(np.quantile(ints, _NOISE_FLOOR_QUANTILE))
+
+    # Данные последнего пика — для статуса изотопного подтверждения.
+    last_dev1 = last_dev2 = None
+    last_m1_req = last_m2_req = None
+    last_hal_mask = None
 
     brutto_col = [None] * n_rows
     assign_col = [False] * n_rows
@@ -277,9 +371,16 @@ def assign_formulas(
             candidates_col[row_i] = []
             continue
         mass_obs = float(mass_obs)
+        # Сброс данных изотопного анализа: иначе статус мог бы унаследоваться
+        # от предыдущего пика.
+        last_dev1 = last_dev2 = None
+        last_m1_req = last_m2_req = None
+        last_hal_mask = None
 
         tol = max(abs(mass_obs) * rel_error_ppm * 1e-6, 1e-12)
-        neutral = mass_obs - shift
+        # Нейтральная масса берётся из заранее пересчитанного массива
+        # (пункт 3: перевод в нейтраль выполняется один раз для всего спектра).
+        neutral = float(neutral_values[row_i])
         key = (
             math.floor((neutral - tol) * _WINDOW_GRID) / _WINDOW_GRID,
             math.ceil((neutral + tol) * _WINDOW_GRID) / _WINDOW_GRID,
@@ -301,6 +402,8 @@ def assign_formulas(
                     half,
                     include_halogens=with_halogens,
                     max_halogen_atoms=db_halogen_atoms,
+                    halogen_exhaustive=db_halogen_exhaustive,
+                    halogen_max_combinations=db_halogen_max_combinations,
                 )
                 result = (counts_arr, masses_arr)
             else:
@@ -325,8 +428,8 @@ def assign_formulas(
         if need_hal and formula_db is not None and m_sorted is not None:
             base_int = _peak_intensity_near(m_sorted, i_sorted, mass_obs, rel_error_ppm)
             if base_int:
-                m2_int = _peak_intensity_near(
-                    m_sorted, i_sorted, mass_obs + _M2_MASS_SHIFT, rel_error_ppm
+                m2_int = _measure_satellite(
+                    m_sorted, i_sorted, mass_obs, _M2_DELTAS, _SATELLITE_PPM_TOL
                 )
                 need_hal = bool(
                     m2_int is not None and (m2_int / base_int) >= _HALOGEN_M2_EVIDENCE
@@ -362,8 +465,8 @@ def assign_formulas(
             if base_intensity and base_intensity > 0:
                 counts_f = counts_win.astype(float)
                 m1_theor = counts_f @ q1
-                m1_meas = _peak_intensity_near(
-                    m_sorted, i_sorted, mass_obs + 1.00335, rel_error_ppm
+                m1_meas = _measure_satellite(
+                    m_sorted, i_sorted, mass_obs, _M1_DELTAS, _SATELLITE_PPM_TOL
                 )
                 if m1_meas is not None:
                     m1_ratio = m1_meas / base_intensity
@@ -378,11 +481,8 @@ def assign_formulas(
                 if m2_el_idx:
                     has_m2 = (counts_win[:, m2_el_idx] > 0).any(axis=1)
                     if has_m2.any():
-                        m2_meas = _peak_intensity_near(
-                            m_sorted,
-                            i_sorted,
-                            mass_obs + _M2_MASS_SHIFT,
-                            rel_error_ppm,
+                        m2_meas = _measure_satellite(
+                            m_sorted, i_sorted, mass_obs, _M2_DELTAS, _SATELLITE_PPM_TOL
                         )
                         if m2_meas is not None:
                             m2_theor = counts_f @ q2 + 0.5 * m1_theor**2
@@ -407,6 +507,105 @@ def assign_formulas(
                                 0.0,
                             )
 
+        # ── Жёсткая изотопная проверка по паттерну ───────────────────────────
+        # 1. Кандидат, который предсказывает сильный сателлит (M+1 или M+2),
+        #    но не подтверждается наблюдением, отбрасывается.
+        # 2. Сильный наблюдаемый M+2 (≥ 5 %) должен объясняться кандидатом:
+        #    формула без Cl/Br/S такой сателлит не объясняет и отбрасывается.
+        # 3. Галогенные кандидаты дополнительно требуют наблюдаемого M+1
+        #    (у F/I нет своего M+2, и подтвердить их можно только 13C).
+        # Пороги берутся из природных распространённостей изотопов
+        # (Cl ≈ 32 % на M+2 и т.д.), а не задаются вручную.
+        halogen_idx = [idx[el] for el in ("F", "Cl", "Br", "I") if el in idx]
+        hard_reject_all = False
+        if q1 is not None and m_sorted is not None:
+            base_int = _peak_intensity_near(m_sorted, i_sorted, mass_obs, rel_error_ppm)
+            if base_int and base_int > 0:
+                counts_f = counts_win.astype(float)
+                m1_theor = counts_f @ q1
+                m2_theor = counts_f @ q2 + 0.5 * m1_theor**2
+                m1_meas = _measure_satellite(
+                    m_sorted, i_sorted, mass_obs, _M1_DELTAS, _SATELLITE_PPM_TOL
+                )
+                m2_meas = _measure_satellite(
+                    m_sorted, i_sorted, mass_obs, _M2_DELTAS, _SATELLITE_PPM_TOL
+                )
+                m1_ratio = (m1_meas / base_int) if m1_meas else 0.0
+                m2_ratio = (m2_meas / base_int) if m2_meas else 0.0
+                dev1 = np.abs(m1_ratio - m1_theor) / np.where(
+                    m1_theor > 0, m1_theor, 1.0
+                )
+                dev2 = np.abs(m2_ratio - m2_theor) / np.where(
+                    m2_theor > 0, m2_theor, 1.0
+                )
+
+                # Измеримость сателлита для каждого кандидата: предсказанная
+                # абсолютная интенсивность выше уровня шума спектра. Если
+                # сателлит не мог быть измерен, это отсутствие данных, а не
+                # отсутствие сателлита.
+                floor = max(noise_floor, 1e-12)
+                m1_required = (m1_theor * base_int) >= floor
+                m2_required = (m2_theor * base_int) >= floor
+
+                # Отрицательные проверки применяем только если сателлиты вообще
+                # измеримы на этом пике: если не видно даже M+1 (обычно 5–25 %),
+                # изотопные пики лежат ниже порога чувствительности, и требовать
+                # их нельзя — иначе теряются корректные формулы.
+                satellites_visible = (m1_ratio >= _SATELLITE_VISIBLE_MIN) or (
+                    m2_ratio >= _HALOGEN_M2_EVIDENCE
+                )
+                # Достоверность измерения: в плотных спектрах «M+1/M+2» часто
+                # оказывается соседним соединением. Если измеренное отношение
+                # заметно превышает любую теоретическую возможность, паттерн
+                # считаем неизмеренным (жёсткие выводы по нему не делаем).
+                if len(m1_theor):
+                    pattern_reliable = (
+                        m1_ratio
+                        <= _PATTERN_RELIABLE_MARGIN * max(float(m1_theor.max()), 0.02)
+                    ) and (
+                        m2_ratio
+                        <= _PATTERN_RELIABLE_MARGIN * max(float(m2_theor.max()), 0.02)
+                    )
+                else:
+                    pattern_reliable = False
+                satellites_visible = satellites_visible and pattern_reliable
+                contradicts = np.zeros(len(counts_win), dtype=bool)
+                # Предсказан сильный сателлит, который должен был быть виден
+                # (его интенсивность выше уровня шума), но не подтверждён.
+                contradicts = (
+                    m2_required & (m2_theor >= _M2_REQUIRED) & (dev2 > _M2_TOLERANCE)
+                )
+                if satellites_visible:
+                    # Наблюдается сильный M+2, которого кандидат не объясняет.
+                    contradicts = contradicts | (
+                        (m2_ratio >= _M2_STRONG)
+                        & ((m2_ratio - m2_theor) > _M2_UNEXPLAINED_ABS)
+                    )
+                # Галогенный кандидат: M+1 обязателен только если он должен был
+                # быть измерен (у F/I это единственный возможный признак, но и
+                # он не требуется при недостижимой чувствительности).
+                hal_mask = None
+                if halogen_idx:
+                    hal_mask = counts_win[:, halogen_idx].sum(axis=1) > 0
+                    contradicts = contradicts | (
+                        hal_mask
+                        & m1_required
+                        & (m1_theor >= _HALOGEN_M1_EVIDENCE)
+                        & (dev1 > _ISOTOPE_TOLERANCE)
+                    )
+                last_dev1, last_dev2 = dev1, dev2
+                last_m1_req, last_m2_req = m1_required, m2_required
+                last_hal_mask = hal_mask
+                if contradicts.any():
+                    scores_win = np.where(contradicts, np.inf, scores_win)
+                    # Все кандидаты окна противоречат паттерну — пик не назначается.
+                    if not np.isfinite(scores_win).any():
+                        hard_reject_all = True
+
+        if hard_reject_all:
+            candidates_col[row_i] = []
+            continue
+
         if np.isfinite(scores_win).any():
             best_local = int(np.argmin(scores_win))
         else:
@@ -420,6 +619,35 @@ def assign_formulas(
         assign_col[row_i] = True
         chosen = counts_win[best_local]
         brutto_col[row_i] = _counts_to_str(*chosen.tolist(), element_order=elements)
+
+        # Статус изотопного подтверждения: подтверждено / противоречит /
+        # данных недостаточно. Для галогенсодержащих формул отдельно
+        # отмечается отсутствие изотопного подтверждения.
+        if last_dev1 is not None and best_local < len(last_dev1):
+            measurable = bool(last_m1_req[best_local] or last_m2_req[best_local])
+            # Учитываются только измеримые сателлиты: неизмеримый сателлит
+            # не может ни подтвердить, ни опровергнуть кандидата.
+            matched = bool(
+                (
+                    not last_m1_req[best_local]
+                    or last_dev1[best_local] <= _ISOTOPE_TOLERANCE
+                )
+                and (
+                    not last_m2_req[best_local]
+                    or last_dev2[best_local] <= _M2_TOLERANCE
+                )
+            )
+            is_halogen = bool(
+                last_hal_mask[best_local] if last_hal_mask is not None else False
+            )
+            if not measurable:
+                status_col[row_i] = "uninformative"
+                halogen_unconfirmed_col[row_i] = is_halogen
+            elif matched:
+                status_col[row_i] = "confirmed"
+            else:
+                status_col[row_i] = "inconsistent"
+                halogen_unconfirmed_col[row_i] = is_halogen
 
         if variants_col is not None and original is not None:
             counts_dict = {el: int(chosen[idx[el]]) for el in elements}
@@ -435,6 +663,8 @@ def assign_formulas(
 
     table["brutto"] = brutto_col
     table["assign"] = assign_col
+    table["iso_status"] = status_col
+    table["iso_halogen_unconfirmed"] = halogen_unconfirmed_col
     table["all_candidates"] = candidates_col
     if variants_col is not None:
         table["iso_variants"] = variants_col

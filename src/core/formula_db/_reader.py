@@ -77,6 +77,8 @@ class FormulaDatabaseReader:
         self._fdb = self._mp.with_name(fdb_name)
         self._verify = verify
         self._cache = LRUBlockCache(cache_size)
+        #: Кэш массивов бинов для пакетного перебора подстановок.
+        self._array_cache = LRUBlockCache(max(8, cache_size * 4))
         self._file = None
 
         with open(self._mp, encoding="utf-8") as mf:
@@ -117,6 +119,64 @@ class FormulaDatabaseReader:
 
         raw = byte_unshuffle_uint32_le(shuffled)
         return decode_block(raw, bm["mass_low_u"], bm["mass_high_u"], self._max_mass_u)
+
+    # ── Пакетный доступ к бинам (для полного перебора подстановок) ─────────
+    def bin_ids(self, mass_lo: float, mass_hi: float) -> range:
+        """Диапазон бинов, покрывающих окно масс [mass_lo, mass_hi]."""
+        lo_u = max(0, int(mass_lo * MASS_SCALE))
+        hi_u = max(lo_u, int(mass_hi * MASS_SCALE))
+        return range(lo_u // BIN_WIDTH_U, hi_u // BIN_WIDTH_U + 1)
+
+    def arrays_for_bins(self, bin_ids) -> tuple:
+        """numpy-массивы для бинов: (mass_u, counts[N,6], H, порядок элементов).
+
+        counts — столбцы C, N, O, S, P, X_placeholder (X не хранится в базе).
+        Результат кэшируется, чтобы не конвертировать одни и те же бины
+        повторно при обработке соседних пиков.
+        """
+        import numpy as np
+
+        blocks = []
+        for bi in bin_ids:
+            if bi not in self._blocks:
+                continue
+            key = ("arr", self._manifest.get("database_version", ""), bi)
+            cached = self._array_cache.get(key)
+            if cached is None:
+                formulas = self._load_block(bi)
+                n = len(formulas)
+                if n:
+                    mass_u = np.fromiter(
+                        (f["mass_u"] for f in formulas), dtype=np.int64, count=n
+                    )
+                    counts = np.empty((n, 6), dtype=np.int32)
+                    for j, el in enumerate(("C", "N", "O", "S", "P")):
+                        counts[:, j] = np.fromiter(
+                            (f[el] for f in formulas), dtype=np.int32, count=n
+                        )
+                    counts[:, 5] = 0
+                    h = np.fromiter((f["H"] for f in formulas), dtype=np.int32, count=n)
+                    cached = (mass_u, counts, h)
+                else:
+                    cached = None
+                self._array_cache.put(key, cached)
+            if cached is not None:
+                blocks.append(cached)
+        if not blocks:
+            import numpy as np
+
+            return (
+                np.zeros(0, dtype=np.int64),
+                np.zeros((0, 6), dtype=np.int32),
+                np.zeros(0, dtype=np.int32),
+            )
+        import numpy as np
+
+        return (
+            np.concatenate([b[0] for b in blocks]),
+            np.concatenate([b[1] for b in blocks]),
+            np.concatenate([b[2] for b in blocks]),
+        )
 
     def _bin_range(self, mass_u: int, ppm: float) -> range:
         delta_u = int(mass_u * ppm * 1e-6)
