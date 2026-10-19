@@ -81,6 +81,8 @@ def find_series(
     significance_level: float = 0.95,
     anchor_column: str | None = None,
     profile_check: bool = False,
+    formula_check: bool = False,
+    drop_ambiguous: bool = False,
     profile_max_jump: float | None = 10.0,
     profile_max_corr: float | None = 0.5,
     allow_gaps: bool | None = None,
@@ -352,7 +354,7 @@ def find_series(
         if not found_steps:
             continue
 
-    return pd.DataFrame(
+    result = pd.DataFrame(
         records,
         columns=[
             "mass_src",
@@ -368,6 +370,37 @@ def find_series(
             "int_corr",
         ],
     )
+
+    # P2/P3: химическая проверка продукта и пометка конфликтов (опционально).
+    if (formula_check or drop_ambiguous) and not result.empty:
+        from ._validate import attach_conflicts, attach_formula_check
+
+        if formula_check:
+            group = None
+            if (
+                abs(float(delta) - float(CHEM.derivatization_shifts["delta_cd3"]))
+                < 0.01
+            ):
+                group = "cd3"
+            elif (
+                abs(float(delta) - float(CHEM.derivatization_shifts["delta_cd3co"]))
+                < 0.01
+            ):
+                group = "cd3co"
+            if group:
+                counts_by_brutto = {}
+                for brutto in result["brutto"].unique():
+                    try:
+                        counts_by_brutto[str(brutto)] = parse_formula(str(brutto))
+                    except Exception:
+                        continue
+                result = attach_formula_check(result, group, counts_by_brutto)
+                result = result[result["formula_ok"]].reset_index(drop=True)
+        if drop_ambiguous and not result.empty:
+            result = attach_conflicts(result)
+            result = result[~result["ambiguous"]].reset_index(drop=True)
+
+    return result
 
 
 # ===========================================================================

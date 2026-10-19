@@ -1,5 +1,7 @@
 [flake8]
 max-line-length = 120
+# E203 — конфликт с форматированием black (срез с пробелом перед ':')
+extend-ignore = E203
 exclude = external/*,.venv/*,.git/*,build/*,dist/*,tools/_scratch/*
 
 # Pre-existing issues — silenced per-file until cleaned incrementally.
