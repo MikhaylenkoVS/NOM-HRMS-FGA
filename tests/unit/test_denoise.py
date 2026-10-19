@@ -126,3 +126,23 @@ def test_quantile_mode_returns_subset_of_input():
     denoised = denoise(spec, force=1.0, intensity=None, quantile=0.9)
 
     assert 0 < len(denoised.table) <= len(spec.table)
+
+
+def test_intensity_relative_uses_base_peak():
+    """При intensity_relative=True порог — доля базового пика (max = 1)."""
+    spec = _synthetic_spectrum()  # базовый пик 1000
+
+    relative = denoise(spec, intensity=0.005, intensity_relative=True)
+    absolute = denoise(spec, intensity=0.005)
+
+    # 0.005 * 1000 = 5 -> отсекается часть шума (1..5), но не все 320 пиков
+    assert len(relative.table) < len(spec.table)
+    assert (relative.table["intensity"] > 5.0).all()
+    # тот же порог как абсолютный (0.005) не отсекает ничего
+    assert len(absolute.table) == len(spec.table)
+
+
+def test_intensity_relative_rejects_out_of_range():
+    spec = _synthetic_spectrum()
+    with pytest.raises(ValueError):
+        denoise(spec, intensity=2.0, intensity_relative=True)
