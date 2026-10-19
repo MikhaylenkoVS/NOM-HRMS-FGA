@@ -1,6 +1,8 @@
 """Assembly of the final -COOH / -OH count table."""
 
 import logging
+
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,13 @@ def build_result_table(src, df_dmet, df_dacet, drop_isotope_satellites: bool = T
     """
     assign_mask = src.table.get("assign", pd.Series(False, index=src.table.index))
     base_cols = ["mass", "intensity", "brutto", "all_candidates"]
-    for extra in ("iso_variants", "iso_satellite_of", "iso_satellite_label"):
+    for extra in (
+        "iso_variants",
+        "iso_satellite_of",
+        "iso_satellite_label",
+        "iso_status",
+        "iso_halogen_unconfirmed",
+    ):
         if extra in src.table.columns:
             base_cols.append(extra)
     base = src.table.loc[assign_mask][base_cols].copy().reset_index(drop=True)
@@ -51,6 +59,10 @@ def build_result_table(src, df_dmet, df_dacet, drop_isotope_satellites: bool = T
         base["iso_satellite_label"] = None
     if "iso_variants" not in base.columns:
         base["iso_variants"] = ""
+    if "iso_status" not in base.columns:
+        base["iso_status"] = ""
+    if "iso_halogen_unconfirmed" not in base.columns:
+        base["iso_halogen_unconfirmed"] = False
 
     def _fmt_variants(items) -> str:
         """Компактная строка: только совпавшие варианты (метка измер/теор)."""
@@ -84,14 +96,24 @@ def build_result_table(src, df_dmet, df_dacet, drop_isotope_satellites: bool = T
                     f"missing_{prefix}": pd.Series(dtype="object"),
                 }
             )
-        tmp = df[["mass_src", "n_groups", "missing"]].copy()
+        cols = ["mass_src", "n_groups", "missing"]
+        for extra in ("p_value", "significant"):
+            if extra in df.columns:
+                cols.append(extra)
+        tmp = df[cols].copy()
         tmp["mass_key"] = tmp["mass_src"].round(4)
-        return tmp.rename(
-            columns={
-                "n_groups": f"n_{prefix}",
-                "missing": f"missing_{prefix}",
-            }
-        )[["mass_key", f"n_{prefix}", f"missing_{prefix}"]]
+        rename = {
+            "n_groups": f"n_{prefix}",
+            "missing": f"missing_{prefix}",
+            "p_value": f"p_{prefix}",
+            "significant": f"sig_{prefix}",
+        }
+        out_cols = ["mass_key", f"n_{prefix}", f"missing_{prefix}"]
+        if "p_value" in tmp.columns:
+            out_cols.append(f"p_{prefix}")
+        if "significant" in tmp.columns:
+            out_cols.append(f"sig_{prefix}")
+        return tmp.rename(columns=rename)[out_cols]
 
     result = base.merge(_enrich(df_dmet, "dmet"), on="mass_key", how="left").merge(
         _enrich(df_dacet, "dacet"), on="mass_key", how="left"
@@ -102,16 +124,31 @@ def build_result_table(src, df_dmet, df_dacet, drop_isotope_satellites: bool = T
     result["N_COOH"] = result["n_dmet"]
     result["N_OH"] = result["n_dacet"]
 
+    # Значимая длина: только если серия статистически выше случайного фона.
+    # Иначе честный результат — «подтверждено наличие, длина не определена» (0).
+    for prefix, col in (("dmet", "N_COOH"), ("dacet", "N_OH")):
+        sig_col = f"sig_{prefix}"
+        if sig_col in result.columns:
+            result[f"{col}_confirmed"] = np.where(
+                result[sig_col].fillna(False).astype(bool), result[col], 0
+            )
+        else:
+            result[f"{col}_confirmed"] = 0
+
     out_cols = [
         "mass",
         "intensity",
         "brutto",
+        "iso_status",
+        "iso_halogen_unconfirmed",
         "all_candidates",
         "iso_variants",
         "iso_satellite_of",
         "iso_satellite_label",
         "N_COOH",
         "N_OH",
+        "N_COOH_confirmed",
+        "N_OH_confirmed",
         "missing_dmet",
         "missing_dacet",
     ]

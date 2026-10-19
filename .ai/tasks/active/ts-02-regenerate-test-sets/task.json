@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "ts-02-regenerate-test-sets",
+  "title": "TS-02: регенерация тест-сетов под новые параметры (изотопы, галогены, плотные спектры)",
+  "status": "draft",
+  "type": "test",
+  "risk_level": "medium",
+  "created_at": "2026-10-14T00:00:00Z",
+  "updated_at": "2026-10-14T00:00:00Z",
+  "owners": {
+    "planner": "deepseek",
+    "implementer": "unassigned",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "feat/ts-02-regenerate-test-sets",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "data/test_sets/",
+      "tools/",
+      "tests/",
+      ".ai/tasks/active/ts-02-regenerate-test-sets/"
+    ],
+    "forbidden_paths": [
+      "src/core/",
+      "src/configs/"
+    ],
+    "max_changed_files": 40
+  },
+  "requirements": {
+    "must_have": [
+      "Изотопные сателлиты M+1/M+2 у части соединений (13C, 34S, 37Cl, 81Br) с корректными отношениями",
+      "Галогенсодержащие соединения (F, Cl, Br, I) по отдельности и в комбинациях",
+      "Соединения с S и P",
+      "Плотные спектры (тысячи пиков) для проверки ложных совпадений в сериях",
+      "Полный набор промежуточных продуктов дериватизации (включая >= 4 групп)",
+      "Отрицательные контроли (шумовые пики, изобары)",
+      "Дескриптор capabilities.json с фактическим составом набора",
+      "Метрики: recall по сигналам, доля ошибочных назначений, точность N_COOH/N_OH"
+    ],
+    "must_not": [
+      "Менять пороги в src/configs ради прохождения тестов",
+      "Хранить наборы как единственный источник эталона без описания состава"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task ts-02-regenerate-test-sets"
+    ],
+    "required_test_commands": [
+      "pytest tests/integration -q"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": false,
+    "requires_adr": false,
+    "requires_human_approval": true
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": null,
+    "reference_validation": null
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": []
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "series-01-max-gaps",
+  "title": "SERIES-01: не более одного пропуска в серии дериватизации (по умолчанию)",
+  "status": "implementation",
+  "type": "scientific",
+  "risk_level": "medium",
+  "created_at": "2026-10-16T19:00:00Z",
+  "updated_at": "2026-10-16T19:00:00Z",
+  "owners": {
+    "planner": "human",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "main",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/core/spectrum/_series.py",
+      "src/core/pipeline/",
+      "src/configs/pipeline.json",
+      "src/ui/",
+      "src/cli.py",
+      "tests/unit/test_find_series.py",
+      "docs/",
+      ".ai/decisions/0007-series-max-gaps.md",
+      ".ai/tasks/active/series-01-max-gaps/"
+    ],
+    "forbidden_paths": [
+      "dist/",
+      "build/",
+      "data/formula_db/"
+    ],
+    "max_changed_files": 12
+  },
+  "requirements": {
+    "must_have": [
+      "По умолчанию в серии допускается не более 1 пропуска",
+      "При исчерпании бюджета серия обрывается на последней найденной ступени",
+      "Инвариант len(missing) <= max_gaps",
+      "Пользователь может задать 0 (без пропусков) или другое число",
+      "max_gaps доступен в GUI, CLI и pipeline.json"
+    ],
+    "must_not": [
+      "Молча менять правило без возможности настройки",
+      "Терять уже найденные ступени серии при обрыве"
+    ],
+    "should_have": [
+      "ADR с обоснованием",
+      "Тесты на 0/1/2 пропуска"
+    ],
+    "out_of_scope": [
+      "Изменение ppm-допуска и max_groups"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task series-01-max-gaps",
+      "pytest -q tests/unit/test_find_series.py -k TestMaxGaps"
+    ],
+    "required_test_commands": [
+      "pytest -q tests/unit/test_find_series.py",
+      "python -m src.cli --help"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": true,
+    "requires_adr": true,
+    "requires_human_approval": false
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": "reference_validation.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": [
+      "0007-series-max-gaps.md"
+    ]
+  }
+}

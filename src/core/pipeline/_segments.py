@@ -111,6 +111,7 @@ def run_pipeline_segmented(
     isotope_filter: bool = True,
     isotope_variants: bool = True,
     use_formula_db: bool = True,
+    denoise_derivatives: bool = False,
     progress_callback=None,
 ):
     """Run the -COOH/-OH pipeline over RT-segmented chromatograms.
@@ -237,38 +238,40 @@ def run_pipeline_segmented(
             table=pd.DataFrame(), stats=stats, messages=messages, errors=errors
         )
 
-    # Дериватизованные сегменты: шумоподавление внутри отрезка,
-    # затем объединение всех отрезков (RT не сохраняется).
+    # Дериватизованные сегменты: шумоподавление только по явному запросу
+    # (пики продуктов низкоинтенсивные), затем объединение отрезков.
     for idx, seg in enumerate(dmet_segments, 1):
         spec = _spectrum_from_df(
             seg["df"], load_mass_min, load_mass_max, f"dmet_seg{idx}"
         )
-        try:
-            spec = denoise(
-                spec,
-                force=noise_force,
-                intensity=noise_intensity,
-                quantile=noise_quantile,
-            )
-        except Exception as e:  # noqa: BLE001
-            _fail(f"[PIPELINE] ОШИБКА денойса dmet сегмента {idx}: {e}")
-            continue
+        if denoise_derivatives:
+            try:
+                spec = denoise(
+                    spec,
+                    force=noise_force,
+                    intensity=noise_intensity,
+                    quantile=noise_quantile,
+                )
+            except Exception as e:  # noqa: BLE001
+                _fail(f"[PIPELINE] ОШИБКА денойса dmet сегмента {idx}: {e}")
+                continue
         dmet_specs.append(spec)
 
     for idx, seg in enumerate(dacet_segments, 1):
         spec = _spectrum_from_df(
             seg["df"], load_mass_min, load_mass_max, f"dacet_seg{idx}"
         )
-        try:
-            spec = denoise(
-                spec,
-                force=noise_force,
-                intensity=noise_intensity,
-                quantile=noise_quantile,
-            )
-        except Exception as e:  # noqa: BLE001
-            _fail(f"[PIPELINE] ОШИБКА денойса dacet сегмента {idx}: {e}")
-            continue
+        if denoise_derivatives:
+            try:
+                spec = denoise(
+                    spec,
+                    force=noise_force,
+                    intensity=noise_intensity,
+                    quantile=noise_quantile,
+                )
+            except Exception as e:  # noqa: BLE001
+                _fail(f"[PIPELINE] ОШИБКА денойса dacet сегмента {idx}: {e}")
+                continue
         dacet_specs.append(spec)
 
     dmet_all = _merge_spectra(dmet_specs)

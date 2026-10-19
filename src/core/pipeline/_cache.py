@@ -60,8 +60,8 @@ class PipelineCache:
             )
         return self._assigned[key]
 
-    def series(self, src, deriv, delta, ppm_tol, max_groups, allow_gaps, finder):
-        key = self._hash(id(src), id(deriv), delta, ppm_tol, max_groups, allow_gaps)
+    def series(self, src, deriv, delta, ppm_tol, max_groups, max_gaps, finder):
+        key = self._hash(id(src), id(deriv), delta, ppm_tol, max_groups, max_gaps)
         if key not in self._series:
             self._series[key] = finder(
                 src,
@@ -69,7 +69,7 @@ class PipelineCache:
                 delta,
                 ppm_tol=ppm_tol,
                 max_groups=max_groups,
-                allow_gaps=allow_gaps,
+                max_gaps=max_gaps,
             )
         return self._series[key]
 

@@ -25,6 +25,22 @@ from src.ui._config import (
 from src.ui.plots import embed_figure
 
 
+def _to_float(raw, default=None):
+    """Разобрать число из поля ввода (запятая или точка)."""
+    try:
+        return float(str(raw).replace(",", ".").strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_int(raw, default=0):
+    """Разобрать целое из поля ввода (запятая или точка)."""
+    try:
+        return int(float(str(raw).replace(",", ".").strip()))
+    except (TypeError, ValueError):
+        return default
+
+
 class ParamsMixin:
     """Extracted from app.py."""
 
@@ -49,6 +65,7 @@ class ParamsMixin:
         except Exception:
             run_btn = ttk.Button(p, text="▶  Запустить анализ", command=self._run)
         run_btn.grid(row=1, column=0, pady=12, ipadx=20, ipady=4)
+        self._run_button = run_btn  # для блокировки во время прогона
 
     def _build_params_files(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
@@ -113,6 +130,20 @@ class ParamsMixin:
                     text="разбить на отрезки",
                     variable=self.segment_mode_var,
                 ).pack(side="left", padx=4)
+                ttk.Label(
+                    frame,
+                    text=(
+                        "⚠ Режим отрезков: исходный спектр делится по RT, а "
+                        "дериватизаты усредняются по всему файлу. Сопоставление "
+                        "по RT для дериватизатов не делается (у продукта и "
+                        "исходного соединения RT может различаться), поэтому "
+                        "возможны ложные совпадения — режим экспериментальный."
+                    ),
+                    font=("Segoe UI", 8),
+                    foreground="#b07000",
+                    wraplength=760,
+                    justify="left",
+                ).grid(row=0, column=0, sticky="w", padx=10, pady=(0, 4))
         out_lf = ttk.LabelFrame(frame, text="💾  Выходной файл")
         out_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
         out_lf.columnconfigure(0, weight=1)
@@ -272,9 +303,29 @@ class ParamsMixin:
         ttk.Entry(lf, textvariable=self.max_groups_var, width=8).grid(
             row=1, column=1, sticky="w", padx=4, pady=3
         )
+        # Правило по умолчанию — не более 1 пропуска; 0 = без пропусков
+        ttk.Label(lf, text="Пропусков в серии (0 = без пропусков):").grid(
+            row=2, column=0, sticky="w", padx=6, pady=3
+        )
+        ttk.Entry(lf, textvariable=self.max_gaps_var, width=8).grid(
+            row=2, column=1, sticky="w", padx=4, pady=3
+        )
         ttk.Checkbutton(
-            lf, text="Разрешить пропуски в сериях", variable=self.allow_gaps_var
-        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=6, pady=4)
+            lf,
+            text="Шумоподавление спектров дериватизации",
+            variable=self.denoise_derivatives_var,
+        ).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=2)
+        ttk.Checkbutton(
+            lf,
+            text="Вычитать исходник из дериватизатов (по m/z)",
+            variable=self.subtract_source_var,
+        ).grid(row=4, column=0, columnspan=2, sticky="w", padx=6, pady=2)
+        ttk.Label(lf, text="Окно вычитания, ppm:").grid(
+            row=5, column=0, sticky="w", padx=6, pady=3
+        )
+        ttk.Entry(lf, textvariable=self.subtract_ppm_var, width=8).grid(
+            row=5, column=1, sticky="w", padx=4, pady=3
+        )
 
     def _build_params_advanced(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
@@ -312,11 +363,354 @@ class ParamsMixin:
             foreground="#888",
         ).grid(row=3, column=0, sticky="w", padx=12, pady=(0, 6))
 
+        ttk.Separator(lf, orient="horizontal").grid(
+            row=4, column=0, sticky="ew", padx=6, pady=6
+        )
+
+        # X/C — пользовательский фильтр (по умолчанию выключен)
+        xc_row = ttk.Frame(lf)
+        xc_row.grid(row=5, column=0, sticky="w", padx=6, pady=(0, 2))
+        ttk.Checkbutton(
+            xc_row,
+            text="Ограничивать X/C (F+Cl+Br+I)/C",
+            variable=self.max_xc_enabled_var,
+        ).pack(side="left")
+        ttk.Entry(xc_row, textvariable=self.max_xc_var, width=8).pack(
+            side="left", padx=6
+        )
+        ttk.Label(
+            lf,
+            text=(
+                "Жёсткий фильтр отношения галогенов к углероду. По умолчанию "
+                "выключен: галогенные формулы подтверждаются изотопным "
+                "паттерном, а не отношением. Включайте, если нужен явный предел."
+            ),
+            font=("Segoe UI", 8),
+            foreground="#888",
+            wraplength=560,
+            justify="left",
+        ).grid(row=6, column=0, sticky="w", padx=12, pady=(0, 6))
+
+        # Предел числа атомов галогенов
+        hal_row = ttk.Frame(lf)
+        hal_row.grid(row=7, column=0, sticky="w", padx=6, pady=(0, 2))
+        ttk.Label(hal_row, text="Максимум атомов галогенов в формуле:").pack(
+            side="left"
+        )
+        ttk.Entry(hal_row, textvariable=self.halogen_max_atoms_var, width=6).pack(
+            side="left", padx=6
+        )
+        ttk.Label(
+            lf,
+            text="По умолчанию 5. Большие значения увеличивают время поиска.",
+            font=("Segoe UI", 8),
+            foreground="#888",
+        ).grid(row=8, column=0, sticky="w", padx=12, pady=(0, 6))
+
+        ttk.Label(lf, text="Шумоподавление спектров:").grid(
+            row=9, column=0, sticky="w", padx=6, pady=(4, 0)
+        )
+        ttk.Checkbutton(
+            lf,
+            text="Фильтровать дериватизаты (по умолчанию выключено)",
+            variable=self.denoise_derivatives_var,
+        ).grid(row=10, column=0, sticky="w", padx=6)
+        ttk.Checkbutton(
+            lf,
+            text="Шумоподавление исходного спектра (по умолчанию включено)",
+            variable=self.denoise_source_var,
+        ).grid(row=10, column=0, sticky="e", padx=6, pady=(24, 0))
+        ttk.Label(
+            lf,
+            text=(
+                "Пики продуктов дериватизации низкоинтенсивные: шумоподавление "
+                "может вырезать их вместе с шумом, поэтому по умолчанию выключено."
+            ),
+            font=("Segoe UI", 8),
+            foreground="#888",
+            wraplength=560,
+            justify="left",
+        ).grid(row=11, column=0, sticky="w", padx=12, pady=(0, 6))
+
         ttk.Button(
             lf,
             text="📋 Список изотопов…",
             command=self._show_isotope_table,
-        ).grid(row=4, column=0, sticky="w", padx=6, pady=(2, 8))
+        ).grid(row=12, column=0, sticky="w", padx=6, pady=(2, 4))
+        ttk.Button(
+            lf,
+            text="⚙ Настройки поиска по галогенам…",
+            command=self._show_halogen_settings,
+        ).grid(row=13, column=0, sticky="w", padx=6, pady=(2, 4))
+        ttk.Button(
+            lf,
+            text="📦 База формул…",
+            command=self._show_db_variants,
+        ).grid(row=14, column=0, sticky="w", padx=6, pady=(2, 8))
+
+    # Элементы галогенов в порядке отображения в окне настроек.
+    _HALOGEN_ORDER = ("F", "Cl", "Br", "I")
+    #: Сколько комбинаций проверять в обычном режиме (по приоритету).
+    HALOGEN_MAX_COMBINATIONS = 16
+
+    def _halogen_plan_from_ui(self) -> dict | None:
+        """План галогенного поиска по текущим настройкам интерфейса."""
+        try:
+            from src.core.spectrum._constants import FormulaSearchConfig
+            from src.core.spectrum._formula_source import halogen_search_plan
+
+            cfg = FormulaSearchConfig()
+            ranges = dict(cfg.ranges or {})
+            for el, (_mn, mx_var) in self.el_vars.items():
+                ranges[el] = (0, _to_int(mx_var.get(), 0))
+            cfg.ranges = ranges
+            return halogen_search_plan(
+                cfg,
+                max_combinations=self.HALOGEN_MAX_COMBINATIONS,
+                exhaustive=bool(self.halogen_exhaustive_var.get()),
+                max_atoms_total=_to_int(self.halogen_max_atoms_var.get(), 5),
+            )
+        except Exception:
+            return None
+
+    def _halogen_warning_text(self, plan: dict) -> str:
+        """Текст предупреждения о числе комбинаций и замедлении."""
+        limits = plan.get("limits", {})
+        window = (
+            ", ".join(
+                f"{el}≤{limits[el]}" for el in ("F", "Cl", "Br", "I") if limits.get(el)
+            )
+            or "галогены выключены"
+        )
+        return (
+            f"Будет проверено комбинаций галогенов: {plan['selected']} "
+            f"(допустимо в заданных окнах: {plan['allowed']}).\n"
+            f"Окна: {window}.\n\n"
+            f"Ориентировочное замедление назначения формул: "
+            f"×{plan['slowdown']:.2f} (за базу принято 16 комбинаций).\n\n"
+            "Уменьшить число комбинаций или сузить окна можно в окне "
+            "«⚙ Настройки поиска по галогенам…» — вкладка «Параметры», блок "
+            "«Фильтры», сразу под кнопкой «📋 Список изотопов…».\n"
+            "Там же снимается галочка «Проверить все комбинации галогенов»."
+        )
+
+    def _show_db_variants(self):
+        """Информация о базе формул (и о правиле инсталлера).
+
+        Инсталлер ставит CHNOSP всегда — выключать её незачем. Переключатель
+        «или одно, или другое» появится только если объём CHNOSPHal станет
+        сопоставим с CHNOSP; сейчас CHNOSPHal не предлагается, но программа
+        подхватит его автоматически, если файл положить рядом.
+        """
+        from src.core.formula_db._variants import (
+            describe_choice,
+            installer_plan,
+            variants_report,
+        )
+
+        plan = installer_plan()
+        win = tk.Toplevel(self)
+        win.title("База формул")
+        win.transient(self)
+        win.resizable(False, False)
+
+        ttk.Label(
+            win,
+            text=(
+                "Сжатая база формул ускоряет работу. Базовая (CHNOSP) ставится "
+                "всегда: она занимает десятки мегабайт и ускоряет пайплайн "
+                "примерно в 19 раз."
+            ),
+            wraplength=680,
+            justify="left",
+        ).grid(row=0, column=0, columnspan=5, sticky="w", padx=10, pady=(10, 4))
+
+        head = ("вариант", "объём", "ускорение", "установлен", "в инсталлере")
+        for col, text in enumerate(head):
+            ttk.Label(win, text=text, font=("Segoe UI", 9, "bold")).grid(
+                row=1, column=col, sticky="w", padx=(10 if col == 0 else 6, 6), pady=2
+            )
+        for i, row in enumerate(variants_report(), start=2):
+            if row["id"] == "chnosp":
+                note = "ставится всегда"
+            elif row["id"] in plan["choice"]:
+                note = "по выбору"
+            else:
+                note = "не предлагается"
+            cells = (
+                row["title"],
+                f"{row['size_mb']:.1f} МБ" if row["size_mb"] else "—",
+                row["speedup"],
+                "да" if row["installed"] else "нет",
+                note,
+            )
+            for col, text in enumerate(cells):
+                ttk.Label(win, text=text).grid(
+                    row=i,
+                    column=col,
+                    sticky="w",
+                    padx=(10 if col == 0 else 6, 6),
+                    pady=1,
+                )
+        base_row = 2 + len(variants_report())
+        ttk.Label(
+            win,
+            text=f"Сейчас используется: {describe_choice()}",
+            font=("Segoe UI", 9, "bold"),
+        ).grid(row=base_row, column=0, columnspan=5, sticky="w", padx=10, pady=(8, 2))
+        ttk.Label(
+            win,
+            text=f"Инсталлер: {plan['summary']}",
+            font=("Segoe UI", 9),
+        ).grid(
+            row=base_row + 1, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 2)
+        )
+        ttk.Label(
+            win,
+            text=(
+                "CHNOSPHal (с галогенами) пока не предлагается: он примерно в 15 "
+                "раз больше. Его можно положить вручную в data/formula_db — "
+                "программа подхватит его автоматически как более быстрый.\n"
+                "Принудительный выбор: переменная окружения "
+                "NOM_FORMULA_DB = chnosp | chorsphal | none."
+            ),
+            font=("Segoe UI", 8),
+            foreground="#666",
+            justify="left",
+            wraplength=680,
+        ).grid(
+            row=base_row + 2, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 10)
+        )
+
+    def _show_halogen_settings(self):
+        """Окно с настройками поиска по галогенам.
+
+        Обычный режим: проверяется ограниченное число комбинаций, выбранных
+        ДИНАМИЧЕСКИ по окнам пользователя (сначала варианты с большим числом
+        атомов одного галогена). Галочка сверху включает полный перебор.
+        """
+        win = tk.Toplevel(self)
+        win.title("Настройки поиска по галогенам")
+        win.transient(self)
+        win.resizable(False, False)
+        win.columnconfigure(0, weight=1)
+
+        ttk.Checkbutton(
+            win,
+            text=(
+                "Проверить все комбинации галогенов "
+                "(значительно замедляет обработку)"
+            ),
+            variable=self.halogen_exhaustive_var,
+        ).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 2))
+
+        note = ttk.Label(
+            win,
+            text=(
+                "Обычный режим: проверяются только самые приоритетные комбинации "
+                "— сначала варианты с большим числом атомов одного галогена "
+                "(например, F5 или Cl4F важнее, чем F2ClBrI). Набор зависит от "
+                "пределов ниже: окна выбирают, какие комбинации вообще допустимы."
+            ),
+            font=("Segoe UI", 8),
+            foreground="#666",
+            wraplength=520,
+            justify="left",
+        )
+        note.grid(row=1, column=0, sticky="w", padx=10, pady=(0, 6))
+
+        limits = ttk.LabelFrame(win, text="Пределы по галогенам (макс. атомов)")
+        limits.grid(row=2, column=0, sticky="ew", padx=10, pady=4)
+        spin_vars = {}
+        for i, el in enumerate(self._HALOGEN_ORDER):
+            ttk.Label(limits, text=f"{el} не более:").grid(
+                row=i, column=0, sticky="w", padx=6, pady=2
+            )
+            max_var = self.el_vars.get(el, (None, None))[1]
+            spin = ttk.Spinbox(limits, from_=0, to=5, width=5, textvariable=max_var)
+            spin.grid(row=i, column=1, sticky="w", padx=6, pady=2)
+            spin_vars[el] = max_var
+
+        ttk.Label(limits, text="всего атомов галогенов:").grid(
+            row=len(self._HALOGEN_ORDER), column=0, sticky="w", padx=6, pady=2
+        )
+        ttk.Spinbox(
+            limits,
+            from_=1,
+            to=8,
+            width=5,
+            textvariable=self.halogen_max_atoms_var,
+        ).grid(row=len(self._HALOGEN_ORDER), column=1, sticky="w", padx=6, pady=2)
+
+        preview = ttk.Label(win, text="", font=("Segoe UI", 9), justify="left")
+        preview.grid(row=3, column=0, sticky="w", padx=10, pady=(6, 2))
+
+        listing = tk.Text(win, height=8, width=58, font=("Consolas", 9))
+        listing.grid(row=4, column=0, sticky="ew", padx=10, pady=(0, 10))
+        listing.configure(state="disabled")
+
+        def _current_cfg():
+            """Текущие настройки как FormulaSearchConfig (для предпросмотра)."""
+            from src.core.spectrum._constants import FormulaSearchConfig
+
+            cfg = FormulaSearchConfig()
+            ranges = dict(cfg.ranges or {})
+            for el, (_mn, mx_var) in self.el_vars.items():
+                ranges[el] = (0, _to_int(mx_var.get(), 0))
+            cfg.ranges = ranges
+            return cfg
+
+        def _update(*_args):
+            try:
+                from src.core.spectrum._formula_source import (
+                    combo_priority,
+                    select_halogen_combos,
+                )
+            except Exception as exc:  # pragma: no cover - база/ядро недоступны
+                preview.configure(text=f"Предпросмотр недоступен: {exc}")
+                return
+            cfg = _current_cfg()
+            total = _to_int(self.halogen_max_atoms_var.get(), 5)
+            exhaustive = bool(self.halogen_exhaustive_var.get())
+            combos, allowed = select_halogen_combos(
+                cfg,
+                max_combinations=self.HALOGEN_MAX_COMBINATIONS,
+                exhaustive=exhaustive,
+                max_atoms_total=total,
+            )
+            shown = sorted(combos, key=combo_priority, reverse=True)[:12]
+
+            def _name(combo):
+                return "".join(el + (str(n) if n > 1 else "") for el, n in combo) or "—"
+
+            if exhaustive:
+                head = (
+                    f"Полный перебор: будет проверено ВСЕХ {allowed} комбинаций "
+                    f"(из них {self.HALOGEN_MAX_COMBINATIONS} в обычном режиме)."
+                )
+            else:
+                head = (
+                    f"Будет проверено {len(combos)} из {allowed} допустимых "
+                    f"комбинаций (приоритет по числу атомов одного галогена)."
+                )
+            preview.configure(text=head)
+            listing.configure(state="normal")
+            listing.delete("1.0", "end")
+            listing.insert(
+                "end", "Первые по приоритету: " + ", ".join(map(_name, shown))
+            )
+            if not exhaustive and allowed > len(combos):
+                listing.insert(
+                    "end",
+                    "\n\nОстальные комбинации не проверяются: включите галочку "
+                    "выше, чтобы перебрать все.",
+                )
+            listing.configure(state="disabled")
+
+        for var in list(spin_vars.values()) + [self.halogen_max_atoms_var]:
+            var.trace_add("write", _update)
+        self.halogen_exhaustive_var.trace_add("write", _update)
+        _update()
 
     def _show_isotope_table(self):
         """Отдельное окно со списком изотопов элементов поиска.
@@ -501,9 +895,22 @@ class ParamsMixin:
             assign_mass_max=_GUI_DEFAULTS["assign_mass_max"],
             ppm_tol=ppm_tol,
             max_groups=max_groups,
-            allow_gaps=self.allow_gaps_var.get(),
+            max_gaps=int(_to_float(self.max_gaps_var.get()) or 0),
+            denoise_derivatives=self.denoise_derivatives_var.get(),
+            subtract_source=self.subtract_source_var.get(),
+            subtract_ppm=(_to_float(self.subtract_ppm_var.get()) or 5.0),
             isotope_filter=self.isotope_filter_var.get(),
             isotope_variants=self.isotope_variants_var.get(),
+            max_xc=(
+                _to_float(self.max_xc_var.get())
+                if self.max_xc_enabled_var.get()
+                else None
+            ),
+            halogen_max_atoms=_to_int(self.halogen_max_atoms_var.get(), 5),
+            halogen_exhaustive=bool(self.halogen_exhaustive_var.get()),
+            halogen_max_combinations=self.HALOGEN_MAX_COMBINATIONS,
+            denoise_derivatives=self.denoise_derivatives_var.get(),
+            denoise_source=self.denoise_source_var.get(),
             brutto_dict=brutto_dict,
             output_csv=self.output_csv_var.get() or None,
             visualize=False,  # визуализацию делаем через GUI-вкладку

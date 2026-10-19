@@ -39,6 +39,9 @@ _hidden: list[str] = [
     "queue", "threading", "warnings", "logging",
     "json", "csv", "io", "ast", "re", "math",
     "ctypes",
+    # Материалы для статьи (кнопка в панели результатов): модуль
+    # подключается лениво внутри обработчика, поэтому указываем явно.
+    "tools.article_report", "tools.make_outputs",
     # Сжатая база формул: читатель подключается лениво из
     # src/core/spectrum/_formula_source.open_formula_db, поэтому PyInstaller
     # не видит импорт при статическом анализе.

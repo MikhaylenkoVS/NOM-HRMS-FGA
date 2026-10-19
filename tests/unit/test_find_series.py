@@ -499,6 +499,9 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
             "steps_found",
             "missing",
             "series_mz",
+            # статистическая значимость длины серии (ADR-0009)
+            "p_value",
+            "significant",
         ]
         assert list(result.columns) == expected_columns, (
             f"{set_dir.name}/{deriv_filename}: неожиданные колонки результата: "
@@ -715,3 +718,135 @@ class TestMaxConsecutiveMisses:
         assert not result.empty
         assert int(result.iloc[0]["n_groups"]) == 5
         assert result.iloc[0]["missing"] == []
+
+
+class TestMaxGaps:
+    """Правило проекта: в серии допускается не более 1 пропуска."""
+
+    DELTA = 17.03448
+
+    def test_default_value_is_one(self):
+        """По умолчанию допускается ровно один пропуск в серии."""
+        import inspect
+
+        sig = inspect.signature(find_series)
+        assert sig.parameters["max_gaps"].default == 1
+
+    def test_negative_raises(self):
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum([117.03448])
+        with pytest.raises(ValueError, match="max_gaps"):
+            find_series(src, deriv, self.DELTA, max_gaps=-1)
+
+    def test_one_gap_allowed_by_default(self):
+        """Ступени 1 и 3 (пропуск 2) — серия принимается: пропуск ровно один."""
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum([100.0 + self.DELTA, 100.0 + 3 * self.DELTA])
+        result = find_series(src, deriv, self.DELTA, max_groups=5)
+        assert not result.empty
+        row = result.iloc[0]
+        assert int(row["n_groups"]) == 3
+        assert row["missing"] == [2]
+
+    def test_second_gap_truncates_series(self):
+        """Ступени 1, 3, 5 — уже два пропуска: серия обрывается перед вторым."""
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum(
+            [100.0 + self.DELTA, 100.0 + 3 * self.DELTA, 100.0 + 5 * self.DELTA]
+        )
+        result = find_series(src, deriv, self.DELTA, max_groups=6)
+        assert not result.empty
+        row = result.iloc[0]
+        # обрыв на последней найденной ступени до исчерпания бюджета
+        assert int(row["n_groups"]) == 3
+        assert row["missing"] == [2]
+
+    def test_zero_gaps_disabled(self):
+        """max_gaps=0 — пропуски запрещены: серия обрывается на первом пропуске."""
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum([100.0 + self.DELTA, 100.0 + 3 * self.DELTA])
+        result = find_series(src, deriv, self.DELTA, max_groups=5, max_gaps=0)
+        assert not result.empty
+        row = result.iloc[0]
+        assert int(row["n_groups"]) == 1
+        assert row["missing"] == []
+
+    def test_allow_gaps_false_is_alias_for_zero(self):
+        """Устаревший allow_gaps=False эквивалентен max_gaps=0."""
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum([100.0 + self.DELTA, 100.0 + 3 * self.DELTA])
+        result = find_series(src, deriv, self.DELTA, max_groups=5, allow_gaps=False)
+        assert int(result.iloc[0]["n_groups"]) == 1
+        assert result.iloc[0]["missing"] == []
+
+    def test_user_can_widen_budget(self):
+        """Пользователь может разрешить больше пропусков (например, 2)."""
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum(
+            [100.0 + self.DELTA, 100.0 + 3 * self.DELTA, 100.0 + 5 * self.DELTA]
+        )
+        result = find_series(src, deriv, self.DELTA, max_groups=6, max_gaps=2)
+        row = result.iloc[0]
+        assert int(row["n_groups"]) == 5
+        assert row["missing"] == [2, 4]
+
+    def test_budget_is_never_exceeded(self):
+        """Инвариант: len(missing) <= max_gaps для любой серии."""
+        src = _make_src_spectrum([100.0, 200.0])
+        deriv = _make_deriv_spectrum(
+            [
+                100.0 + self.DELTA,
+                100.0 + 3 * self.DELTA,
+                100.0 + 5 * self.DELTA,
+                200.0 + self.DELTA,
+                200.0 + 4 * self.DELTA,
+            ]
+        )
+        for budget in (0, 1, 2):
+            result = find_series(src, deriv, self.DELTA, max_groups=6, max_gaps=budget)
+            for _, row in result.iterrows():
+                assert len(row["missing"]) <= budget, (budget, row["missing"])
+
+
+class TestRequireFirstStep:
+    """Точность прежде полноты: без первой ступени серия не считается."""
+
+    DELTA = 17.03448
+
+    def test_default_is_true(self):
+        import inspect
+
+        sig = inspect.signature(find_series)
+        assert sig.parameters["require_first_step"].default is True
+
+    def test_series_without_first_step_is_rejected(self):
+        """Ступени 2,3,4 без ступени 1 — случайные совпадения, не серия."""
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum(
+            [100.0 + 2 * self.DELTA, 100.0 + 3 * self.DELTA, 100.0 + 4 * self.DELTA]
+        )
+        result = find_series(src, deriv, self.DELTA, max_groups=6)
+        assert result.empty
+
+    def test_series_without_first_step_kept_when_disabled(self):
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum(
+            [100.0 + 2 * self.DELTA, 100.0 + 3 * self.DELTA, 100.0 + 4 * self.DELTA]
+        )
+        result = find_series(
+            src, deriv, self.DELTA, max_groups=6, require_first_step=False
+        )
+        assert not result.empty
+        row = result.iloc[0]
+        assert int(row["n_groups"]) == 4
+        assert row["missing"] == [1]
+
+    def test_first_step_present_with_internal_gap_is_kept(self):
+        """Ступени 1 и 3 (один пропуск) — серия подтверждена первой ступенью."""
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum([100.0 + self.DELTA, 100.0 + 3 * self.DELTA])
+        result = find_series(src, deriv, self.DELTA, max_groups=5)
+        assert not result.empty
+        row = result.iloc[0]
+        assert int(row["n_groups"]) == 3
+        assert row["missing"] == [2]

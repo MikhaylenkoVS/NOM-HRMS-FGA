@@ -100,16 +100,23 @@ def _base_kwargs():
 
 class TestPipelineSettingsWiring:
     def test_sign_changes_pipeline_result(self):
+        """Проброс sign: '-' работает, '+' — зарезервированный режим.
+
+        Поддержан только [M-H]- (src/configs/chemistry.json: adducts, status
+        'future' у остальных; см. ADR-0002). Поэтому sign='+' обязан не молча
+        давать тот же результат, а сообщить, что режим [M+H]+ не подключён —
+        это и подтверждает, что sign доходит до выбора режима ионизации.
+        """
         from src.core import run_pipeline
 
         res_neg = run_pipeline(sign="-", **_base_kwargs())
-        res_pos = run_pipeline(sign="+", **_base_kwargs())
-
         assert len(res_neg.table) > 0, "sign='-' должен давать непустую таблицу"
-        assert len(res_pos.table) > 0, "sign='+' должен давать непустую таблицу"
-        assert not res_neg.table.equals(
-            res_pos.table
-        ), "sign='-' и sign='+' дали идентичные таблицы — sign не проброшен"
+
+        res_pos = run_pipeline(sign="+", **_base_kwargs())
+        assert not res_pos.ok, "sign='+' (режим [M+H]+) пока не поддержан"
+        messages = " ".join(str(m) for m in (res_pos.errors or []))
+        assert "[M+H]+" in messages, messages
+        assert len(res_pos.table) == 0
 
     def test_brutto_dict_limits_pipeline_result(self):
         from src.core import run_pipeline

@@ -242,4 +242,47 @@ class PresetsMixin:
             self._log(f"[ОШИБКА] Экспорт PDF: {e}", color=WARN)
             messagebox.showerror("Ошибка", str(e))
 
+    def _export_article_materials(self):
+        """Материалы для статьи: рисунки и таблицы (картинки/графики/XLSX).
+
+        Генерация идёт в отдельном потоке: построение шести рисунков и трёх
+        таблиц занимает секунды и не должно подвешивать интерфейс.
+        """
+        if self.result_df is None or self.result_df.empty:
+            messagebox.showinfo("Нет данных", "Сначала запустите анализ.")
+            return
+        outdir = filedialog.askdirectory(
+            title="Папка для материалов статьи (рисунки и таблицы)"
+        )
+        if not outdir:
+            return
+        self._log(f"Сборка материалов для статьи → {outdir}")
+
+        def _worker():
+            try:
+                from tools.article_report import generate_article_report
+
+                res = generate_article_report(
+                    df=self.result_df.copy(),
+                    outdir=outdir,
+                    original=self.src_var.get().strip() or None,
+                    dmet=self.dmet_var.get().strip() or None,
+                    dacet=self.dacet_var.get().strip() or None,
+                    timing={
+                        "Обработка спектров": getattr(self, "_last_run_seconds", 0.0)
+                    },
+                    progress=lambda msg: self._log_queue.put(("log", str(msg) + "\n")),
+                )
+                self._log_queue.put(
+                    (
+                        "log",
+                        f"Готово: {len(res['figures'])} рисунков, "
+                        f"{len(res['tables'])} таблиц → {outdir}\n",
+                    )
+                )
+            except Exception as exc:
+                self._log_queue.put(("log", f"[ОШИБКА] Материалы для статьи: {exc}\n"))
+
+        threading.Thread(target=_worker, daemon=True, name="article-report").start()
+
     # ── Van Krevelen ──────────────────────────────────────────────────────────

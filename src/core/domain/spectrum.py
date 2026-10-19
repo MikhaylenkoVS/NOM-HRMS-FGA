@@ -5,6 +5,7 @@ Own implementation (MPL-2.0), clean-room design.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,8 @@ import numpy as np
 import pandas as pd
 
 from src.configs import NOISE_CFG
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -332,5 +335,30 @@ class Spectrum:
             result = compute_noise_threshold(intens, max_components=max_components)
             threshold = result.threshold * force
 
+        # ── Предохранители ─────────────────────────────────────────────────
+        # Нечисловой порог (вырожденный GMM: одна популяция, одинаковые
+        # интенсивности и т.п.) — спектр не фильтруем.
+        if threshold is None or not np.isfinite(threshold):
+            logger.warning(
+                "Шумоподавление: порог не определён (%r) — спектр оставлен "
+                "без изменений",
+                threshold,
+            )
+            return self.copy()
+
         keep = [p for p in self._peaks if p.intensity > threshold]
+        n_total = len(self._peaks)
+        if n_total:
+            removed_ratio = 1.0 - len(keep) / n_total
+            max_removed = float(getattr(NOISE_CFG, "max_removed_ratio", 0.9))
+            if removed_ratio > max_removed:
+                logger.warning(
+                    "Шумоподавление: порог %.3g отсекает %.0f%% пиков "
+                    "(> %.0f%%) — похоже, шумовой популяции в файле нет или "
+                    "пиклист уже отфильтрован; фильтр не применён",
+                    threshold,
+                    100 * removed_ratio,
+                    100 * max_removed,
+                )
+                return self.copy()
         return Spectrum(peaks=keep, metadata=self.metadata)

@@ -52,53 +52,39 @@ if str(_PROJECT_ROOT) not in sys.path:
 def plot_spectra(
     paths: list[str], sep: str, out_png: str, max_points: int = 8000
 ) -> None:
-    """Построить три масс-спектра в один PNG (без GUI)."""
-    import matplotlib
+    """Построить три масс-спектра в один PNG (без GUI).
 
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    Отрисовка живёт в ``tools/article_report.py`` (единая точка для всего,
+    что идёт в статью); здесь — тонкая обёртка для headless-вызова.
+    """
+    from tools.article_report import plot_spectra_panels
 
-    from src.core.spectrum import CSV_COLUMN_MAPPER
+    keys = ("original", "dmet", "dacet")
+    labels = ("Исходный", "Дейтерометилирование", "Дейтероацилирование")
+    colors = ("#1f77b4", "#2ca02c", "#d62728")
+    series = []
+    for i, path in enumerate(paths):
+        df = _read_peaks_for_plot(path, sep)
+        series.append((labels[i] if i < len(labels) else keys[i], df, colors[i % 3]))
+    out = plot_spectra_panels(series, Path(out_png), max_points=max_points)
+    print(f"  сохранено: {out}")
 
-    labels = ["Исходный", "Дейтерометилирование", "Дейтероацилирование"]
-    colors = ["#89b4fa", "#a6e3a1", "#fab387"]
 
-    dfs = []
-    for label, path in zip(labels, paths):
+def _read_peaks_for_plot(path: str, sep: str = ","):
+    """Пики для графика: CSV напрямую, остальное — через article_report."""
+    import pandas as pd
+
+    try:
+        from tools.article_report import load_peaks
+
+        return load_peaks(path, sep)
+    except Exception:
         df = pd.read_csv(path, sep=sep)
         df.columns = [c.strip() for c in df.columns]
-        df = df.rename(columns=CSV_COLUMN_MAPPER)
-        missing = [c for c in ("mass", "intensity") if c not in df.columns]
-        if missing:
-            raise ValueError(
-                f"{label} ({path}): нет колонок {missing}; доступны {list(df.columns)}"
-            )
-        df = df[["mass", "intensity"]]
-        total = len(df)
-        if total > max_points:
-            step = total // max_points
-            df = df.iloc[::step]
-        dfs.append((label, df, total))
-        print(f"  {label:24s} {total:>9,} пиков → {len(df):>6,} на графике")
+        from src.core.spectrum import CSV_COLUMN_MAPPER
 
-    fig, axes = plt.subplots(3, 1, figsize=(11, 8), sharex=True)
-    for i, (ax, (label, df, total)) in enumerate(zip(axes, dfs)):
-        ax.vlines(
-            df["mass"], 0, df["intensity"], colors=colors[i], linewidth=0.7, alpha=0.85
-        )
-        ax.set_ylabel("Intensity", fontsize=9)
-        ax.set_title(
-            f"{label}  ({total:,} пиков, прорежено до {len(df):,})".replace(",", " "),
-            fontsize=10,
-            loc="left",
-        )
-        ax.grid(True, alpha=0.3)
-    axes[-1].set_xlabel("m/z", fontsize=10)
-    fig.suptitle("Три масс-спектра", fontsize=13)
-    fig.tight_layout()
-    fig.savefig(out_png, dpi=150)
-    plt.close(fig)
-    print(f"  сохранено: {out_png}")
+        df = df.rename(columns=CSV_COLUMN_MAPPER)
+        return df[["mass", "intensity"]]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

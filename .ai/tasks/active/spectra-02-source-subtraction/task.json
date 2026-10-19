@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "spectra-02-source-subtraction",
+  "title": "SPECTRA-02: шумоподавление дериватизатов и вычитание исходного спектра",
+  "status": "implementation",
+  "type": "scientific",
+  "risk_level": "medium",
+  "created_at": "2026-10-17T13:00:00Z",
+  "updated_at": "2026-10-17T13:00:00Z",
+  "owners": {
+    "planner": "human",
+    "implementer": "deepcode",
+    "approver": "human"
+  },
+  "git": {
+    "base_branch": "main",
+    "working_branch": "main",
+    "pull_request": null
+  },
+  "scope": {
+    "allowed_paths": [
+      "src/core/spectrum/_overlap.py",
+      "src/core/pipeline/",
+      "src/configs/pipeline.json",
+      "src/ui/",
+      "src/cli.py",
+      "tests/unit/test_overlap.py",
+      "docs/",
+      ".ai/decisions/0008-derivative-source-subtraction.md",
+      ".ai/tasks/active/spectra-02-source-subtraction/"
+    ],
+    "forbidden_paths": [
+      "dist/",
+      "build/",
+      "data/formula_db/"
+    ],
+    "max_changed_files": 12
+  },
+  "requirements": {
+    "must_have": [
+      "Вычитание выполняется только по m/z, без учёта интенсивностей",
+      "Опции доступны в GUI, CLI и pipeline.json",
+      "В статистике и логе видно, сколько пиков удалено",
+      "Есть тесты на совпадение, ppm-границу, пустые спектры и сохранение порядка"
+    ],
+    "must_not": [
+      "Менять назначение формул исходника",
+      "Удалять пики за пределами ppm-окна"
+    ],
+    "should_have": [
+      "A/B-замер на реальном сете (F16) до включения по умолчанию"
+    ],
+    "out_of_scope": [
+      "Сравнение интенсивностей",
+      "Учёт изотопных сателлитов при вычитании"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "python tools/ai_workflow.py validate-task spectra-02-source-subtraction",
+      "pytest -q tests/unit/test_overlap.py"
+    ],
+    "required_test_commands": [
+      "pytest -q tests/unit",
+      "python -m src.cli --help"
+    ],
+    "requires_benchmark": false,
+    "requires_reference_equivalence": true,
+    "requires_adr": true,
+    "requires_human_approval": false
+  },
+  "artifacts": {
+    "design": "design.md",
+    "acceptance": "acceptance.md",
+    "implementation_report": "implementation_report.md",
+    "benchmark_report": null,
+    "rollback_plan": "rollback_plan.md",
+    "reference_validation": "reference_validation.md"
+  },
+  "links": {
+    "issue": null,
+    "pull_request": null,
+    "adr": [
+      "0008-derivative-source-subtraction.md"
+    ]
+  }
+}

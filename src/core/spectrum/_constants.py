@@ -97,7 +97,9 @@ class FormulaSearchConfig:
     max_nc: float = _FORMULA_SEARCH["max_nc"]  # N/C <= 1.0
     max_sc: float = _fs_get("max_sc", 0.5)  # S/C
     max_pc: float = _fs_get("max_pc", 0.5)  # P/C
-    max_xc: float = _fs_get("max_xc", 0.5)  # (F+Cl+Br+I)/C
+    # (F+Cl+Br+I)/C — фильтр-опция пользователя (GUI/CLI). None = выключен:
+    # по умолчанию ограничение не применяется (см. ADR/задачу db-02).
+    max_xc: float | None = None
     max_dbe: float = _FORMULA_SEARCH["max_dbe"]  # DBE <= 30
     min_c: int = _FORMULA_SEARCH["min_c"]  # minimum carbons
     # Штрафы за экзотические гетероатомы (на атом) и бонус за изотопное
@@ -128,15 +130,17 @@ class FormulaSearchConfig:
         return self.elements
 
     def ratio_limits(self) -> dict[str, float]:
-        """Предельные отношения элемент/C в виде ``{элемент: лимит}``."""
-        return {
+        """Предельные отношения элемент/C в виде ``{элемент: лимит}``.
+
+        Элементы с выключенным лимитом (``None``) не попадают в словарь.
+        """
+        limits: dict[str, float] = {
             "H": self.max_hc,
             "O": self.max_oc,
             "N": self.max_nc,
             "S": self.max_sc,
             "P": self.max_pc,
-            "F": self.max_xc,
-            "Cl": self.max_xc,
-            "Br": self.max_xc,
-            "I": self.max_xc,
         }
+        if self.max_xc is not None:
+            limits.update({el: self.max_xc for el in HALOGENS})
+        return limits

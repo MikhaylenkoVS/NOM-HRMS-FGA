@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 120
-exclude = external/*,.venv/*,.git/*,build/*,dist/*
+exclude = external/*,.venv/*,.git/*,build/*,dist/*,tools/_scratch/*
 
 # Pre-existing issues — silenced per-file until cleaned incrementally.
 # Пути приведены в соответствие с текущей структурой пакетов
@@ -9,6 +9,8 @@ exclude = external/*,.venv/*,.git/*,build/*,dist/*
 per-file-ignores =
     tests/*.py: E402, E712, F401, F841, E203
     tools/*.py: E402, F401, F811, W391
+    # длинные строки — регулярные выражения для разбора конкурентов на языках
+    tools/diagnostics/audit_competitors.py: E501
     src/testing/*.py: E402, F401
     # --- пакеты-реэкспорты: F401 ожидаем, имена перечислены в __all__ ---
     src/core/__init__.py: F401
