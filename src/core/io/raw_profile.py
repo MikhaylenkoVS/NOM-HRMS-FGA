@@ -113,8 +113,18 @@ def _shape_metrics(
     fwhm = float(win_mz[right] - win_mz[left])
     touches_edge = left == 0 or right == win_i.size - 1
 
-    # Одиночность: вне непрерывной области не должно быть точек выше половины.
-    outside = np.concatenate([win_i[:left], win_i[right + 1 :]])
+    # Одиночность: смотрим только ближайшую окрестность (±max(4·FWHM, 2 мДа)).
+    # В плотном NOM-спектре окно ±20 мДа почти всегда содержит соседний пик,
+    # поэтому проверять «весь» профиль вокруг нельзя.
+    step = (win_mz[-1] - win_mz[0]) / max(1, win_mz.size - 1)
+    guard = max(4.0 * fwhm if np.isfinite(fwhm) else 0.002, 0.002)
+    guard_pts = int(guard / step) + 1 if step > 0 else 1
+    outside = np.concatenate(
+        [
+            win_i[max(0, left - guard_pts) : left],
+            win_i[right + 1 : right + 1 + guard_pts],
+        ]
+    )
     single = not (outside.size and outside.max() >= half)
     return {
         "present": True,

@@ -148,7 +148,7 @@ def main() -> None:
         )
 
         # ── проверки как пост-обработка ─────────────────────────────────
-        from src.core.spectrum._chem import parse_formula
+        from src.core.domain.molecule import parse_formula
 
         counts_by_brutto = {}
         for brutto in pd.concat([c3["brutto"], c3co["brutto"]]).unique():
