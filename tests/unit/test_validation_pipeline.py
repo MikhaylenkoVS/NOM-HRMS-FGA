@@ -6,11 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.core.spectrum._conflicts import mark_conflicts
+from src.core.spectrum._conflicts import analyze_conflicts, mark_conflicts
 from src.core.spectrum._decoy import decoy_shifts, fdr_table, q_values
 from src.core.spectrum._formula_check import (
     check_series_formula,
     counts_valid,
+    is_plausible_brutto,
+    is_plausible_nom,
     CD3,
     CD3CO,
     product_counts,
@@ -287,3 +289,69 @@ class TestTrimToConfirmedLast:
             }
         )
         assert trim_to_confirmed_last(df).empty
+
+
+# ── правдоподобие NOM-формул ─────────────────────────────────────────────
+class TestNomPlausibility:
+    def test_plausible(self):
+        assert is_plausible_brutto("C20H21O8N")[0] is True
+        assert is_plausible_brutto("C10H8O5")[0] is True
+
+    def test_halogens_rejected(self):
+        assert is_plausible_brutto("C23H32O6S4FCl")[0] is False
+        assert "галогены" in is_plausible_brutto("C10H8O5Cl")[1]
+
+    def test_element_limits(self):
+        assert is_plausible_brutto("C10H10O5S3")[0] is False
+        assert is_plausible_brutto("C10H10O5P2")[0] is False
+        assert is_plausible_brutto("C10H5N6")[0] is False
+
+    def test_ratios(self):
+        assert is_plausible_brutto("C10H30O5")[0] is False  # H/C = 3
+        assert is_plausible_brutto("C10H6O20")[0] is False  # O/C = 2
+        assert is_plausible_brutto("C10H4O5")[0] is True
+
+    def test_bad_formula(self):
+        assert is_plausible_brutto("не формула")[0] is False
+        assert is_plausible_nom({"C": 0, "H": 2})[0] is False
+
+
+class TestConflictsUseOnlyPlausible:
+    def _frame(self):
+        # A: ступени 1-2, B: ступени 1-3; пик 117.034 — последний у обоих,
+        # у обоих есть предыдущая ступень → правило цепочки не разрешает.
+        return pd.DataFrame(
+            {
+                "series_mz": [[100.0, 117.034], [82.9655, 100.0, 117.034]],
+                "steps_found": [[1, 2], [1, 2, 3]],
+                "n_groups": [2, 3],
+                "brutto": ["C10H8O5", "C23H32O6S4FCl"],
+            }
+        )
+
+    def test_implausible_competitor_does_not_create_conflict(self):
+        out = mark_conflicts(self._frame())
+        assert out["contested_steps"].tolist() == [0, 0]
+        assert out["ambiguous"].tolist() == [False, False]
+
+    def test_without_filter_conflict_exists(self):
+        out = mark_conflicts(self._frame(), valid=[True, True])
+        # делятся два пика: 100.0 (шаг 1 vs 2) и 117.034 (шаг 2 vs 3)
+        assert out["contested_steps"].tolist() == [2, 1]
+        assert out["ambiguous"].tolist() == [True, True]
+
+    def test_plausible_competitor_still_conflicts(self):
+        df = self._frame()
+        df.loc[1, "brutto"] = "C10H8O5"
+        out = mark_conflicts(df)
+        assert out["contested_steps"].tolist() == [2, 1]
+        assert out["ambiguous"].tolist() == [True, True]
+
+    def test_analyze_conflicts_respects_mask(self):
+        df = self._frame()
+        assert len(analyze_conflicts(df)) == 0
+        assert len(analyze_conflicts(df, valid=[True, True])) == 2
+
+    def test_bad_mask_length(self):
+        with pytest.raises(ValueError):
+            mark_conflicts(self._frame(), valid=[True])
