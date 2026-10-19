@@ -329,8 +329,14 @@ class TestConflictsUseOnlyPlausible:
             }
         )
 
-    def test_implausible_competitor_does_not_create_conflict(self):
+    def test_default_does_not_filter(self):
+        # по умолчанию фильтр правдоподобия выключен — конфликт учитывается
         out = mark_conflicts(self._frame())
+        assert out["contested_steps"].tolist() == [2, 1]
+        assert out["ambiguous"].tolist() == [True, True]
+
+    def test_implausible_competitor_does_not_create_conflict(self):
+        out = mark_conflicts(self._frame(), plausible_only=True)
         assert out["contested_steps"].tolist() == [0, 0]
         assert out["ambiguous"].tolist() == [False, False]
 
@@ -343,13 +349,13 @@ class TestConflictsUseOnlyPlausible:
     def test_plausible_competitor_still_conflicts(self):
         df = self._frame()
         df.loc[1, "brutto"] = "C10H8O5"
-        out = mark_conflicts(df)
+        out = mark_conflicts(df, plausible_only=True)
         assert out["contested_steps"].tolist() == [2, 1]
         assert out["ambiguous"].tolist() == [True, True]
 
     def test_analyze_conflicts_respects_mask(self):
         df = self._frame()
-        assert len(analyze_conflicts(df)) == 0
+        assert len(analyze_conflicts(df, plausible_only=True)) == 0
         assert len(analyze_conflicts(df, valid=[True, True])) == 2
 
     def test_bad_mask_length(self):

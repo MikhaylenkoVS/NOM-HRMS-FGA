@@ -20,10 +20,11 @@
 Для ``alias``/``same_precursor`` конфликт «реален», но серия избыточна
 (дубль). Для ``independent`` выбрасывать серию — потеря реальных данных.
 
-В конфликтах участвуют только серии с правдоподобной NOM-формулой (CHNOPS,
-без галогенов, S ≤ 2, P ≤ 1, N ≤ 5, отношения H/C, O/C, N/C, S/C, P/C, DBE ≥ 0).
-Неправдоподобные серии остаются в выдаче, но не претендуют на пики; отчёт
-показывает, сколько ambiguous было бы без этого фильтра.
+Рабочий режим — **без фильтра правдоподобия** (он выключен в пайплайне:
+влияние конфликтов на реальные серии минимально). Отчёт дополнительно считает
+экспериментальный вариант `plausible_only` (CHNOPS, без галогенов, S ≤ 2,
+P ≤ 1, N ≤ 5, отношения H/C, O/C, N/C, S/C, P/C, DBE ≥ 0) — сколько
+ambiguous осталось бы, если не считать конфликты с абсурдными формулами.
 
 Первый прогон ~10 мин; результат кешируется, повторный анализ:
   python tools/diagnostics/conflict_pairs_f16.py --reuse
@@ -210,11 +211,13 @@ def analyze_frame(
     """Разметить серии и вернуть (сводка, записи неоднозначных серий)."""
     marked = attach_formula_check(df, group, counts_by_brutto)
     marked = attach_fdr(marked, decoys)
+    # Рабочий режим — без фильтра правдоподобия (он выключен в пайплайне).
+    marked = mark_conflicts(marked).reset_index(drop=True)
+    clusters = analyze_conflicts(marked)
+    # Эксперимент: сколько конфликтов осталось бы только по правдоподобным.
     plausible = [bool(is_plausible_brutto(str(b))[0]) for b in marked["brutto"]]
-    marked = mark_conflicts(marked, valid=plausible).reset_index(drop=True)
-    clusters = analyze_conflicts(marked, valid=plausible)
-    unfiltered = mark_conflicts(marked, valid=[True] * len(marked))
-    ambiguous_all = int(unfiltered["ambiguous"].sum())
+    filtered = mark_conflicts(marked, plausible_only=True)
+    ambiguous_filtered = int(filtered["ambiguous"].sum())
 
     cluster_of: dict[float, dict] = {}
     for cluster in clusters:
@@ -279,9 +282,9 @@ def analyze_frame(
         ),
         "n_ambiguous": int(marked["ambiguous"].sum()),
         "share_ambiguous": round(float(marked["ambiguous"].mean()), 4),
-        "n_ambiguous_without_plausibility": ambiguous_all,
-        "share_ambiguous_without_plausibility": round(
-            ambiguous_all / max(1, len(marked)), 4
+        "n_ambiguous_plausible_only": ambiguous_filtered,
+        "share_ambiguous_plausible_only": round(
+            ambiguous_filtered / max(1, len(marked)), 4
         ),
         "n_clusters": len(clusters),
         "clusters_by_supported": dict(
@@ -508,9 +511,9 @@ def main() -> None:
             f"({r['share_ambiguous']:.1%})"
         )
         print(
-            f"  без фильтра правдоподобия ambiguous было бы "
-            f"{r['n_ambiguous_without_plausibility']} "
-            f"({r['share_ambiguous_without_plausibility']:.1%})"
+            f"  эксперимент (plausible_only): ambiguous было бы "
+            f"{r['n_ambiguous_plausible_only']} "
+            f"({r['share_ambiguous_plausible_only']:.1%})"
         )
         print(f"  кластеры по supported: {r['clusters_by_supported']}")
         print(f"  классы: {r['ambiguous_by_kind']}")
