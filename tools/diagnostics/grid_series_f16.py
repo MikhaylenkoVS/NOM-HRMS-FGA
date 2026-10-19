@@ -81,6 +81,11 @@ def main() -> None:
     ap.add_argument("--dataset", default="Fulvagra F16")
     ap.add_argument("--variant", default="chorsphal")
     ap.add_argument("--json", default="D:/Temp/User/grid_f16.json")
+    ap.add_argument(
+        "--profile",
+        action="store_true",
+        help="включить критерий профиля интенсивностей",
+    )
     a = ap.parse_args()
 
     s, m, d = REAL[a.dataset]
@@ -186,6 +191,7 @@ def main() -> None:
                     "variant": key,
                     "peaks": var["peaks"],
                     "ppm_tol": ppm_tol,
+                    "profile": bool(a.profile),
                     "elapsed": round(time.perf_counter() - t_start, 1),
                 }
                 for deriv_name, col, delta in (
@@ -203,6 +209,7 @@ def main() -> None:
                             max_gaps=defaults["max_gaps"],
                             require_first_step=True,
                             significance_level=defaults["significance_level"],
+                            profile_check=a.profile,
                         )
                         row[f"{col}_{label}"] = series_metrics(df, len(src.table))
                     real = row[f"{col}_real"]["mean"]

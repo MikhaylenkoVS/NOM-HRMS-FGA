@@ -18,7 +18,7 @@
     "max_gaps": 1,
     "allow_gaps": true,
     "denoise_derivatives": true,
-    "subtract_source": true,
+    "subtract_source": false,
     "subtract_ppm": 2.0,
     "require_first_step": true,
     "significance_level": 0.95,
