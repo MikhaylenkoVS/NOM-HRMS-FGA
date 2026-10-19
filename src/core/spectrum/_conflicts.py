@@ -10,6 +10,9 @@
 бесспорна, серия не считается неоднозначной: цепочка продолжается уникальным
 пиком. Поэтому ``ambiguous = contested[last_step]``.
 
+Правило цепочки: если в кластере ровно один претендент имеет предыдущую
+ступень, пик принадлежит ему; для остальных претендентов шаг спорный.
+
 ВАЖНО: сравнивать нужно только шаги **одной и той же** производной
 (дейтерометилирование с дейтерометилированием, дейтероацилирование с
 дейтероацилированием). Функция принимает один DataFrame — по одному на
@@ -19,6 +22,71 @@
 from __future__ import annotations
 
 import pandas as pd
+
+
+def analyze_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> list[dict]:
+    """Собрать кластеры пиков, которые делят две и более серии.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Результат ``find_series`` с колонкой ``series_mz``.
+    tolerance : float
+        Окно группировки шагов, Да (по умолчанию 1 мДа).
+
+    Returns
+    -------
+    list of dict
+        Каждый кластер: ``start`` (минимальный m/z), ``end`` (максимальный),
+        ``members`` (список ``{"row", "step", "mz"}``), ``supported`` (строки
+        с предыдущей ступенью) и ``owner`` (строка-владелец или ``None``).
+    """
+    if df is None or len(df) == 0:
+        return []
+
+    # ``series_mz`` — позиционный список: позиция ``i`` соответствует ступени
+    # ``i + 1``, ``None`` — пропуск. Номер ступени берём из позиции, а не из
+    # ``steps_found``: списки могут иметь разную длину при пропусках.
+    pairs: list[tuple[float, int, int]] = []  # (mz, строка, номер ступени)
+    steps_by_row: list[list[int]] = []
+    for idx, mz_list in enumerate(df["series_mz"]):
+        steps: list[int] = []
+        for pos, mz in enumerate(mz_list):
+            if mz is not None:
+                step = pos + 1
+                pairs.append((float(mz), idx, step))
+                steps.append(step)
+        steps_by_row.append(steps)
+    pairs.sort()
+
+    clusters: list[dict] = []
+    cur: dict | None = None
+    prev_mz = None
+    for mz, row, step in pairs:
+        if cur is None or mz - prev_mz > tolerance + 1e-9:
+            cur = {"start": mz, "end": mz, "members": []}
+            clusters.append(cur)
+        cur["end"] = mz
+        cur["members"].append({"row": row, "step": step, "mz": mz})
+        prev_mz = mz
+
+    result: list[dict] = []
+    for cluster in clusters:
+        rows = {m["row"] for m in cluster["members"]}
+        if len(rows) < 2:
+            continue
+        shared_steps: dict[int, list[int]] = {}
+        for m in cluster["members"]:
+            shared_steps.setdefault(m["row"], []).append(m["step"])
+        supported = sorted(
+            row
+            for row, steps in shared_steps.items()
+            if any(step - 1 in steps_by_row[row] for step in steps)
+        )
+        cluster["supported"] = supported
+        cluster["owner"] = supported[0] if len(supported) == 1 else None
+        result.append(cluster)
+    return result
 
 
 def mark_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> pd.DataFrame:
@@ -35,6 +103,8 @@ def mark_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> pd.DataFrame:
     -------
     DataFrame
         Копия с колонками ``contested_steps`` (int) и ``ambiguous`` (bool).
+        ``contested_steps`` — число шагов, которые серия проиграла владельцу
+        пика; ``ambiguous`` — проигран именно последний наблюдаемый шаг.
     """
     if df is None or df.empty:
         out = df.copy() if df is not None else pd.DataFrame()
@@ -42,101 +112,40 @@ def mark_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> pd.DataFrame:
         out["ambiguous"] = False
         return out
 
-    # Все шаги всех серий → сортировка → кластеры single-linkage по tolerance.
-    # (mz, строка, номер ступени) — номер нужен для правила «есть предыдущая ступень»
-    steps_lists = (
-        list(df["steps_found"])
-        if "steps_found" in df.columns
-        else [
-            [i + 1 for i, mz in enumerate(_lst) if mz is not None]
-            for _lst in df["series_mz"]
-        ]
-    )
-    pairs: list[tuple[float, int, int]] = []
-    for idx, mz_list in enumerate(df["series_mz"]):
-        steps = list(steps_lists[idx])
-        for pos, mz in enumerate(mz_list):
-            if mz is not None:
-                pairs.append(
-                    (float(mz), idx, int(steps[pos]) if pos < len(steps) else pos + 1)
-                )
-    pairs.sort()
-
-    clusters: list[tuple[float, set[int]]] = []
-    cur_start = None
-    cur_members: set[int] = set()
-    prev_mz = None
-    for mz, idx, _st in pairs:
-        if cur_start is None:
-            cur_start = mz
-            cur_members = set()
-        elif mz - prev_mz > tolerance + 1e-9:
-            clusters.append((cur_start, cur_members))
-            cur_start = mz
-            cur_members = set()
-        cur_members.add(idx)
-        prev_mz = mz
-    if cur_start is not None:
-        clusters.append((cur_start, cur_members))
-
-    size_by_start = {start: len(members) for start, members in clusters}
-
-    # Каждой массе — начало её кластера.
+    clusters = analyze_conflicts(df, tolerance)
     cluster_of: dict[float, float] = {}
-    cur_start = None
-    prev_mz = None
-    for mz, _idx, _st in pairs:
-        if cur_start is None or mz - prev_mz > tolerance + 1e-9:
-            cur_start = mz
-        cluster_of[mz] = cur_start
-        prev_mz = mz
+    size_by_start: dict[float, int] = {}
+    owner: dict[float, int] = {}
+    for cluster in clusters:
+        start = cluster["start"]
+        size_by_start[start] = len({m["row"] for m in cluster["members"]})
+        if cluster["owner"] is not None:
+            owner[start] = cluster["owner"]
+        for m in cluster["members"]:
+            cluster_of[m["mz"]] = start
 
-    if "steps_found" in df.columns:
-        steps_lists = list(df["steps_found"])
-    else:
-        steps_lists = [
-            [i + 1 for i, mz in enumerate(lst) if mz is not None]
-            for lst in df["series_mz"]
-        ]
-
-    # Правило цепочки: если из претендентов ровно один имеет предыдущую ступень,
-    # пик принадлежит ему (остальные претенденты на этот шаг не проходят).
-    chain_ok: dict[int, set[float]] = {}
-    for start, members in clusters:
-        if len(members) < 2:
-            continue
-        supported = set()
-        for mz, row, step in pairs:
-            if cluster_of.get(mz) != start:
-                continue
-            steps = list(steps_lists[row])
-            if step - 1 in steps:
-                supported.add(row)
-        if len(supported) == 1:
-            chain_ok[start] = supported
-
-    contested = []
-    ambiguous = []
-    for row_index, (mz_list, steps) in enumerate(zip(df["series_mz"], steps_lists)):
-        flags = []
+    contested: list[int] = []
+    ambiguous: list[bool] = []
+    for row_index, mz_list in enumerate(df["series_mz"]):
+        flags: list[bool] = []
         for mz in mz_list:
             if mz is None:
                 flags.append(False)
                 continue
             start = cluster_of.get(float(mz))
             shared = start is not None and size_by_start.get(start, 0) > 1
-            if shared and start in chain_ok and row_index not in chain_ok[start]:
-                shared = False  # пик принадлежит претенденту с предыдущей ступенью
+            if shared and start in owner:
+                # пик принадлежит владельцу; спорен только для остальных
+                shared = row_index != owner[start]
             flags.append(shared)
         contested.append(int(sum(flags)))
-        # важен только последний наблюдаемый пик серии
-        last_step = max(steps) if len(steps) else None
-        if last_step is None:
-            ambiguous.append(False)
-            continue
-        pos = list(steps).index(last_step)
-        ambiguous.append(bool(flags[pos]) if pos < len(flags) else False)
-
+        # важен только последний наблюдаемый пик серии: в ``series_mz`` он
+        # последний не-None (серия обрезана по последней найденной ступени).
+        last_pos = next(
+            (pos for pos in range(len(flags) - 1, -1, -1) if mz_list[pos] is not None),
+            None,
+        )
+        ambiguous.append(bool(flags[last_pos]) if last_pos is not None else False)
     out = df.copy()
     out["contested_steps"] = contested
     out["ambiguous"] = ambiguous

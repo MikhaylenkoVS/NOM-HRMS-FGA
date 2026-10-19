@@ -181,16 +181,11 @@ def main() -> None:
                 f_last[~f_last["last_multi"]], "last without overlap"
             )
             allf = add_status(
-                attach_last_steps(
-                    attach_fdr(
-                        attach_conflicts(
-                            attach_formula_check(f, group, counts_by_brutto)
-                        ),
-                        decoys,
+                attach_fdr(
+                    attach_conflicts(
+                        attach_formula_check(f_last, group, counts_by_brutto)
                     ),
-                    raw,
-                    ppm=defaults["ppm_tol"],
-                    max_scans=16,
+                    decoys,
                 )
             )
             allf = trim_to_confirmed_last(allf, persistence_min=0.5)

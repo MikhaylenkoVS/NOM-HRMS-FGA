@@ -15,7 +15,13 @@ from src.core.spectrum._formula_check import (
     CD3CO,
     product_counts,
 )
-from src.core.spectrum._validate import add_status, attach_fdr, summarize
+from src.core.spectrum._validate import (
+    add_status,
+    attach_fdr,
+    attach_last_steps,
+    summarize,
+    trim_to_confirmed_last,
+)
 
 
 # ── decoy / FDR ──────────────────────────────────────────────────────────
@@ -64,11 +70,11 @@ class TestConflicts:
         df = pd.DataFrame({"series_mz": [[100.0, 117.03], [200.0], [117.031, 134.0]]})
         out = mark_conflicts(df, tolerance=0.001)
         # правило цепочки: у серии 0 есть предыдущая ступень, у серии 2 — нет,
-        # значит пик принадлежит серии 0
-        assert out["contested_steps"].tolist() == [1, 0, 0]
-        # у серии 0 спорна последняя ступень → ambiguous;
-        # у серии 2 спорна первая, а последняя (134.0) уникальна → не ambiguous
-        assert out["ambiguous"].tolist() == [True, False, False]
+        # значит пик принадлежит серии 0 и для неё не спорный
+        assert out["contested_steps"].tolist() == [0, 0, 1]
+        # серия 0 владеет спорным пиком; у серии 2 спорна первая ступень,
+        # а последняя (134.0) уникальна → не ambiguous
+        assert out["ambiguous"].tolist() == [False, False, False]
 
     def test_independent_series_clean(self):
         out = mark_conflicts(pd.DataFrame({"series_mz": [[100.0], [300.0]]}))
@@ -141,3 +147,143 @@ class TestStatus:
 
     def test_summarize_empty(self):
         assert summarize(pd.DataFrame())["n"] == 0
+
+
+# ── конфликты при пропусках ──────────────────────────────────────────────
+class TestConflictsWithGaps:
+    def test_gap_does_not_hide_ambiguous_last_step(self):
+        # Серия 0: ступени 1 и 3 (ступень 2 пропущена), последняя ступень 3
+        # делит пик с серией 1. Раньше позиция последней ступени бралась как
+        # index() в steps_found (1) и попадала в пропуск → ambiguous=False.
+        df = pd.DataFrame(
+            {
+                "series_mz": [[100.0, None, 134.0], [134.0]],
+                "steps_found": [[1, 3], [1]],
+                "n_groups": [3, 1],
+            }
+        )
+        out = mark_conflicts(df)
+        assert out["contested_steps"].tolist() == [1, 1]
+        assert out["ambiguous"].tolist() == [True, True]
+
+    def test_unshared_step_after_gap_is_not_contested(self):
+        df = pd.DataFrame(
+            {
+                "series_mz": [[100.0, None, 134.0], [200.0]],
+                "steps_found": [[1, 3], [1]],
+                "n_groups": [3, 1],
+            }
+        )
+        out = mark_conflicts(df)
+        assert out["contested_steps"].tolist() == [0, 0]
+        assert not out["ambiguous"].any()
+
+    def test_chain_rule_with_gap(self):
+        # Серия 0: ступени 2 и 3 (ступень 1 пропущена), для спорной ступени 3
+        # предыдущая ступень 2 найдена; у серии 1 предыдущей нет.
+        df = pd.DataFrame(
+            {
+                "series_mz": [[None, 117.0, 134.0], [134.0]],
+                "steps_found": [[2, 3], [1]],
+                "n_groups": [3, 1],
+            }
+        )
+        out = mark_conflicts(df)
+        # пик принадлежит серии 0 (есть ступень 2), серия 1 теряет свой
+        # единственный шаг → ambiguous
+        assert out["contested_steps"].tolist() == [0, 1]
+        assert out["ambiguous"].tolist() == [False, True]
+
+
+# ── profile/персистентность последних ступеней ───────────────────────────
+class TestAttachLastSteps:
+    @staticmethod
+    def _fake_metrics(monkeypatch, table):
+        import src.core.io.raw_profile as rp
+
+        def fake(raw_path, masses, **kwargs):
+            rows = [
+                {
+                    "mass": float(m),
+                    "persistence": table[m]["persistence"],
+                    "shape_ok": table[m]["shape_ok"],
+                    "multi": table[m].get("multi", False),
+                    "snr": 10.0,
+                    "fwhm": 0.002,
+                }
+                for m in masses
+            ]
+            return pd.DataFrame(rows)
+
+        monkeypatch.setattr(rp, "validate_masses", fake)
+
+    def test_last_step_after_gap(self, monkeypatch):
+        self._fake_metrics(
+            monkeypatch,
+            {
+                100.0: {"persistence": 0.9, "shape_ok": True},
+                134.0: {"persistence": 0.6, "shape_ok": True, "multi": True},
+            },
+        )
+        df = pd.DataFrame(
+            {
+                "series_mz": [[100.0, None, 134.0]],
+                "steps_found": [[1, 3]],
+                "n_groups": [3],
+            }
+        )
+        out = attach_last_steps(df, "fake.raw")
+        assert out["last_persistence"].tolist() == [0.6]
+        assert out["last_shape_ok"].tolist() == [True]
+        assert out["last_multi"].tolist() == [True]
+        assert out["prev_persistence"].tolist() == [0.9]
+        assert out["prev_ok"].tolist() == [True]
+
+    def test_single_step_has_no_prev(self, monkeypatch):
+        self._fake_metrics(monkeypatch, {100.0: {"persistence": 0.8, "shape_ok": True}})
+        df = pd.DataFrame(
+            {"series_mz": [[100.0]], "steps_found": [[1]], "n_groups": [1]}
+        )
+        out = attach_last_steps(df, "fake.raw")
+        assert out["last_persistence"].tolist() == [0.8]
+        assert out["prev_persistence"].tolist() == [0.0]
+        assert out["prev_ok"].tolist() == [False]
+
+    def test_empty_frame(self):
+        out = attach_last_steps(pd.DataFrame(), "fake.raw")
+        for col in (
+            "last_persistence",
+            "last_shape_ok",
+            "last_multi",
+            "prev_persistence",
+            "prev_ok",
+        ):
+            assert col in out.columns
+
+
+class TestTrimToConfirmedLast:
+    def test_trim_and_drop(self):
+        df = pd.DataFrame(
+            {
+                "n_groups": [3, 3, 3, 1],
+                "last_persistence": [0.9, 0.1, 0.1, 0.1],
+                "last_shape_ok": [True, True, True, True],
+                "prev_persistence": [0.8, 0.8, 0.2, 0.0],
+                "prev_ok": [True, True, True, False],
+            }
+        )
+        out = trim_to_confirmed_last(df, persistence_min=0.5)
+        assert out["n_groups"].tolist() == [3, 2]
+        assert out["trimmed_steps"].tolist() == [0, 1]
+
+    def test_prev_shape_alone_is_not_enough(self):
+        df = pd.DataFrame(
+            {
+                "n_groups": [4],
+                "last_persistence": [0.0],
+                "last_shape_ok": [False],
+                "prev_persistence": [0.3],
+                "prev_ok": [True],
+            }
+        )
+        assert trim_to_confirmed_last(df).empty

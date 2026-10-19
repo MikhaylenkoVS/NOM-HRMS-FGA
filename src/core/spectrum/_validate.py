@@ -180,41 +180,69 @@ def attach_last_steps(
 
     Профиль применяется к последнему пику серии; если он сомнителен — к
     предпоследнему (проверка «куда откатиться»). Поэтому считать метрики для
-    всех шагов не нужно.
+    всех шагов не нужно. Пропуски (``None``) и ступени вне ``series_mz``
+    игнорируются; для серии без валидных ступеней метрики нулевые.
     """
     from src.core.io.raw_profile import validate_masses
 
     out = df.copy()
     if out.empty:
-        for col in ("last_persistence", "last_shape_ok", "last_multi", "prev_ok"):
+        for col in (
+            "last_persistence",
+            "last_shape_ok",
+            "last_multi",
+            "prev_persistence",
+            "prev_ok",
+        ):
             out[col] = []
         return out
 
-    # Для каждой серии — последний и (если есть) предыдущий найденный шаг.
+    # ``steps_found`` — 1-based номера ступеней, ``series_mz`` — позиционный
+    # список m/z (позиция ``i`` — ступень ``i + 1``, ``None`` — пропуск).
+    # Поэтому ступень ``s`` берётся как ``mz[s - 1]``, а не поиском значения.
     masses: set[float] = set()
     picks: list[list[float]] = []
     for _, row in out.iterrows():
-        steps = list(row["steps_found"])
+        steps = [int(s) for s in row["steps_found"]]
         mz = list(row["series_mz"])
-        cand = [float(mz[list(range(len(mz))).index(s)]) for s in steps[-depth:]]
+        cand: list[float] = []
+        for step in steps[-depth:]:
+            pos = step - 1
+            if 0 <= pos < len(mz) and mz[pos] is not None:
+                cand.append(float(mz[pos]))
         picks.append(cand)
         masses.update(cand)
 
-    met = validate_masses(
-        raw_path, sorted(masses), ppm=ppm, max_scans=max_scans, shape_scans=shape_scans
-    ).set_index("mass")
+    met = (
+        validate_masses(
+            raw_path,
+            sorted(masses),
+            ppm=ppm,
+            max_scans=max_scans,
+            shape_scans=shape_scans,
+        ).set_index("mass")
+        if masses
+        else pd.DataFrame()
+    )
 
-    last_p, last_ok, last_multi, prev_ok = [], [], [], []
+    def _metric(mass: float | None, column: str, default):
+        if mass is None or mass not in met.index:
+            return default
+        return met.loc[mass][column]
+
+    last_p, last_ok, last_multi, prev_p, prev_ok = [], [], [], [], []
     for cand in picks:
-        last = met.loc[cand[-1]] if cand[-1] in met.index else None
-        prev = met.loc[cand[-2]] if len(cand) > 1 and cand[-2] in met.index else None
-        last_p.append(float(last["persistence"]) if last is not None else 0.0)
-        last_ok.append(bool(last["shape_ok"]) if last is not None else False)
-        last_multi.append(bool(last["multi"]) if last is not None else False)
-        prev_ok.append(bool(prev["shape_ok"]) if prev is not None else False)
+        last = cand[-1] if cand else None
+        prev = cand[-2] if len(cand) > 1 else None
+        last_p.append(float(_metric(last, "persistence", 0.0)))
+        last_ok.append(bool(_metric(last, "shape_ok", False)))
+        last_multi.append(bool(_metric(last, "multi", False)))
+        prev_p.append(float(_metric(prev, "persistence", 0.0)))
+        prev_ok.append(bool(_metric(prev, "shape_ok", False)))
     out["last_persistence"] = last_p
     out["last_shape_ok"] = last_ok
     out["last_multi"] = last_multi
+    out["prev_persistence"] = prev_p
     out["prev_ok"] = prev_ok
     return out
 
@@ -228,22 +256,25 @@ def trim_to_confirmed_last(
     """Откатить серию к последней подтверждённой ступени.
 
     Последняя ступень считается подтверждённой, если ``last_persistence`` ≥ порога
-    и ``last_shape_ok``. Иначе — проверяется предпоследняя (``prev_ok`` +
-    «у неё была нормальная персистентность» неизвестна, поэтому требуется
-    ``prev_ok`` иначе серия отбрасывается). Результат: новая длина ``n_groups``
-    и ``trimmed_steps``.
+    и ``last_shape_ok``. Иначе — проверяется предпоследняя: ``prev_ok`` и (если
+    посчитана) ``prev_persistence`` ≥ порога. Если не подтверждена и она, серия
+    отбрасывается. Результат: новая длина ``n_groups`` и ``trimmed_steps``.
     """
     out = df.copy()
+    has_prev_p = "prev_persistence" in out.columns
     new_n, trimmed = [], []
     for _, row in out.iterrows():
         n = int(row["n_groups"])
         last_ok = float(row["last_persistence"]) >= persistence_min and bool(
             row["last_shape_ok"]
         )
+        prev_ok = bool(row.get("prev_ok", False))
+        if has_prev_p and prev_ok:
+            prev_ok = float(row["prev_persistence"]) >= persistence_min
         if last_ok:
             new_n.append(n)
             trimmed.append(0)
-        elif n - 1 >= max(1, min_length) and bool(row.get("prev_ok", False)):
+        elif n - 1 >= max(1, min_length) and prev_ok:
             new_n.append(n - 1)
             trimmed.append(1)
         else:
