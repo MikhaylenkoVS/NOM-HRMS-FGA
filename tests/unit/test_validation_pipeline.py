@@ -63,7 +63,9 @@ class TestConflicts:
     def test_shared_step_is_contested(self):
         df = pd.DataFrame({"series_mz": [[100.0, 117.03], [200.0], [117.031, 134.0]]})
         out = mark_conflicts(df, tolerance=0.001)
-        assert out["contested_steps"].tolist() == [1, 0, 1]
+        # правило цепочки: у серии 0 есть предыдущая ступень, у серии 2 — нет,
+        # значит пик принадлежит серии 0
+        assert out["contested_steps"].tolist() == [1, 0, 0]
         # у серии 0 спорна последняя ступень → ambiguous;
         # у серии 2 спорна первая, а последняя (134.0) уникальна → не ambiguous
         assert out["ambiguous"].tolist() == [True, False, False]

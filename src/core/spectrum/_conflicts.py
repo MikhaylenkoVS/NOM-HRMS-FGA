@@ -43,18 +43,30 @@ def mark_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> pd.DataFrame:
         return out
 
     # Все шаги всех серий → сортировка → кластеры single-linkage по tolerance.
-    pairs: list[tuple[float, int]] = []
+    # (mz, строка, номер ступени) — номер нужен для правила «есть предыдущая ступень»
+    steps_lists = (
+        list(df["steps_found"])
+        if "steps_found" in df.columns
+        else [
+            [i + 1 for i, mz in enumerate(_lst) if mz is not None]
+            for _lst in df["series_mz"]
+        ]
+    )
+    pairs: list[tuple[float, int, int]] = []
     for idx, mz_list in enumerate(df["series_mz"]):
-        for mz in mz_list:
+        steps = list(steps_lists[idx])
+        for pos, mz in enumerate(mz_list):
             if mz is not None:
-                pairs.append((float(mz), idx))
+                pairs.append(
+                    (float(mz), idx, int(steps[pos]) if pos < len(steps) else pos + 1)
+                )
     pairs.sort()
 
     clusters: list[tuple[float, set[int]]] = []
     cur_start = None
     cur_members: set[int] = set()
     prev_mz = None
-    for mz, idx in pairs:
+    for mz, idx, _st in pairs:
         if cur_start is None:
             cur_start = mz
             cur_members = set()
@@ -73,7 +85,7 @@ def mark_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> pd.DataFrame:
     cluster_of: dict[float, float] = {}
     cur_start = None
     prev_mz = None
-    for mz, _idx in pairs:
+    for mz, _idx, _st in pairs:
         if cur_start is None or mz - prev_mz > tolerance + 1e-9:
             cur_start = mz
         cluster_of[mz] = cur_start
@@ -87,16 +99,35 @@ def mark_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> pd.DataFrame:
             for lst in df["series_mz"]
         ]
 
+    # Правило цепочки: если из претендентов ровно один имеет предыдущую ступень,
+    # пик принадлежит ему (остальные претенденты на этот шаг не проходят).
+    chain_ok: dict[int, set[float]] = {}
+    for start, members in clusters:
+        if len(members) < 2:
+            continue
+        supported = set()
+        for mz, row, step in pairs:
+            if cluster_of.get(mz) != start:
+                continue
+            steps = list(steps_lists[row])
+            if step - 1 in steps:
+                supported.add(row)
+        if len(supported) == 1:
+            chain_ok[start] = supported
+
     contested = []
     ambiguous = []
-    for mz_list, steps in zip(df["series_mz"], steps_lists):
+    for row_index, (mz_list, steps) in enumerate(zip(df["series_mz"], steps_lists)):
         flags = []
         for mz in mz_list:
             if mz is None:
                 flags.append(False)
                 continue
             start = cluster_of.get(float(mz))
-            flags.append(start is not None and size_by_start.get(start, 0) > 1)
+            shared = start is not None and size_by_start.get(start, 0) > 1
+            if shared and start in chain_ok and row_index not in chain_ok[start]:
+                shared = False  # пик принадлежит претенденту с предыдущей ступенью
+            flags.append(shared)
         contested.append(int(sum(flags)))
         # важен только последний наблюдаемый пик серии
         last_step = max(steps) if len(steps) else None
