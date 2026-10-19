@@ -16,6 +16,8 @@ import numpy as np
 
 # Химически осмысленные сдвиги, которые нельзя использовать как decoy:
 # изотопные разности, CH2, O, H2, а также сами дериватизационные Δ.
+DECOY_SEED = 42  # фиксирован: FDR воспроизводим между прогонами
+
 _EXCLUDE_DEFAULT = (
     0.0,
     1.003355,
@@ -34,7 +36,7 @@ _EXCLUDE_DEFAULT = (
 def decoy_shifts(
     delta: float,
     k: int = 30,
-    seed: int = 42,
+    seed: int = DECOY_SEED,
     lo: float = 0.05,
     hi: float = 0.9,
     exclude: tuple[float, ...] = _EXCLUDE_DEFAULT,

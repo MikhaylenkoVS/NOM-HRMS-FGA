@@ -5,11 +5,15 @@
 исходника искался независимо, поэтому такие «пики на все руки» порождали
 ложные серии.
 
-Здесь конфликт только **помечается** (и, по желанию, серии отбрасываются):
-шаги всех серий группируются в кластеры по m/z (single-linkage в пределах
-окна), и если кластер используется более чем одной серией, шаг считается
-спорным. Ничего не удаляется «молча» — неоднозначность остаётся в колонках
-``contested_steps`` и ``ambiguous``.
+Правило (уточнено): конфликт важен только для **последнего наблюдаемого пика
+серии**. Если спорный шаг не последний, а следующая ступень найдена и
+бесспорна, серия не считается неоднозначной: цепочка продолжается уникальным
+пиком. Поэтому ``ambiguous = contested[last_step]``.
+
+ВАЖНО: сравнивать нужно только шаги **одной и той же** производной
+(дейтерометилирование с дейтерометилированием, дейтероацилирование с
+дейтероацилированием). Функция принимает один DataFrame — по одному на
+производную, — поэтому смешивание невозможно по построению.
 """
 
 from __future__ import annotations
@@ -75,20 +79,36 @@ def mark_conflicts(df: pd.DataFrame, tolerance: float = 0.001) -> pd.DataFrame:
         cluster_of[mz] = cur_start
         prev_mz = mz
 
+    if "steps_found" in df.columns:
+        steps_lists = list(df["steps_found"])
+    else:
+        steps_lists = [
+            [i + 1 for i, mz in enumerate(lst) if mz is not None]
+            for lst in df["series_mz"]
+        ]
+
     contested = []
-    for mz_list in df["series_mz"]:
-        n = 0
+    ambiguous = []
+    for mz_list, steps in zip(df["series_mz"], steps_lists):
+        flags = []
         for mz in mz_list:
             if mz is None:
+                flags.append(False)
                 continue
             start = cluster_of.get(float(mz))
-            if start is not None and size_by_start.get(start, 0) > 1:
-                n += 1
-        contested.append(n)
+            flags.append(start is not None and size_by_start.get(start, 0) > 1)
+        contested.append(int(sum(flags)))
+        # важен только последний наблюдаемый пик серии
+        last_step = max(steps) if len(steps) else None
+        if last_step is None:
+            ambiguous.append(False)
+            continue
+        pos = list(steps).index(last_step)
+        ambiguous.append(bool(flags[pos]) if pos < len(flags) else False)
 
     out = df.copy()
     out["contested_steps"] = contested
-    out["ambiguous"] = [c > 0 for c in contested]
+    out["ambiguous"] = ambiguous
     return out
 
 

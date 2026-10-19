@@ -22,7 +22,7 @@ from src.configs import CHEM, PIPELINE
 from src.core.pipeline._helpers import _ion_mode_from_sign
 from src.core.pipeline._run import _search_config_from_brutto
 from src.core.spectrum import assign_formulas, denoise, find_series
-from src.core.spectrum._decoy import decoy_shifts
+from src.core.spectrum._decoy import DECOY_SEED, decoy_shifts
 from src.core.spectrum._formula_source import open_formula_db
 from src.core.spectrum._load import load_spectrum
 from src.core.spectrum._validate import (
@@ -130,7 +130,7 @@ def main() -> None:
         )
 
         # ── decoy-ансамбль (фон) ─────────────────────────────────────────
-        shifts = decoy_shifts(d_cd3, k=DECOYS, seed=42)
+        shifts = decoy_shifts(d_cd3, k=DECOYS, seed=DECOY_SEED)
         dec3 = [find_series(src, dmet, d_cd3 + sh, **kw) for sh in shifts]
         dec3co = [find_series(src, dacet, d_cd3co + sh, **kw) for sh in shifts]
         floor3 = sum(len(f) for f in dec3) / len(dec3)
@@ -197,6 +197,7 @@ def main() -> None:
             "dataset": a.dataset,
             "variant": a.variant,
             "decoy_shifts": len(shifts),
+            "decoy_seed": DECOY_SEED,
             "decoy_floor_series": {
                 "N_COOH": round(floor3, 1),
                 "N_OH": round(floor3co, 1),

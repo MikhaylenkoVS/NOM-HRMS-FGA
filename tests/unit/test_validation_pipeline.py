@@ -64,7 +64,9 @@ class TestConflicts:
         df = pd.DataFrame({"series_mz": [[100.0, 117.03], [200.0], [117.031, 134.0]]})
         out = mark_conflicts(df, tolerance=0.001)
         assert out["contested_steps"].tolist() == [1, 0, 1]
-        assert out["ambiguous"].tolist() == [True, False, True]
+        # у серии 0 спорна последняя ступень → ambiguous;
+        # у серии 2 спорна первая, а последняя (134.0) уникальна → не ambiguous
+        assert out["ambiguous"].tolist() == [True, False, False]
 
     def test_independent_series_clean(self):
         out = mark_conflicts(pd.DataFrame({"series_mz": [[100.0], [300.0]]}))
