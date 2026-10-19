@@ -30,7 +30,8 @@ from src.core.spectrum._validate import (
     attach_conflicts,
     attach_fdr,
     attach_formula_check,
-    attach_profile,
+    attach_last_steps,
+    trim_to_confirmed_last,
 )
 
 REAL = {
@@ -171,13 +172,16 @@ def main() -> None:
             rows["conflicts"] = metrics(f_conf[~f_conf["ambiguous"]], "conflicts")
             f_fdr = attach_fdr(f, decoys)
             rows["fdr"] = metrics(f_fdr[f_fdr["fdr_significant"]], "fdr")
-            f_prof = attach_profile(f, raw, ppm=defaults["ppm_tol"], max_scans=16)
-            rows["profile"] = metrics(f_prof[f_prof["shape_ok"]], "profile")
-            rows["persistence"] = metrics(
-                f_prof[f_prof["persistence"] >= 0.5], "persistence>=0.5"
+            # profile/персистентность — только последний пик, с откатом на предпоследний
+            f_last = attach_last_steps(f, raw, ppm=defaults["ppm_tol"], max_scans=16)
+            rows["profile_last"] = metrics(f_last, "profile(last)")
+            f_trim = trim_to_confirmed_last(f_last, persistence_min=0.5)
+            rows["trimmed"] = metrics(f_trim, "trim to confirmed")
+            rows["no_overlap"] = metrics(
+                f_last[~f_last["last_multi"]], "last without overlap"
             )
             allf = add_status(
-                attach_profile(
+                attach_last_steps(
                     attach_fdr(
                         attach_conflicts(
                             attach_formula_check(f, group, counts_by_brutto)
@@ -189,6 +193,7 @@ def main() -> None:
                     max_scans=16,
                 )
             )
+            allf = trim_to_confirmed_last(allf, persistence_min=0.5)
             rows["all"] = metrics(allf[allf["status"] == "supported"], "all")
             rows["all"]["statuses"] = allf["status"].value_counts().to_dict()
             variants[label] = rows

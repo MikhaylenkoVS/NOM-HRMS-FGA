@@ -83,7 +83,13 @@ def _shape_metrics(
     lo = int(np.searchsorted(mz, target - half_width_da))
     hi = int(np.searchsorted(mz, target + half_width_da))
     if hi - lo < 3:
-        return {"present": False, "snr": 0.0, "fwhm": float("nan"), "ok": False}
+        return {
+            "present": False,
+            "snr": 0.0,
+            "fwhm": float("nan"),
+            "ok": False,
+            "multi": False,
+        }
     win_i = inten[lo:hi]
     win_mz = mz[lo:hi]
     apex_off = int(np.argmax(win_i))
@@ -94,7 +100,13 @@ def _shape_metrics(
     nhi = int(np.searchsorted(mz, target + noise_half_da))
     noise = np.concatenate([inten[nlo:lo], inten[hi:nhi]])
     if noise.size < 10:
-        return {"present": True, "snr": 0.0, "fwhm": float("nan"), "ok": False}
+        return {
+            "present": True,
+            "snr": 0.0,
+            "fwhm": float("nan"),
+            "ok": False,
+            "multi": False,
+        }
     med = float(np.median(noise))
     mad = float(np.median(np.abs(noise - med))) * 1.4826
     sigma = mad if mad > 0 else float(np.std(noise))
@@ -131,6 +143,7 @@ def _shape_metrics(
         "snr": snr,
         "fwhm": fwhm,
         "ok": (not touches_edge) and single,
+        "multi": bool(outside.size and outside.max() >= half),
     }
 
 
@@ -164,6 +177,7 @@ def validate_masses(
             "snr": np.full(masses.size, np.nan),
             "fwhm": np.full(masses.size, np.nan),
             "shape_ok": np.zeros(masses.size, dtype=bool),
+            "multi": np.zeros(masses.size, dtype=bool),
         }
     )
     if masses.size == 0:
@@ -199,6 +213,7 @@ def validate_masses(
         snr = np.full(masses.size, np.nan)
         fwhm = np.full(masses.size, np.nan)
         ok = np.zeros(masses.size, dtype=bool)
+        multi = np.zeros(masses.size, dtype=bool)
         for scan in pick:
             mz, inten = scan_profile(raw, scan)
             if mz.size == 0:
@@ -215,9 +230,11 @@ def validate_masses(
                     else False
                 )
                 ok[i] = ok[i] or (met["ok"] and met["snr"] >= min_snr and in_bounds)
+                multi[i] = multi[i] or bool(met.get("multi", False))
         out["snr"] = np.round(snr, 2)
         out["fwhm"] = np.round(fwhm, 6)
         out["shape_ok"] = ok
+        out["multi"] = multi
     finally:
         raw.Dispose()
     return out

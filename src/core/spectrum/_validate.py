@@ -165,3 +165,91 @@ def summarize(df: pd.DataFrame) -> dict:
             df["status"].value_counts().to_dict() if "status" in df.columns else {}
         ),
     }
+
+
+def attach_last_steps(
+    df: pd.DataFrame,
+    raw_path: str,
+    *,
+    ppm: float = 2.0,
+    max_scans: int | None = 16,
+    shape_scans: int = 3,
+    depth: int = 2,
+) -> pd.DataFrame:
+    """Метрики profile/персистентности только для последних ``depth`` ступеней.
+
+    Профиль применяется к последнему пику серии; если он сомнителен — к
+    предпоследнему (проверка «куда откатиться»). Поэтому считать метрики для
+    всех шагов не нужно.
+    """
+    from src.core.io.raw_profile import validate_masses
+
+    out = df.copy()
+    if out.empty:
+        for col in ("last_persistence", "last_shape_ok", "last_multi", "prev_ok"):
+            out[col] = []
+        return out
+
+    # Для каждой серии — последний и (если есть) предыдущий найденный шаг.
+    masses: set[float] = set()
+    picks: list[list[float]] = []
+    for _, row in out.iterrows():
+        steps = list(row["steps_found"])
+        mz = list(row["series_mz"])
+        cand = [float(mz[list(range(len(mz))).index(s)]) for s in steps[-depth:]]
+        picks.append(cand)
+        masses.update(cand)
+
+    met = validate_masses(
+        raw_path, sorted(masses), ppm=ppm, max_scans=max_scans, shape_scans=shape_scans
+    ).set_index("mass")
+
+    last_p, last_ok, last_multi, prev_ok = [], [], [], []
+    for cand in picks:
+        last = met.loc[cand[-1]] if cand[-1] in met.index else None
+        prev = met.loc[cand[-2]] if len(cand) > 1 and cand[-2] in met.index else None
+        last_p.append(float(last["persistence"]) if last is not None else 0.0)
+        last_ok.append(bool(last["shape_ok"]) if last is not None else False)
+        last_multi.append(bool(last["multi"]) if last is not None else False)
+        prev_ok.append(bool(prev["shape_ok"]) if prev is not None else False)
+    out["last_persistence"] = last_p
+    out["last_shape_ok"] = last_ok
+    out["last_multi"] = last_multi
+    out["prev_ok"] = prev_ok
+    return out
+
+
+def trim_to_confirmed_last(
+    df: pd.DataFrame,
+    *,
+    persistence_min: float = 0.5,
+    min_length: int = 1,
+) -> pd.DataFrame:
+    """Откатить серию к последней подтверждённой ступени.
+
+    Последняя ступень считается подтверждённой, если ``last_persistence`` ≥ порога
+    и ``last_shape_ok``. Иначе — проверяется предпоследняя (``prev_ok`` +
+    «у неё была нормальная персистентность» неизвестна, поэтому требуется
+    ``prev_ok`` иначе серия отбрасывается). Результат: новая длина ``n_groups``
+    и ``trimmed_steps``.
+    """
+    out = df.copy()
+    new_n, trimmed = [], []
+    for _, row in out.iterrows():
+        n = int(row["n_groups"])
+        last_ok = float(row["last_persistence"]) >= persistence_min and bool(
+            row["last_shape_ok"]
+        )
+        if last_ok:
+            new_n.append(n)
+            trimmed.append(0)
+        elif n - 1 >= max(1, min_length) and bool(row.get("prev_ok", False)):
+            new_n.append(n - 1)
+            trimmed.append(1)
+        else:
+            new_n.append(0)
+            trimmed.append(n)
+    out["trimmed_steps"] = trimmed
+    out["n_groups"] = new_n
+    out = out[out["n_groups"] >= max(1, min_length)].reset_index(drop=True)
+    return out
