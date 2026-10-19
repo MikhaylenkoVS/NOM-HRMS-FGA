@@ -21,7 +21,12 @@
     "subtract_source": true,
     "subtract_ppm": 2.0,
     "require_first_step": true,
-    "significance_level": 0.95
+    "significance_level": 0.95,
+    "series_anchor": "theoretical",
+    "anchor_ppm": 10.0,
+    "profile_check": false,
+    "profile_max_jump": 10.0,
+    "profile_max_corr": 0.5
   },
   "test_mode": {
     "load": {

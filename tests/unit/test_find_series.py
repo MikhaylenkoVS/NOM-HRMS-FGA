@@ -502,6 +502,10 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
             # статистическая значимость длины серии (ADR-0009)
             "p_value",
             "significant",
+            # профиль интенсивностей продуктов (опциональный критерий)
+            "profile_ok",
+            "max_jump",
+            "int_corr",
         ]
         assert list(result.columns) == expected_columns, (
             f"{set_dir.name}/{deriv_filename}: неожиданные колонки результата: "
@@ -850,3 +854,61 @@ class TestRequireFirstStep:
         row = result.iloc[0]
         assert int(row["n_groups"]) == 3
         assert row["missing"] == [2]
+
+
+class TestIntensityProfile:
+    """Опциональный критерий профиля интенсивностей продуктов (по умолчанию выкл.)."""
+
+    DELTA = 17.03448
+
+    def _spec_with_intensities(self, intensities):
+        masses = [100.0 + (i + 1) * self.DELTA for i in range(len(intensities))]
+        return _make_deriv_spectrum(masses, intensities=intensities)
+
+    def test_default_is_off(self):
+        import inspect
+
+        sig = inspect.signature(find_series)
+        assert sig.parameters["profile_check"].default is False
+
+    def test_big_jump_accepted_when_disabled(self):
+        src = _make_src_spectrum([100.0])
+        deriv = self._spec_with_intensities([1.0, 1000.0])
+        result = find_series(src, deriv, self.DELTA, max_groups=5)
+        assert not result.empty
+
+    def test_big_jump_rejected_when_enabled(self):
+        src = _make_src_spectrum([100.0])
+        deriv = self._spec_with_intensities([1.0, 1000.0])
+        result = find_series(
+            src,
+            deriv,
+            self.DELTA,
+            max_groups=5,
+            profile_check=True,
+            profile_max_jump=10.0,
+        )
+        assert result.empty
+
+    def test_smooth_profile_accepted(self):
+        src = _make_src_spectrum([100.0])
+        deriv = self._spec_with_intensities([1000.0, 700.0, 400.0, 150.0])
+        result = find_series(src, deriv, self.DELTA, max_groups=5, profile_check=True)
+        assert not result.empty
+        row = result.iloc[0]
+        assert bool(row["profile_ok"]) is True
+        assert float(row["max_jump"]) <= 10.0
+
+    def test_growing_intensities_rejected_by_correlation(self):
+        src = _make_src_spectrum([100.0])
+        deriv = self._spec_with_intensities([10.0, 100.0, 1000.0])
+        result = find_series(
+            src,
+            deriv,
+            self.DELTA,
+            max_groups=5,
+            profile_check=True,
+            profile_max_jump=None,
+            profile_max_corr=0.5,
+        )
+        assert result.empty

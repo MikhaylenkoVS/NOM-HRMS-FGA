@@ -97,6 +97,36 @@ def matched_pairs(
     return np.asarray(matched, dtype=int)
 
 
+def anchor_masses(
+    src_mz: np.ndarray, deriv_mz: np.ndarray, ppm_tol: float
+) -> np.ndarray:
+    """Для каждого пика исходника — m/z соответствующего пика дериватизата.
+
+    Ищется ближайший пик производного спектра в пределах ``ppm_tol``.
+    Если пика нет — ``NaN``. Нужно для режима ``series_anchor="observed"``:
+    сдвиг ступеней считается от наблюдаемого пика, а не от теоретической массы.
+    """
+    src_mz = np.asarray(src_mz, dtype=float)
+    deriv_mz = np.asarray(deriv_mz, dtype=float)
+    out = np.full(src_mz.shape, np.nan, dtype=float)
+    if src_mz.size == 0 or deriv_mz.size == 0:
+        return out
+    order = np.argsort(deriv_mz)
+    sorted_mz = deriv_mz[order]
+    pos = np.searchsorted(sorted_mz, src_mz)
+    best_dev = np.full(src_mz.shape, np.inf)
+    for shift in (-1, 0):
+        idx = np.clip(pos + shift, 0, sorted_mz.size - 1)
+        cand = sorted_mz[idx]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            dev = np.abs(cand - src_mz) / src_mz * 1e6
+        take = dev < best_dev
+        best_dev = np.where(take, dev, best_dev)
+        out = np.where(take, cand, out)
+    out[best_dev > float(ppm_tol)] = np.nan
+    return out
+
+
 def subtract_matching_peaks(
     deriv: Spectrum,
     src: Spectrum,

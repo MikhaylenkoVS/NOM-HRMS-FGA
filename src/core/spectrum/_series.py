@@ -79,6 +79,10 @@ def find_series(
     max_gaps=1,
     require_first_step: bool = True,
     significance_level: float = 0.95,
+    anchor_column: str | None = None,
+    profile_check: bool = False,
+    profile_max_jump: float | None = 10.0,
+    profile_max_corr: float | None = 0.5,
     allow_gaps: bool | None = None,
     min_series_length=1,
     max_consecutive_misses=3,
@@ -116,6 +120,21 @@ def find_series(
         Устаревший синоним: ``False`` эквивалентно ``max_gaps=0``, ``True``
         и ``None`` — используется ``max_gaps`` (число пропусков ограничено).
         Оставлен для совместимости. Default ``None``.
+    profile_check : bool, optional
+        Включить проверку профиля интенсивностей продуктов (по умолчанию
+        выключено — сначала сравниваем на данных). Default ``False``.
+    profile_max_jump : float or None, optional
+        Максимально допустимое отношение I(n+1)/I(n) между соседними
+        ступенями. ``None`` — проверка отключена. Default 10.0.
+    profile_max_corr : float or None, optional
+        Максимально допустимая корреляция Спирмена «номер ступени —
+        интенсивность». ``None`` — отключена. Default 0.5.
+    anchor_column : str or None, optional
+        Колонка исходного спектра с наблюдаемой m/z того же соединения в
+        производном спектре (``anchor_mz_dmet`` / ``anchor_mz_dacet``).
+        Если задана и значение не пустое, шаг считается от неё, а не от
+        теоретической массы (компенсация дрейфа калибровки).
+        Default ``None`` (теоретическая масса).
     significance_level : float, optional
         Уровень доверия для длины серии (0.95 → порог p < 0.05).
         Значимость считается по локальной плотности пиков (ADR-0009).
@@ -187,6 +206,11 @@ def find_series(
         )
 
     mz_deriv = deriv.table["mass"].values
+    int_deriv = (
+        np.asarray(deriv.table["intensity"].values, dtype=float)
+        if "intensity" in deriv.table.columns
+        else np.ones(len(mz_deriv), dtype=float)
+    )
     records = []
 
     # Вероятность случайного попадания в окно на одном шаге: отношение
@@ -225,18 +249,26 @@ def find_series(
                 m0_theor = m0_obs
         except Exception:
             m0_theor = m0_obs
+
+        m0_ref = m0_theor
+        if anchor_column:
+            anchor_val = getattr(row, anchor_column, None)
+            if anchor_val is not None and not pd.isna(anchor_val):
+                m0_ref = float(anchor_val)
         found_steps = []
         series_mz = []
+        found_intensities = []
         consecutive_misses = 0
         gaps = 0
 
         for step in range(1, max_groups + 1):
-            target = m0_theor + step * delta
+            target = m0_ref + step * delta
             idx = _find_peak_sorted(_mz_sorted, target, ppm_tol)
 
             if idx is not None:
                 found_steps.append(step)
                 series_mz.append(float(_mz_sorted[idx]))
+                found_intensities.append(float(int_deriv[idx]))
                 consecutive_misses = 0
             else:
                 series_mz.append(None)
@@ -277,6 +309,29 @@ def find_series(
             p_value = 1.0
         significant = bool(p_value < p_threshold)
 
+        # Профиль интенсивностей: у реальной молекулы продукты 1..k образуют
+        # согласованную смесь; случайные наборы пиков такого профиля не дают.
+        max_jump = float("nan")
+        int_corr = float("nan")
+        profile_ok = True
+        if profile_check and len(found_steps) >= 2:
+            ints = np.asarray(found_intensities, dtype=float)
+            steps_arr = np.asarray(found_steps, dtype=float)
+            if np.all(ints > 0):
+                max_jump = float(np.max(ints[1:] / ints[:-1]))
+                ranks_i = np.argsort(np.argsort(ints)).astype(float)
+                ranks_s = np.argsort(np.argsort(steps_arr)).astype(float)
+                if ranks_i.std() > 0 and ranks_s.std() > 0:
+                    int_corr = float(np.corrcoef(ranks_s, ranks_i)[0, 1])
+            if profile_max_jump is not None and np.isfinite(max_jump):
+                profile_ok = profile_ok and bool(max_jump <= profile_max_jump)
+            if profile_max_corr is not None and np.isfinite(int_corr):
+                profile_ok = profile_ok and bool(int_corr <= profile_max_corr)
+            if not profile_ok:
+                # Точность прежде полноты: серия с несогласованным профилем
+                # не засчитывается (ADR-0009), но только при явном включении.
+                continue
+
         if n_groups >= min_series_length:
             records.append(
                 {
@@ -288,6 +343,9 @@ def find_series(
                     "series_mz": trimmed,
                     "p_value": p_value,
                     "significant": significant,
+                    "profile_ok": profile_ok,
+                    "max_jump": max_jump,
+                    "int_corr": int_corr,
                 }
             )
 
@@ -305,6 +363,9 @@ def find_series(
             "series_mz",
             "p_value",
             "significant",
+            "profile_ok",
+            "max_jump",
+            "int_corr",
         ],
     )
 

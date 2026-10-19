@@ -101,6 +101,8 @@ def _denoise_triple(
     denoise_source: bool = True,
     subtract_source: bool = False,
     subtract_ppm: float = 5.0,
+    series_anchor: str = "theoretical",
+    anchor_ppm: float = 10.0,
 ):
     """Denoise the source spectrum; derivatives — только по явному запросу.
 
@@ -175,6 +177,29 @@ def _denoise_triple(
         f"  После шумоподавления: src={stats.src_denoised},  dmet={stats.dmet_denoised},  dacet={stats.dacet_denoised}"
     )
 
+    # Режим «сдвиг от наблюдаемого пика»: до вычитания запоминаем m/z
+    # соответствующего пика дериватизата для каждого пика исходника.
+    if str(series_anchor).lower() == "observed":
+        from src.core.spectrum._overlap import anchor_masses
+
+        src_mz = src.table["mass"].to_numpy()
+        for label, deriv_obj in (("dmet", dmet), ("dacet", dacet)):
+            if deriv_obj is None or not hasattr(deriv_obj, "table"):
+                continue
+            src.table[f"anchor_mz_{label}"] = anchor_masses(
+                src_mz,
+                deriv_obj.table["mass"].to_numpy(),
+                anchor_ppm,
+            )
+        n_anchor = int(src.table["anchor_mz_dmet"].notna().sum())
+        msg = (
+            f"  Сдвиг от наблюдаемого пика: якорей dmet={n_anchor} из "
+            f"{len(src.table)} ({n_anchor / max(1, len(src.table)):.1%}) при "
+            f"{anchor_ppm:g} ppm"
+        )
+        print(msg)
+        messages.append(msg.strip())
+
     # Вычитание исходника из производных спектров (опционально):
     # исключаем все пики, дублирующиеся по m/z, без учёта интенсивностей.
     if subtract_source:
@@ -212,6 +237,10 @@ def _find_series_stage(
     max_gaps,
     require_first_step,
     significance_level,
+    anchor_column,
+    profile_check,
+    profile_max_jump,
+    profile_max_corr,
     ion_mode,
     series_stats,
     deriv_label,
@@ -238,6 +267,10 @@ def _find_series_stage(
             max_gaps=max_gaps,
             require_first_step=require_first_step,
             significance_level=significance_level,
+            anchor_column=anchor_column,
+            profile_check=profile_check,
+            profile_max_jump=profile_max_jump,
+            profile_max_corr=profile_max_corr,
             ion_mode=ion_mode,
             progress_callback=cb,
         )

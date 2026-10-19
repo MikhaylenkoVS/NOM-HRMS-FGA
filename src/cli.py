@@ -180,6 +180,38 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ppm-tol", type=float)
     p.add_argument("--max-groups", type=int)
     p.add_argument(
+        "--profile-check",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="проверять профиль интенсивностей продуктов (по умолчанию выключено)",
+    )
+    p.add_argument(
+        "--profile-max-jump",
+        type=float,
+        default=None,
+        help="максимальное отношение I(n+1)/I(n) между ступенями (0 — не проверять)",
+    )
+    p.add_argument(
+        "--profile-max-corr",
+        type=float,
+        default=None,
+        help="максимальная корреляция «номер ступени — интенсивность»",
+    )
+    p.add_argument(
+        "--series-anchor",
+        choices=["theoretical", "observed"],
+        default=None,
+        help="от чего считать сдвиг ступеней: от теоретической массы брутто "
+        "(theoretical) или от наблюдаемого пика того же соединения в "
+        "производном спектре (observed)",
+    )
+    p.add_argument(
+        "--anchor-ppm",
+        type=float,
+        default=None,
+        help="окно поиска якорного пика для series-anchor=observed, ppm",
+    )
+    p.add_argument(
         "--significance-level",
         type=float,
         default=None,
@@ -387,6 +419,16 @@ def main(argv=None) -> int:
         kwargs["require_first_step"] = args.require_first_step
     if args.significance_level is not None:
         kwargs["significance_level"] = args.significance_level
+    if args.series_anchor is not None:
+        kwargs["series_anchor"] = args.series_anchor
+    if args.profile_check is not None:
+        kwargs["profile_check"] = args.profile_check
+    if args.profile_max_jump is not None:
+        kwargs["profile_max_jump"] = args.profile_max_jump or None
+    if args.profile_max_corr is not None:
+        kwargs["profile_max_corr"] = args.profile_max_corr
+    if args.anchor_ppm is not None:
+        kwargs["anchor_ppm"] = args.anchor_ppm
     if args.allow_gaps is not None:
         kwargs["allow_gaps"] = args.allow_gaps
     if args.isotope_filter is not None:
