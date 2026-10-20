@@ -90,3 +90,10 @@ docs/ — документация проекта NOM-HRMS-FGA
                              MetAssign/MS-Deconv/MetExtract II) и разбор
                              применимости к проекту; денойз — GMM 2.0.
 
+  statistical_processing_design.md
+                             Проект следующего слоя проверки: P1 continuation
+                             test, P2 глобальные конфликты, P3 cross-CD3/CD3CO,
+                             P4 likelihood/PEP, P5 template decoy, P6 HMM;
+                             гипотезы, нулевые модели, калибровка, критерии
+                             приёмки и порядок внедрения.
+
