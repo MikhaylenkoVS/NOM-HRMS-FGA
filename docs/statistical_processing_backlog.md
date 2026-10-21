@@ -23,6 +23,7 @@
 | T11 | Restricted assign + profile-вычитание (v1) | P1 | **completed** | T7 |
 | T12 | Reliability v2: reliable/ambiguous, без FDR | P1 | **completed** | T11 |
 | T13 | Референс длины без фильтров | — | **completed** | T12 |
+| T14 | Ambiguous-статистика F16 | P1 | **completed** | T12 |
 | T8 | Сетка режимов денойза по FDR | — | **completed** | — |
 | T9 | Внешние отчёты и дизайн | — | **completed** | — |
 | T10 | Проверка специфичной изотопной подписи CD3/CD3CO | P3 | research | — |
@@ -270,3 +271,19 @@ max 10/8. При 5 ppm 3.22/2.90, нулей 20 %, max 10.
 
 **Артефакт:** `docs/reference_length_no_filters_f16.md`,
 `tools/diagnostics/reference_length_no_filters.py`.
+
+---
+
+## T14. Ambiguous-статистика F16 (completed)
+
+**Знаменатели:** 33 729 назначенных пиков; 31 481 уникальная формула;
+с первым шагом 8 716/10 227 якорей (8 496/9 993 формулы).
+
+**Последний шаг ambiguous:** 18.2/23.0 % серий при 0.0003; 23.4/30.5 %
+при 0.0005; 28.4/35.9 % при 0.0008.
+
+**Хвост после последнего reliable:** 0.208/0.259 ambiguous-шага на серию
+при 0.0003 (1.142/1.126, если хвост >0); 0.289/0.383 при 0.0005.
+
+**Артефакт:** `docs/ambiguous_stats_f16.md`,
+`tools/diagnostics/ambiguous_stats_f16.py`.
