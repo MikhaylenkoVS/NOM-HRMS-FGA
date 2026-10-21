@@ -19,7 +19,8 @@
 | T4 | Likelihood/PEP для отдельной серии | P2 | pending | T0.3, T1, T2 |
 | T5 | Шаблонный decoy (сдвиг `m0`) | P2 | pending | T0.2 |
 | T6 | HMM степеней (detected/missing/ended) | P3 | pending | T2 |
-| T7 | Занятость ppm-окон на F16 | P1 | **in progress** | — |
+| T7 | Занятость ppm-окон на F16 (v1) | P1 | **completed** | — |
+| T11 | Restricted assign + profile-вычитание (v2) | P1 | **completed** | T7 |
 | T8 | Сетка режимов денойза по FDR | — | **completed** | — |
 | T9 | Внешние отчёты и дизайн | — | **completed** | — |
 | T10 | Проверка специфичной изотопной подписи CD3/CD3CO | P3 | research | — |
@@ -199,3 +200,23 @@ GMM 2.0 — умолчание. Артефакты: `grid_denoise_fdr.py`,
 
 **Приёмка:** либо найдена валидированная подпись, либо зафиксировано, что
 её нет и T1 остаётся единственным внешним кандидатом.
+
+---
+
+## T11. Restricted assign + profile-вычитание (completed)
+
+**Что сделано:** assign с C5–60/H4–120/O1–30, N≤5, S≤2, P≤1, Cl≤2,
+F/Br/I=0, NOM-ratio; profile-проверка только при наличии мешающего
+исходного пика; объединение окон; S/N≥3; 3 скана; статусы
+present/unconfirmed/unreliable/chain; три режима вычитания; occupancy по
+абсолютным окнам; распределение длины.
+
+**Ключевые числа:** кандидатов median 13 (было 79); при h=0.0003
+prefix 0.356/0.347, PPD≥2 1.3/1.1 %; strict hard retained 5 692/2 384
+(55–73 % потерь), margin-hard 11 449/7 577; 64 % unconfirmed-пиков ближе
+к μ, чем к B.
+
+**Вывод:** strict hard слишком агрессивен (FWHM 0.0004–0.0009);
+рекомендуется margin-hard + soft-флаги, `unreliable` не удалять.
+
+**Артефакт:** `docs/restricted_profile_f16.md`.

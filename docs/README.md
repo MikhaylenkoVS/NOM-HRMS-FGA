@@ -107,3 +107,9 @@ docs/ — документация проекта NOM-HRMS-FGA
                              факторы (масса, степень, плотность, интенсивность,
                              неоднозначность assign), Poisson GLM.
 
+  restricted_profile_f16.md  Restricted assign (NOM-элементы/ratio) +
+                             profile-уточнение вычитания исходника:
+                             объединение окон, статусы present/unconfirmed/
+                             unreliable/chain, режимы none/hard/soft,
+                             абсолютные окна 0.0001–0.0010 Да, длина серий.
+

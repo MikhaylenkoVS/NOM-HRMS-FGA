@@ -241,6 +241,23 @@ dmet/dacet: 3e-3 удаляет 77 % / 94 %, 1e-2 — 94 % / 97 %. На CD3 по
 Вывод: 2 ppm — компромисс; один пик в окне — слабое доказательство;
 неоднозначность assign — готовый признак риска для score/PEP.
 
+## T11. Restricted assign + profile-вычитание (эта сессия)
+
+Скрипты: `build_restricted_assign.py`, `profile_resolve.py`,
+`restricted_profile_f16.py`, `hard_variants_f16.py`; отчёт:
+`docs/restricted_profile_f16.md`.
+
+* Assign: C5–60/H4–120/O1–30, N≤5, S≤2, P≤1, Cl≤2, F/Br/I=0, NOM-ratio.
+  Кандидатов median 13 (было 79); назначено 33 729 исходных пиков.
+* Profile вызывается **только** при мешающем исходном пике; объединение
+  окон; S/N≥3; 3 скана; статусы present/unconfirmed/unreliable/chain.
+* При h=0.0003: prefix 0.356/0.347, PPD≥2 1.3/1.1 %; n=1 present 20/22 %,
+  unconfirmed 6/9 %, unreliable 18/15 %.
+* Strict hard: retained 5 692/2 384 (потери 55–73 %); soft significant
+  1 873/502; margin-hard (удалять только явно ближе к B) — 11 449/7 577.
+* 64 % unconfirmed-пиков ближе к μ, чем к B → strict hard режет вероятные
+  продукты. Рекомендация: margin-hard + soft-флаги, `unreliable` не удалять.
+
 ## Что делать дальше (по порядку)
 
 1. **Смягчить профиль**: считать долю шагов с `persistence ≥ 0.5`
