@@ -252,19 +252,13 @@ class App(
         self.sign_var = tk.StringVar(value=str(_GUI_DEFAULTS["sign"]))
         self.ppm_tol_var = tk.StringVar(value=str(_GUI_DEFAULTS["ppm_tol"]))
         self.max_groups_var = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
-        # Правило проекта: не более 1 пропуска в серии (0 — без пропусков).
-        # Поле числовое: пользователь может выключить пропуски (0) или
-        # разрешить другое их количество.
-        self.max_gaps_var = tk.StringVar(value=str(_GUI_DEFAULTS.get("max_gaps", 1)))
-        # Шумоподавление дериватизатов и вычитание исходника из них
+        # По умолчанию пропуски запрещены; число задаётся пользователем.
+        self.max_gaps_var = tk.StringVar(value=str(_GUI_DEFAULTS.get("max_gaps", 0)))
         self.denoise_derivatives_var = tk.BooleanVar(
-            value=bool(_GUI_DEFAULTS.get("denoise_derivatives", False))
+            value=bool(_GUI_DEFAULTS.get("denoise_derivatives", True))
         )
-        self.subtract_source_var = tk.BooleanVar(
-            value=bool(_GUI_DEFAULTS.get("subtract_source", False))
-        )
-        self.subtract_ppm_var = tk.StringVar(
-            value=str(_GUI_DEFAULTS.get("subtract_ppm", 5.0))
+        self.require_first_step_var = tk.BooleanVar(
+            value=bool(_GUI_DEFAULTS.get("require_first_step", False))
         )
         # Изотопные проверки включены по умолчанию: паттерн M+1/M+2 учитывается
         # при выборе формулы, а для найденных формул ищутся изотопные варианты.

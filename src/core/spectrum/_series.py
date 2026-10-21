@@ -63,6 +63,31 @@ def _find_peak_sorted(mz_sorted: np.ndarray, target_mz: float, ppm_tol: float):
     return best
 
 
+def _count_in_window(sorted_mz: np.ndarray, target_mz: float, ppm_tol: float) -> int:
+    """Сколько пиков попадает в ppm-окно вокруг target."""
+    if sorted_mz.size == 0:
+        return 0
+    tol = abs(target_mz) * float(ppm_tol) * 1e-6
+    lo = int(np.searchsorted(sorted_mz, target_mz - tol, side="left"))
+    hi = int(np.searchsorted(sorted_mz, target_mz + tol, side="right"))
+    return max(0, hi - lo)
+
+
+def _series_o_limit(brutto: str, delta: float, max_groups: int) -> int:
+    """Предел длины по кислороду: CD3 — O//2, CD3CO — O."""
+    try:
+        counts = parse_formula(str(brutto))
+    except Exception:
+        return int(max_groups)
+    o = int(counts.get("O", 0))
+    d = float(delta)
+    if abs(d - float(CHEM.derivatization_shifts["delta_cd3"])) < 0.01:
+        return min(int(max_groups), o // 2)
+    if abs(d - float(CHEM.derivatization_shifts["delta_cd3co"])) < 0.01:
+        return min(int(max_groups), o)
+    return int(max_groups)
+
+
 @lru_cache(maxsize=200_000)
 def _theor_ion_mass_cached(brutto_str: str, ion_mode: str) -> float:
     """Теоретическая m/z по брутто-формуле (кэш между вызовами и прогонами)."""
@@ -76,17 +101,15 @@ def find_series(
     delta,
     ppm_tol=5.0,
     max_groups=20,
-    max_gaps=1,
-    require_first_step: bool = True,
+    max_gaps=0,
+    require_first_step: bool = False,
     significance_level: float = 0.95,
     anchor_column: str | None = None,
     profile_check: bool = False,
     formula_check: bool = False,
-    drop_ambiguous: bool = False,
     profile_max_jump: float | None = 10.0,
     profile_max_corr: float | None = 0.5,
     allow_gaps: bool | None = None,
-    min_series_length=1,
     max_consecutive_misses=3,
     ion_mode: str | None = None,
     progress_callback=None,
@@ -182,11 +205,10 @@ def find_series(
 
     if ppm_tol <= 0:
         raise ValueError(f"ppm_tol должно быть > 0, получено {ppm_tol}")
-    if max_groups < 1 or min_series_length < 1 or max_consecutive_misses < 1:
+    if max_groups < 1 or max_consecutive_misses < 1:
         raise ValueError(
-            f"max_groups ({max_groups}), min_series_length ({min_series_length}) "
-            f"и max_consecutive_misses ({max_consecutive_misses}) "
-            "должны быть >= 1"
+            f"max_groups ({max_groups}) и max_consecutive_misses "
+            f"({max_consecutive_misses}) должны быть >= 1"
         )
     # Совместимость: allow_gaps=False — это max_gaps=0 (без пропусков).
     # allow_gaps=True больше не означает «пропусков сколько угодно»: их число
@@ -218,6 +240,7 @@ def find_series(
     # Вероятность случайного попадания в окно на одном шаге: отношение
     # ширины окна к среднему шагу между пиками производного спектра.
     _mz_sorted = np.sort(np.asarray(mz_deriv, dtype=float))
+    _src_mz_sorted = np.sort(np.asarray(src.table["mass"], dtype=float))
     _span = float(_mz_sorted[-1] - _mz_sorted[0]) if _mz_sorted.size > 1 else 0.0
     _spacing = _span / max(1, _mz_sorted.size - 1) if _span > 0 else 0.0
     if not 0.0 < float(significance_level) < 1.0:
@@ -295,9 +318,12 @@ def find_series(
             missing_steps = sorted(all_steps - set(found_steps))
             trimmed = series_mz[:n_groups]
 
+        # Первые три ступени отсутствуют — серия не считается, даже если
+        # пользователь отключил require_first_step (защита от случайных
+        # совпадений на высоких степенях).
+        if not any(step in found_steps for step in (1, 2, 3)):
+            continue
         if require_first_step and 1 not in found_steps:
-            # Первая ступень не подтверждена — серия не считается
-            # (точность важнее полноты: см. ADR-0008/0009).
             continue
 
         # Статистическая значимость длины: сколько шагов подтверждено и
@@ -334,7 +360,75 @@ def find_series(
                 # не засчитывается (ADR-0009), но только при явном включении.
                 continue
 
-        if n_groups >= min_series_length:
+        if found_steps:
+            o_limit = _series_o_limit(brutto, delta, max_groups)
+            found_mz = {
+                int(step): series_mz[int(step) - 1]
+                for step in found_steps
+                if 0 <= int(step) - 1 < len(series_mz)
+            }
+            iso_status = str(getattr(row, "iso_status", "") or "")
+            details = []
+            for n in range(1, n_groups + 1):
+                if n not in found_mz:
+                    details.append(
+                        {
+                            "n": n,
+                            "status": "gap",
+                            "confidence": 85.0,
+                            "penalties": {"gap": 15.0},
+                            "reasons": ["пропуск шага"],
+                        }
+                    )
+                    continue
+                target = m0_ref + n * delta
+                n_src = _count_in_window(_src_mz_sorted, target, ppm_tol)
+                n_deriv = _count_in_window(_mz_sorted, target, ppm_tol)
+                penalties = {}
+                reasons = []
+                if n_src > 0:
+                    penalties["source_overlap"] = min(30.0, 10.0 + 10.0 * n_src)
+                    reasons.append("наложение на пик исходного спектра")
+                if n > o_limit:
+                    penalties["o_excess"] = min(40.0, 20.0 * (n - o_limit))
+                    reasons.append(
+                        "превышение допустимой длины по количеству атомов кислорода"
+                    )
+                if iso_status == "inconsistent":
+                    penalties["isotope"] = 30.0
+                    reasons.append("изотопный паттерн не подтверждён")
+                total = min(100.0, float(sum(penalties.values())))
+                details.append(
+                    {
+                        "n": n,
+                        "mz": float(found_mz[n]),
+                        "n_deriv": int(n_deriv),
+                        "n_src": int(n_src),
+                        "status": "reliable" if total == 0.0 else "ambiguous",
+                        "confidence": round(100.0 - total, 1),
+                        "penalties": penalties,
+                        "reasons": reasons,
+                    }
+                )
+            reliable_ns = [d["n"] for d in details if d["status"] == "reliable"]
+            confirmed_length = max(reliable_ns, default=0)
+            ambiguous_ns = [
+                d["n"]
+                for d in details
+                if d["status"] != "reliable" and d["n"] > confirmed_length
+            ]
+            ambiguous_length = max(ambiguous_ns, default=confirmed_length)
+            amb_confs = [
+                d["confidence"]
+                for d in details
+                if d["status"] != "reliable" and d["n"] > confirmed_length
+            ]
+            series_confidence = min(amb_confs, default=100.0)
+            display_length = (
+                f"{confirmed_length}({ambiguous_length})"
+                if ambiguous_length > confirmed_length
+                else str(confirmed_length)
+            )
             records.append(
                 {
                     "mass_src": m0_obs,
@@ -348,6 +442,13 @@ def find_series(
                     "profile_ok": profile_ok,
                     "max_jump": max_jump,
                     "int_corr": int_corr,
+                    "o_limit": int(o_limit),
+                    "confirmed_length": int(confirmed_length),
+                    "ambiguous_length": int(ambiguous_length),
+                    "ambiguous": bool(ambiguous_length > confirmed_length),
+                    "confidence": float(series_confidence),
+                    "display_length": display_length,
+                    "step_details": details,
                 }
             )
 
@@ -368,12 +469,19 @@ def find_series(
             "profile_ok",
             "max_jump",
             "int_corr",
+            "o_limit",
+            "confirmed_length",
+            "ambiguous_length",
+            "ambiguous",
+            "confidence",
+            "display_length",
+            "step_details",
         ],
     )
 
     # P2/P3: химическая проверка продукта и пометка конфликтов (опционально).
-    if (formula_check or drop_ambiguous) and not result.empty:
-        from ._validate import attach_conflicts, attach_formula_check
+    if formula_check and not result.empty:
+        from ._validate import attach_formula_check
 
         if formula_check:
             group = None
@@ -395,10 +503,6 @@ def find_series(
                     except Exception:
                         continue
                 result = attach_formula_check(result, group, counts_by_brutto)
-                result = result[result["formula_ok"]].reset_index(drop=True)
-        if drop_ambiguous and not result.empty:
-            result = attach_conflicts(result)
-            result = result[~result["ambiguous"]].reset_index(drop=True)
 
     return result
 

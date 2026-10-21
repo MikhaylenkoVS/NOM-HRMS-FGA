@@ -188,11 +188,7 @@ def mark_conflicts(
 
 def apply_conflicts(
     df: pd.DataFrame,
-    drop_ambiguous: bool = False,
     valid=None,
 ) -> pd.DataFrame:
-    """Пометить конфликты и (опционально) убрать неоднозначные серии."""
-    marked = mark_conflicts(df, valid=valid)
-    if drop_ambiguous and not marked.empty:
-        marked = marked[~marked["ambiguous"]].reset_index(drop=True)
-    return marked
+    """Пометить конфликты; удаление ambiguous больше не поддерживается."""
+    return mark_conflicts(df, valid=valid)

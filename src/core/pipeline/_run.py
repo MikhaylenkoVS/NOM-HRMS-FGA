@@ -125,14 +125,10 @@ def run_pipeline(
     # Шумоподавление исходного спектра: можно отключить, если пиклист уже
     # отфильтрован прибором/исследователем (пункт 11).
     denoise_source: bool = True,
-    # Вычитание исходника из производных спектров: исключить все пики,
-    # дублирующиеся по m/z (без учёта интенсивностей).
-    subtract_source: bool = PIPELINE.run_pipeline_defaults.get("subtract_source", True),
-    subtract_ppm: float = PIPELINE.run_pipeline_defaults.get("subtract_ppm", 2.0),
     # Точность прежде полноты: без подтверждённой первой ступени серия
     # не считается (см. ADR-0008).
     require_first_step: bool = PIPELINE.run_pipeline_defaults.get(
-        "require_first_step", True
+        "require_first_step", False
     ),
     significance_level: float = PIPELINE.run_pipeline_defaults.get(
         "significance_level", 0.95
@@ -352,8 +348,6 @@ def run_pipeline(
             use_formula_db,
             denoise_derivatives,
             denoise_source,
-            subtract_source,
-            subtract_ppm,
             require_first_step,
             significance_level,
             series_anchor,
@@ -426,8 +420,6 @@ def run_pipeline(
         progress_callback,
         denoise_derivatives,
         denoise_source,
-        subtract_source,
-        subtract_ppm,
         series_anchor,
         anchor_ppm,
     )

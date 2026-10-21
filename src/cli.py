@@ -218,31 +218,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="уровень доверия для длины серии (0.95 → p<0.05; чем выше, тем строже)",
     )
     p.add_argument(
-        "--subtract-source",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="исключать из производных спектров пики, дублирующие исходник "
-        "(только по m/z, без учёта интенсивностей)",
-    )
-    p.add_argument(
         "--require-first-step",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="требовать подтверждённую первую ступень серии (по умолчанию включено; "
-        "--no-require-first-step — разрешить серии без первой ступени)",
-    )
-    p.add_argument(
-        "--subtract-ppm",
-        type=float,
-        default=None,
-        help="окно совпадения по m/z для вычитания исходника, ppm (по умолчанию 5)",
+        help="требовать подтверждённую первую ступень серии (по умолчанию выключено; "
+        "--require-first-step — включить)",
     )
     p.add_argument(
         "--max-gaps",
         type=int,
         default=None,
         help="допустимое число пропущенных ступеней внутри серии "
-        "(по умолчанию 1; 0 — без пропусков)",
+        "(по умолчанию 0 — без пропусков)",
     )
     p.add_argument(
         "--allow-gaps",
@@ -411,10 +398,6 @@ def main(argv=None) -> int:
         kwargs["sep"] = args.sep
     if args.max_gaps is not None:
         kwargs["max_gaps"] = args.max_gaps
-    if args.subtract_source is not None:
-        kwargs["subtract_source"] = args.subtract_source
-    if args.subtract_ppm is not None:
-        kwargs["subtract_ppm"] = args.subtract_ppm
     if args.require_first_step is not None:
         kwargs["require_first_step"] = args.require_first_step
     if args.significance_level is not None:

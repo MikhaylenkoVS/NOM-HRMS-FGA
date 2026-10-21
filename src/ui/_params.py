@@ -297,14 +297,14 @@ class ParamsMixin:
         ttk.Entry(lf, textvariable=self.ppm_tol_var, width=8).grid(
             row=0, column=1, sticky="w", padx=4, pady=3
         )
-        ttk.Label(lf, text="Макс. число групп:").grid(
+        ttk.Label(lf, text="Макс. длина серии:").grid(
             row=1, column=0, sticky="w", padx=6, pady=3
         )
         ttk.Entry(lf, textvariable=self.max_groups_var, width=8).grid(
             row=1, column=1, sticky="w", padx=4, pady=3
         )
-        # Правило по умолчанию — не более 1 пропуска; 0 = без пропусков
-        ttk.Label(lf, text="Пропусков в серии (0 = без пропусков):").grid(
+        # По умолчанию пропуски запрещены; число можно задать вручную.
+        ttk.Label(lf, text="Пропусков в серии (0 = запрещены):").grid(
             row=2, column=0, sticky="w", padx=6, pady=3
         )
         ttk.Entry(lf, textvariable=self.max_gaps_var, width=8).grid(
@@ -317,15 +317,9 @@ class ParamsMixin:
         ).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=2)
         ttk.Checkbutton(
             lf,
-            text="Вычитать исходник из дериватизатов (по m/z)",
-            variable=self.subtract_source_var,
+            text="Требовать первую ступень серии",
+            variable=self.require_first_step_var,
         ).grid(row=4, column=0, columnspan=2, sticky="w", padx=6, pady=2)
-        ttk.Label(lf, text="Окно вычитания, ppm:").grid(
-            row=5, column=0, sticky="w", padx=6, pady=3
-        )
-        ttk.Entry(lf, textvariable=self.subtract_ppm_var, width=8).grid(
-            row=5, column=1, sticky="w", padx=4, pady=3
-        )
 
     def _build_params_advanced(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
@@ -897,8 +891,7 @@ class ParamsMixin:
             max_groups=max_groups,
             max_gaps=int(_to_float(self.max_gaps_var.get()) or 0),
             denoise_derivatives=self.denoise_derivatives_var.get(),
-            subtract_source=self.subtract_source_var.get(),
-            subtract_ppm=(_to_float(self.subtract_ppm_var.get()) or 5.0),
+            require_first_step=self.require_first_step_var.get(),
             isotope_filter=self.isotope_filter_var.get(),
             isotope_variants=self.isotope_variants_var.get(),
             max_xc=(
@@ -909,7 +902,6 @@ class ParamsMixin:
             halogen_max_atoms=_to_int(self.halogen_max_atoms_var.get(), 5),
             halogen_exhaustive=bool(self.halogen_exhaustive_var.get()),
             halogen_max_combinations=self.HALOGEN_MAX_COMBINATIONS,
-            denoise_derivatives=self.denoise_derivatives_var.get(),
             denoise_source=self.denoise_source_var.get(),
             brutto_dict=brutto_dict,
             output_csv=self.output_csv_var.get() or None,

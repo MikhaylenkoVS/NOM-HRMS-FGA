@@ -323,7 +323,6 @@ def _run_single_test_set(
         src_assigned_only_sp = src_a
 
     # ── find_series: dmet ────────────────────────────────────────────────
-    _min_series_len = PIPELINE.test_mode["series"]["min_series_length"]
     df_dmet_res = pd.DataFrame()
     if dmet_sp is not None and not assigned_only.empty:
         try:
@@ -334,7 +333,6 @@ def _run_single_test_set(
                 ppm_tol=ppm_tol,
                 max_groups=max_groups,
                 allow_gaps=allow_gaps,
-                min_series_length=_min_series_len,
             )
             res.dmet_found = len(df_dmet_res)
             _debug(f"{set_dir.name} find_series(dmet): {len(df_dmet_res)} строк")
@@ -364,7 +362,6 @@ def _run_single_test_set(
                 ppm_tol=ppm_tol,
                 max_groups=max_groups,
                 allow_gaps=allow_gaps,
-                min_series_length=_min_series_len,
             )
             res.dacet_found = len(df_dacet_res)
             _debug(f"{set_dir.name} find_series(dacet): {len(df_dacet_res)} строк")

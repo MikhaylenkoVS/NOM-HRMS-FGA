@@ -99,8 +99,6 @@ def _denoise_triple(
     progress_callback,
     denoise_derivatives: bool = False,
     denoise_source: bool = True,
-    subtract_source: bool = False,
-    subtract_ppm: float = 5.0,
     series_anchor: str = "theoretical",
     anchor_ppm: float = 10.0,
 ):
@@ -199,29 +197,6 @@ def _denoise_triple(
         )
         print(msg)
         messages.append(msg.strip())
-
-    # Вычитание исходника из производных спектров (опционально):
-    # исключаем все пики, дублирующиеся по m/z, без учёта интенсивностей.
-    if subtract_source:
-        from src.core.spectrum._overlap import subtract_matching_peaks
-
-        for label, deriv_obj in (("dmet", dmet), ("dacet", dacet)):
-            if deriv_obj is None or not hasattr(deriv_obj, "table"):
-                continue
-            cleaned, st = subtract_matching_peaks(deriv_obj, src, ppm_tol=subtract_ppm)
-            if label == "dmet":
-                dmet, stats.dmet_overlap_removed = cleaned, st["removed"]
-                stats.dmet_denoised = len(cleaned.table)
-            else:
-                dacet, stats.dacet_overlap_removed = cleaned, st["removed"]
-                stats.dacet_denoised = len(cleaned.table)
-            msg = (
-                f"  Вычитание исходника ({label}): удалено {st['removed']} из "
-                f"{st['total']} пиков ({st['removed_frac']:.1%}) при "
-                f"{subtract_ppm:g} ppm"
-            )
-            print(msg)
-            messages.append(msg.strip())
 
     if progress_callback:
         progress_callback("Шумоподавление завершено", 20)

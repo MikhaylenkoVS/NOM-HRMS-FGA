@@ -24,6 +24,7 @@
 | T12 | Reliability v2: reliable/ambiguous, без FDR | P1 | **completed** | T11 |
 | T13 | Референс длины без фильтров | — | **completed** | T12 |
 | T14 | Ambiguous-статистика F16 | P1 | **completed** | T12 |
+| T15 | Политика серий v3 | P1 | **in progress** | T14 |
 | T8 | Сетка режимов денойза по FDR | — | **completed** | — |
 | T9 | Внешние отчёты и дизайн | — | **completed** | — |
 | T10 | Проверка специфичной изотопной подписи CD3/CD3CO | P3 | research | — |
@@ -287,3 +288,20 @@ max 10/8. При 5 ppm 3.22/2.90, нулей 20 %, max 10.
 
 **Артефакт:** `docs/ambiguous_stats_f16.md`,
 `tools/diagnostics/ambiguous_stats_f16.py`.
+
+---
+
+## T15. Политика серий v3 (in progress)
+
+Зафиксированы: reliable без наложений; confidence только для ambiguous после
+последнего reliable; O-лимит CD3 = O//2, CD3CO = O; пропуски по умолчанию 0;
+первая ступень по умолчанию не требуется; первые 3 пропуска → длина 0;
+min_series_length/trim/drop_ambiguous/subtract_source удалены.
+
+Реализовано в `find_series`: O-лимит, `confirmed_length`, `ambiguous_length`,
+`confidence`, `display_length`, `step_details`; штрафы source/O/isotope/gap.
+
+Осталось: per-step profile/persistence/intensity, конфликтный штраф,
+пропорциональный изотопный штраф в assign, кликабельные причины в GUI.
+
+**Артефакт:** `docs/series_policy_v3.md`.

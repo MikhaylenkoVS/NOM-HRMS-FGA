@@ -485,7 +485,6 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
             ppm_tol=REL_ERROR_PPM,
             max_groups=20,
             allow_gaps=True,
-            min_series_length=1,
         )
 
         assert (
@@ -699,6 +698,7 @@ class TestMaxConsecutiveMisses:
             deriv,
             self.DELTA,
             max_groups=5,
+            max_gaps=1,
             max_consecutive_misses=3,
         )
         assert not result.empty
@@ -729,12 +729,12 @@ class TestMaxGaps:
 
     DELTA = 17.03448
 
-    def test_default_value_is_one(self):
-        """По умолчанию допускается ровно один пропуск в серии."""
+    def test_default_value_is_zero(self):
+        """По умолчанию пропуски запрещены."""
         import inspect
 
         sig = inspect.signature(find_series)
-        assert sig.parameters["max_gaps"].default == 1
+        assert sig.parameters["max_gaps"].default == 0
 
     def test_negative_raises(self):
         src = _make_src_spectrum([100.0])
@@ -746,7 +746,7 @@ class TestMaxGaps:
         """Ступени 1 и 3 (пропуск 2) — серия принимается: пропуск ровно один."""
         src = _make_src_spectrum([100.0])
         deriv = _make_deriv_spectrum([100.0 + self.DELTA, 100.0 + 3 * self.DELTA])
-        result = find_series(src, deriv, self.DELTA, max_groups=5)
+        result = find_series(src, deriv, self.DELTA, max_groups=5, max_gaps=1)
         assert not result.empty
         row = result.iloc[0]
         assert int(row["n_groups"]) == 3
@@ -758,7 +758,7 @@ class TestMaxGaps:
         deriv = _make_deriv_spectrum(
             [100.0 + self.DELTA, 100.0 + 3 * self.DELTA, 100.0 + 5 * self.DELTA]
         )
-        result = find_series(src, deriv, self.DELTA, max_groups=6)
+        result = find_series(src, deriv, self.DELTA, max_groups=6, max_gaps=1)
         assert not result.empty
         row = result.iloc[0]
         # обрыв на последней найденной ступени до исчерпания бюджета
@@ -821,7 +821,7 @@ class TestRequireFirstStep:
         import inspect
 
         sig = inspect.signature(find_series)
-        assert sig.parameters["require_first_step"].default is True
+        assert sig.parameters["require_first_step"].default is False
 
     def test_series_without_first_step_is_rejected(self):
         """Ступени 2,3,4 без ступени 1 — случайные совпадения, не серия."""
@@ -829,7 +829,9 @@ class TestRequireFirstStep:
         deriv = _make_deriv_spectrum(
             [100.0 + 2 * self.DELTA, 100.0 + 3 * self.DELTA, 100.0 + 4 * self.DELTA]
         )
-        result = find_series(src, deriv, self.DELTA, max_groups=6)
+        result = find_series(
+            src, deriv, self.DELTA, max_groups=6, require_first_step=True
+        )
         assert result.empty
 
     def test_series_without_first_step_kept_when_disabled(self):
@@ -838,18 +840,36 @@ class TestRequireFirstStep:
             [100.0 + 2 * self.DELTA, 100.0 + 3 * self.DELTA, 100.0 + 4 * self.DELTA]
         )
         result = find_series(
-            src, deriv, self.DELTA, max_groups=6, require_first_step=False
+            src,
+            deriv,
+            self.DELTA,
+            max_groups=6,
+            max_gaps=1,
+            require_first_step=False,
         )
         assert not result.empty
         row = result.iloc[0]
         assert int(row["n_groups"]) == 4
         assert row["missing"] == [1]
 
+    def test_first_three_missing_rejected_even_if_disabled(self):
+        src = _make_src_spectrum([100.0])
+        deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (4, 5, 6)])
+        result = find_series(
+            src,
+            deriv,
+            self.DELTA,
+            max_groups=8,
+            max_gaps=3,
+            require_first_step=False,
+        )
+        assert result.empty
+
     def test_first_step_present_with_internal_gap_is_kept(self):
         """Ступени 1 и 3 (один пропуск) — серия подтверждена первой ступенью."""
         src = _make_src_spectrum([100.0])
         deriv = _make_deriv_spectrum([100.0 + self.DELTA, 100.0 + 3 * self.DELTA])
-        result = find_series(src, deriv, self.DELTA, max_groups=5)
+        result = find_series(src, deriv, self.DELTA, max_groups=5, max_gaps=1)
         assert not result.empty
         row = result.iloc[0]
         assert int(row["n_groups"]) == 3
@@ -912,3 +932,69 @@ class TestIntensityProfile:
             profile_max_corr=0.5,
         )
         assert result.empty
+
+
+class TestSeriesPolicy:
+    """O-лимит, confirmed/ambiguous и причины в step_details."""
+
+    DELTA = 17.03448
+    DELTA_CO = 45.02939
+
+    def _src(self, masses, brutto="C7H6O2", assigns=None, iso_status=None):
+        df = pd.DataFrame(
+            {
+                "mass": masses,
+                "brutto": [brutto] * len(masses),
+                "assign": assigns or [True] * len(masses),
+            }
+        )
+        if iso_status is not None:
+            df["iso_status"] = [iso_status] * len(masses)
+        return Spectrum(table=df)
+
+    def test_cd3_o_limit_is_half_oxygen(self):
+        src = self._src([100.0])
+        deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (1, 2, 3)])
+        row = find_series(src, deriv, self.DELTA, max_groups=5).iloc[0]
+        assert row["o_limit"] == 1
+        assert row["confirmed_length"] == 1
+        assert row["ambiguous_length"] == 3
+        assert row["display_length"] == "1(3)"
+        reasons = row["step_details"][1]["reasons"]
+        assert any("кислород" in r for r in reasons)
+
+    def test_cd3co_o_limit_is_oxygen(self):
+        src = self._src([100.0])
+        deriv = _make_deriv_spectrum([100.0 + n * self.DELTA_CO for n in (1, 2, 3)])
+        row = find_series(src, deriv, self.DELTA_CO, max_groups=5).iloc[0]
+        assert row["o_limit"] == 2
+        assert row["confirmed_length"] == 2
+        assert row["ambiguous_length"] == 3
+        assert row["display_length"] == "2(3)"
+
+    def test_source_overlap_makes_step_ambiguous(self):
+        src = self._src([100.0, 100.0 + self.DELTA], assigns=[True, False])
+        deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (1, 2, 3)])
+        row = find_series(src, deriv, self.DELTA, max_groups=5).iloc[0]
+        assert row["confirmed_length"] == 0
+        assert row["ambiguous_length"] == 3
+        assert row["display_length"] == "0(3)"
+        assert row["step_details"][0]["n_src"] == 1
+        assert any("исходного" in r for r in row["step_details"][0]["reasons"])
+
+    def test_isotope_inconsistent_is_penalized(self):
+        src = self._src([100.0], iso_status="inconsistent")
+        deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (1, 2)])
+        row = find_series(src, deriv, self.DELTA, max_groups=5).iloc[0]
+        assert row["confirmed_length"] == 0
+        assert row["step_details"][0]["confidence"] <= 70
+        assert any("изотоп" in r for r in row["step_details"][0]["reasons"])
+
+    def test_gap_has_reason_and_confidence(self):
+        src = self._src([100.0])
+        deriv = _make_deriv_spectrum([100.0 + self.DELTA, 100.0 + 3 * self.DELTA])
+        row = find_series(src, deriv, self.DELTA, max_groups=5, max_gaps=1).iloc[0]
+        gap = row["step_details"][1]
+        assert gap["status"] == "gap"
+        assert gap["confidence"] == 85.0
+        assert gap["reasons"] == ["пропуск шага"]

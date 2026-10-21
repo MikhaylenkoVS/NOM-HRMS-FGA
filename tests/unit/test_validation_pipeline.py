@@ -24,10 +24,7 @@ from src.core.spectrum._validate import (
     attach_fdr,
     summarize,
 )
-from tools.diagnostics.validation_experimental import (
-    attach_last_steps,
-    trim_to_confirmed_last,
-)
+from tools.diagnostics.validation_experimental import attach_last_steps
 
 
 # ── decoy / FDR ──────────────────────────────────────────────────────────
@@ -265,34 +262,6 @@ class TestAttachLastSteps:
             "prev_ok",
         ):
             assert col in out.columns
-
-
-class TestTrimToConfirmedLast:
-    def test_trim_and_drop(self):
-        df = pd.DataFrame(
-            {
-                "n_groups": [3, 3, 3, 1],
-                "last_persistence": [0.9, 0.1, 0.1, 0.1],
-                "last_shape_ok": [True, True, True, True],
-                "prev_persistence": [0.8, 0.8, 0.2, 0.0],
-                "prev_ok": [True, True, True, False],
-            }
-        )
-        out = trim_to_confirmed_last(df, persistence_min=0.5)
-        assert out["n_groups"].tolist() == [3, 2]
-        assert out["trimmed_steps"].tolist() == [0, 1]
-
-    def test_prev_shape_alone_is_not_enough(self):
-        df = pd.DataFrame(
-            {
-                "n_groups": [4],
-                "last_persistence": [0.0],
-                "last_shape_ok": [False],
-                "prev_persistence": [0.3],
-                "prev_ok": [True],
-            }
-        )
-        assert trim_to_confirmed_last(df).empty
 
 
 # ── правдоподобие NOM-формул ─────────────────────────────────────────────

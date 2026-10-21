@@ -137,8 +137,6 @@ def add_status(df: pd.DataFrame) -> pd.DataFrame:
             statuses.append("possible_random_match")
         elif "formula_ok" in out.columns and not bool(row.get("formula_ok", True)):
             statuses.append("real_peak_unrelated")
-        elif "persistence" in out.columns and float(row.get("persistence", 1.0)) < 0.5:
-            statuses.append("possible_random_match")
         else:
             statuses.append("supported")
     out["status"] = statuses

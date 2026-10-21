@@ -456,7 +456,6 @@ def test_pipeline_denoise_assign_find_series_on_existing_sets(set_dir: Path):
             ppm_tol=REL_ERROR_PPM,
             max_groups=20,
             allow_gaps=True,
-            min_series_length=1,
         )
 
         assert (

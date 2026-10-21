@@ -127,3 +127,6 @@ docs/ — документация проекта NOM-HRMS-FGA
   ambiguous_stats_f16.md    Знаменатели формул, доля серий с ambiguous
                              последним шагом, длина ambiguous-хвоста.
 
+  series_policy_v3.md       Зафиксированная политика серий: reliable/
+                             ambiguous, confidence, O-лимит, штрафы.
+
