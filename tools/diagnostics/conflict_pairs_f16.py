@@ -55,7 +55,7 @@ from src.core.pipeline._run import _search_config_from_brutto
 from src.core.spectrum import assign_formulas, denoise, find_series
 from src.core.spectrum._conflicts import analyze_conflicts, mark_conflicts
 from src.core.spectrum._decoy import DECOY_SEED, decoy_shifts
-from src.core.spectrum._formula_check import is_plausible_brutto
+from formula_plausibility import is_plausible_brutto
 from src.core.spectrum._formula_source import open_formula_db
 from src.core.spectrum._load import load_spectrum
 from src.core.spectrum._series import _theor_ion_mass_cached
@@ -216,7 +216,7 @@ def analyze_frame(
     clusters = analyze_conflicts(marked)
     # Эксперимент: сколько конфликтов осталось бы только по правдоподобным.
     plausible = [bool(is_plausible_brutto(str(b))[0]) for b in marked["brutto"]]
-    filtered = mark_conflicts(marked, plausible_only=True)
+    filtered = mark_conflicts(marked, valid=plausible)
     ambiguous_filtered = int(filtered["ambiguous"].sum())
 
     cluster_of: dict[float, dict] = {}

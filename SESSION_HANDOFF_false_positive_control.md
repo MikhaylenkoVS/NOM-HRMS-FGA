@@ -36,11 +36,12 @@ https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/pull/new/feat/series-precision-and
 
 ## Отключённый эксперимент: фильтр правдоподобия в конфликтах
 
-Реализован `is_plausible_brutto` (`_formula_check.py`): CHNOPS без галогенов,
-`S ≤ 2`, `P ≤ 1`, `N ≤ 5`, `H/C 0.3–2.5`, `O/C ≤ 1.2`, `N/C ≤ 0.5`,
-`S/C ≤ 0.1`, `P/C ≤ 0.05`, `DBE ≥ 0`. Включается флагом
-`plausible_only=True` у `mark_conflicts` / `analyze_conflicts` /
-`apply_conflicts`; **по умолчанию выключен** — участвуют все серии.
+Реализован `is_plausible_brutto` (`tools/diagnostics/formula_plausibility.py`):
+CHNOPS без галогенов, `S ≤ 2`, `P ≤ 1`, `N ≤ 5`, `H/C 0.3–2.5`,
+`O/C ≤ 1.2`, `N/C ≤ 0.5`, `S/C ≤ 0.1`, `P/C ≤ 0.05`, `DBE ≥ 0`.
+В `src` этого эксперимента нет; в конфликтах используется только готовая
+маска `valid=[...]` у `mark_conflicts` / `analyze_conflicts` /
+`apply_conflicts`.
 
 Зачем отключён: на F16 он снижает `ambiguous` с 72.5 % до 19.6 % (CD3) и с
 77.5 % до 23.8 % (CD3CO), но число независимых «сильных» серий, которые
@@ -263,14 +264,17 @@ dmet/dacet: 3e-3 удаляет 77 % / 94 %, 1e-2 — 94 % / 97 %. На CD3 по
   `n_src=0`); при 0.0003 средняя 0.442/0.454, 73–77 % якорей без
   надёжного первого шага; неподтверждённый хвост 0.075/0.107.
   Скрипт: `ppd_policy_f16.py`; определения — в отчёте, §0 и §5a.
-* **v2 (актуально):** `reliable` = \(n_{deriv}\ge1\) и \(n_{src}=0\),
-  либо при \(n_{src}=M\ge1\) profile разрешает \(\ge1+M\); `ambiguous` —
+* **v2 (актуально):** `reliable` = n_deriv≥1 и n_src=0,
+  либо при n_src=M≥1 profile разрешает ≥1+M; `ambiguous` —
   пик есть, profile не разрешил; `absent` — пика нет. FDR и prefix
   исключены. При 0.0003: reliable 17.3/18.0 %, ambiguous 4.0/6.3 %,
   absent 78.7/75.8 %, confirmed 0.442/0.454. Profile-подтверждение
   добавляет +10/+11 позиций при 0.0003 и +1 177/+625 при 0.0010.
   Отчёт: `docs/reliability_policy_f16.md`, скрипт
   `reliability_policy_f16.py`.
+* Референс без фильтров: `mean_pos` 1.87/1.65 при 0.0003, 2.17/1.93 при
+  0.0005, 3.22/2.90 при 5 ppm; max 8/7, 10/8, 10.
+  Отчёт: `docs/reference_length_no_filters_f16.md`.
 
 ## Что делать дальше (по порядку)
 
@@ -301,7 +305,10 @@ dmet/dacet: 3e-3 удаляет 77 % / 94 %, 1e-2 — 94 % / 97 %. На CD3 по
 * Пайплайн требует все три спектра (src/dmet/dacet); режима «только исходник» нет.
 * Дейтериевые метки: наложение производных с природными соединениями практически
   исключено, поэтому конфликты — дериватизат-дериватизат.
-* `attach_last_steps` читает RAW только для уникальных последних/предпоследних
-  масс; для пустого набора масс `validate_masses` не вызывается.
-* `plausible_only` по умолчанию `False`; при `True` маска считается по колонке
-  `brutto`, без неё все серии считаются правдоподобными.
+* `attach_last_steps` / `trim_to_confirmed_last` вынесены в
+  `tools/diagnostics/validation_experimental.py`; в `src` остались только
+  проверки, которые использует пайплайн (`attach_fdr`, `attach_conflicts`,
+  `attach_formula_check`, `add_status`).
+* NOM-правдоподобие вынесено в `tools/diagnostics/formula_plausibility.py`;
+  `mark_conflicts`/`analyze_conflicts` принимают готовую маску `valid=[...]`,
+  флага `plausible_only` в `src` больше нет.

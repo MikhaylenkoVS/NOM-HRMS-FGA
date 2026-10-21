@@ -5,25 +5,15 @@
 исходника искался независимо, поэтому такие «пики на все руки» порождали
 ложные серии.
 
-Правило (уточнено): конфликт важен только для **последнего наблюдаемого пика
-серии**. Если спорный шаг не последний, а следующая ступень найдена и
-бесспорна, серия не считается неоднозначной: цепочка продолжается уникальным
-пиком. Поэтому ``ambiguous = contested[last_step]``.
+Правило: конфликт важен только для **последнего наблюдаемого пика серии**.
+Если спорный шаг не последний, а следующая ступень найдена и бесспорна,
+серия не считается неоднозначной: цепочка продолжается уникальным пиком.
+Поэтому ``ambiguous = contested[last_step]``.
 
 Правило цепочки: если в кластере ровно один претендент имеет предыдущую
 ступень, пик принадлежит ему; для остальных претендентов шаг спорный.
 
-Химическая правдоподобность — **опциональный эксперимент, по умолчанию
-выключен**: при ``plausible_only=True`` в конфликтах участвуют только серии с
-правдоподобной NOM-формулой (CHNOPS, отношения элементов, DBE; см.
-``_formula_check.is_plausible_brutto``). Неправдоподобная серия тогда не может
-претендовать на пик и не делает другие серии ``ambiguous``, но остаётся в
-выдаче — её отсекают другие проверки (формула/FDR). На F16 это снижает долю
-``ambiguous`` с 72.5 % до 19.6 % (CD3), но независимых «сильных» серий,
-которые теряются из-за конфликтов, всего ~0.3 %, поэтому в пайплайне фильтр
-не используется (см. ``docs/false_positive_validation_report.md``).
-
-ВАЖНО: сравнивать нужно только шаги **одной и той же** производной
+Сравнивать нужно только шаги **одной и той же** производной
 (дейтерометилирование с дейтерометилированием, дейтероацилирование с
 дейтероацилированием). Функция принимает один DataFrame — по одному на
 производную, — поэтому смешивание невозможно по построению.
@@ -34,22 +24,15 @@ from __future__ import annotations
 import pandas as pd
 
 
-def _valid_flags(df: pd.DataFrame, valid, plausible_only: bool = False) -> list[bool]:
+def _valid_flags(df: pd.DataFrame, valid) -> list[bool]:
     """Маска серий, участвующих в конфликтах.
 
     * ``valid`` задан — используем его (длина должна совпадать);
-    * ``plausible_only=True`` — считаем правдоподобность по колонке ``brutto``;
-    * иначе — все серии участвуют (поведение по умолчанию).
+    * иначе — все серии участвуют.
     """
     n = len(df)
-    if valid is None and not plausible_only:
-        return [True] * n
     if valid is None:
-        if "brutto" not in df.columns:
-            return [True] * n
-        from ._formula_check import is_plausible_brutto
-
-        return [bool(is_plausible_brutto(str(b))[0]) for b in df["brutto"]]
+        return [True] * n
     flags = [bool(v) for v in valid]
     if len(flags) != n:
         raise ValueError(f"valid: ожидалось {n} значений, получено {len(flags)}")
@@ -60,7 +43,6 @@ def analyze_conflicts(
     df: pd.DataFrame,
     tolerance: float = 0.001,
     valid=None,
-    plausible_only: bool = False,
 ) -> list[dict]:
     """Собрать кластеры пиков, которые делят две и более серии.
 
@@ -72,9 +54,6 @@ def analyze_conflicts(
         Окно группировки шагов, Да (по умолчанию 1 мДа).
     valid : sequence of bool, optional
         Готовая маска серий, участвующих в конфликтах.
-    plausible_only : bool
-        Учитывать только серии с правдоподобной NOM-формулой (эксперимент,
-        по умолчанию выключен).
 
     Returns
     -------
@@ -85,12 +64,12 @@ def analyze_conflicts(
     """
     if df is None or len(df) == 0:
         return []
-    flags = _valid_flags(df, valid, plausible_only)
+    flags = _valid_flags(df, valid)
 
     # ``series_mz`` — позиционный список: позиция ``i`` соответствует ступени
     # ``i + 1``, ``None`` — пропуск. Номер ступени берём из позиции, а не из
     # ``steps_found``: списки могут иметь разную длину при пропусках.
-    pairs: list[tuple[float, int, int]] = []  # (mz, строка, номер ступени)
+    pairs: list[tuple[float, int, int]] = []
     steps_by_row: list[list[int]] = []
     for idx, mz_list in enumerate(df["series_mz"]):
         steps: list[int] = []
@@ -137,7 +116,6 @@ def mark_conflicts(
     df: pd.DataFrame,
     tolerance: float = 0.001,
     valid=None,
-    plausible_only: bool = False,
 ) -> pd.DataFrame:
     """Пометить серии, у которых есть шаги, используемые другими сериями.
 
@@ -149,9 +127,6 @@ def mark_conflicts(
         Окно группировки шагов, Да (по умолчанию 1 мДа).
     valid : sequence of bool, optional
         Готовая маска серий, участвующих в конфликтах.
-    plausible_only : bool
-        Учитывать только серии с правдоподобной NOM-формулой (эксперимент,
-        по умолчанию выключен — участвуют все серии).
 
     Returns
     -------
@@ -159,15 +134,13 @@ def mark_conflicts(
         Копия с колонками ``contested_steps`` (int) и ``ambiguous`` (bool).
         ``contested_steps`` — число шагов, которые серия проиграла владельцу
         пика; ``ambiguous`` — проигран именно последний наблюдаемый шаг.
-        При ``plausible_only=True`` неправдоподобные серии не участвуют:
-        у них обе колонки нулевые.
     """
     if df is None or df.empty:
         out = df.copy() if df is not None else pd.DataFrame()
         out["contested_steps"] = 0
         out["ambiguous"] = False
         return out
-    valid_flags = _valid_flags(df, valid, plausible_only)
+    valid_flags = _valid_flags(df, valid)
 
     clusters = analyze_conflicts(df, tolerance, valid=valid_flags)
     cluster_of: dict[float, float] = {}
@@ -185,7 +158,6 @@ def mark_conflicts(
     ambiguous: list[bool] = []
     for row_index, mz_list in enumerate(df["series_mz"]):
         if not valid_flags[row_index]:
-            # неправдоподобная формула не участвует в конфликтах
             contested.append(0)
             ambiguous.append(False)
             continue
@@ -218,10 +190,9 @@ def apply_conflicts(
     df: pd.DataFrame,
     drop_ambiguous: bool = False,
     valid=None,
-    plausible_only: bool = False,
 ) -> pd.DataFrame:
     """Пометить конфликты и (опционально) убрать неоднозначные серии."""
-    marked = mark_conflicts(df, valid=valid, plausible_only=plausible_only)
+    marked = mark_conflicts(df, valid=valid)
     if drop_ambiguous and not marked.empty:
         marked = marked[~marked["ambiguous"]].reset_index(drop=True)
     return marked

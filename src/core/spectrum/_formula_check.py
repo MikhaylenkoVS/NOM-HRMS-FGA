@@ -20,9 +20,6 @@ F0 + n·ΔF. Известны точные изменения (дейтерий 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
-
-from src.core.domain.molecule import parse_formula
 
 
 @dataclass(frozen=True)
@@ -74,69 +71,6 @@ def counts_valid(
         return False, "DBE < 0"
     if min_o_for_groups and o < min_o_for_groups:
         return False, "групп больше, чем атомов O"
-    return True, "ok"
-
-
-#: Пределы «правдоподобной» NOM-формулы (CHNOPS, без галогенов).
-#: Используются только для разрешения конфликтов: неправдоподобная формула
-#: не может претендовать на пик, но остаётся в выдаче как отдельная серия.
-NOM_MAX_S = 2
-NOM_MAX_P = 1
-NOM_MAX_N = 5
-NOM_HC = (0.3, 2.5)
-NOM_OC_MAX = 1.2
-NOM_NC_MAX = 0.5
-NOM_SC_MAX = 0.1
-NOM_PC_MAX = 0.05
-
-
-@lru_cache(maxsize=200_000)
-def is_plausible_brutto(brutto: str) -> tuple[bool, str]:
-    """Правдоподобна ли брутто-формула для природного органического вещества.
-
-    Критерий: только CHNOPS, без галогенов; S ≤ 2, P ≤ 1, N ≤ 5;
-    H/C 0.3–2.5, O/C ≤ 1.2, N/C ≤ 0.5, S/C ≤ 0.1, P/C ≤ 0.05; DBE ≥ 0.
-    """
-    try:
-        counts = parse_formula(str(brutto))
-    except Exception:
-        return False, "не разобрана формула"
-    return is_plausible_nom(counts)
-
-
-def is_plausible_nom(counts: dict[str, int]) -> tuple[bool, str]:
-    """Проверить CHNOPS-правдоподобие состава. Возвращает (ok, причина)."""
-    if any(int(counts.get(el, 0)) > 0 for el in ("F", "Cl", "Br", "I")):
-        return False, "галогены"
-    if int(counts.get("S", 0)) > NOM_MAX_S:
-        return False, f"S > {NOM_MAX_S}"
-    if int(counts.get("P", 0)) > NOM_MAX_P:
-        return False, f"P > {NOM_MAX_P}"
-    if int(counts.get("N", 0)) > NOM_MAX_N:
-        return False, f"N > {NOM_MAX_N}"
-
-    ok, reason = counts_valid(counts)
-    if not ok:
-        return False, reason
-
-    c = int(counts.get("C", 0))
-    h = int(counts.get("H", 0))
-    o = int(counts.get("O", 0))
-    n = int(counts.get("N", 0))
-    s = int(counts.get("S", 0))
-    p = int(counts.get("P", 0))
-    if c < 1 or h < 1:
-        return False, "C/H < 1"
-    if not (NOM_HC[0] <= h / c <= NOM_HC[1]):
-        return False, "H/C вне диапазона"
-    if o / c > NOM_OC_MAX:
-        return False, "O/C слишком велико"
-    if n / c > NOM_NC_MAX:
-        return False, "N/C слишком велико"
-    if s / c > NOM_SC_MAX:
-        return False, "S/C слишком велико"
-    if p / c > NOM_PC_MAX:
-        return False, "P/C слишком велико"
     return True, "ok"
 
 

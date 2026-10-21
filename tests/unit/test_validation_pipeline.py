@@ -11,17 +11,21 @@ from src.core.spectrum._decoy import decoy_shifts, fdr_table, q_values
 from src.core.spectrum._formula_check import (
     check_series_formula,
     counts_valid,
-    is_plausible_brutto,
-    is_plausible_nom,
     CD3,
     CD3CO,
     product_counts,
 )
+from tools.diagnostics.formula_plausibility import (
+    is_plausible_brutto,
+    is_plausible_nom,
+)
 from src.core.spectrum._validate import (
     add_status,
     attach_fdr,
-    attach_last_steps,
     summarize,
+)
+from tools.diagnostics.validation_experimental import (
+    attach_last_steps,
     trim_to_confirmed_last,
 )
 
@@ -336,7 +340,9 @@ class TestConflictsUseOnlyPlausible:
         assert out["ambiguous"].tolist() == [True, True]
 
     def test_implausible_competitor_does_not_create_conflict(self):
-        out = mark_conflicts(self._frame(), plausible_only=True)
+        df = self._frame()
+        valid = [is_plausible_brutto(str(b))[0] for b in df["brutto"]]
+        out = mark_conflicts(df, valid=valid)
         assert out["contested_steps"].tolist() == [0, 0]
         assert out["ambiguous"].tolist() == [False, False]
 
@@ -349,13 +355,15 @@ class TestConflictsUseOnlyPlausible:
     def test_plausible_competitor_still_conflicts(self):
         df = self._frame()
         df.loc[1, "brutto"] = "C10H8O5"
-        out = mark_conflicts(df, plausible_only=True)
+        valid = [is_plausible_brutto(str(b))[0] for b in df["brutto"]]
+        out = mark_conflicts(df, valid=valid)
         assert out["contested_steps"].tolist() == [2, 1]
         assert out["ambiguous"].tolist() == [True, True]
 
     def test_analyze_conflicts_respects_mask(self):
         df = self._frame()
-        assert len(analyze_conflicts(df, plausible_only=True)) == 0
+        valid = [is_plausible_brutto(str(b))[0] for b in df["brutto"]]
+        assert len(analyze_conflicts(df, valid=valid)) == 0
         assert len(analyze_conflicts(df, valid=[True, True])) == 2
 
     def test_bad_mask_length(self):

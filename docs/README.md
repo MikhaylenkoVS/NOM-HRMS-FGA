@@ -120,3 +120,7 @@ docs/ — документация проекта NOM-HRMS-FGA
                              неподтверждённая длина, PPD_deriv/src/sum,
                              без FDR и без prefix.
 
+  reference_length_no_filters_f16.md
+                             Референс: длина CD3/CD3CO без фильтров
+                             (0.0003/0.0005 Да; 0.5/1/3/5 ppm).
+

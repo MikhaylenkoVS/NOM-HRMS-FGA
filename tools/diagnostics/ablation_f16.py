@@ -30,9 +30,8 @@ from src.core.spectrum._validate import (
     attach_conflicts,
     attach_fdr,
     attach_formula_check,
-    attach_last_steps,
-    trim_to_confirmed_last,
 )
+from validation_experimental import attach_last_steps, trim_to_confirmed_last
 
 REAL = {
     "Fulvagra F16": (
