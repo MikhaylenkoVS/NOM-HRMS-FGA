@@ -20,7 +20,8 @@
 | T5 | Шаблонный decoy (сдвиг `m0`) | P2 | pending | T0.2 |
 | T6 | HMM степеней (detected/missing/ended) | P3 | pending | T2 |
 | T7 | Занятость ppm-окон на F16 (v1) | P1 | **completed** | — |
-| T11 | Restricted assign + profile-вычитание (v2) | P1 | **completed** | T7 |
+| T11 | Restricted assign + profile-вычитание (v1) | P1 | **completed** | T7 |
+| T12 | Reliability v2: reliable/ambiguous, без FDR | P1 | **completed** | T11 |
 | T8 | Сетка режимов денойза по FDR | — | **completed** | — |
 | T9 | Внешние отчёты и дизайн | — | **completed** | — |
 | T10 | Проверка специфичной изотопной подписи CD3/CD3CO | P3 | research | — |
@@ -227,4 +228,26 @@ present/unconfirmed/unreliable/chain; три режима вычитания; oc
 Определение `reliable` через `n_src=0` очень строгое; нужно решить,
 считать ли profile-разрешённые наложения (2 пика) надёжными.
 
-**Артефакт:** `docs/restricted_profile_f16.md`.
+**Артефакт:** `docs/restricted_profile_f16.md` (историческая итерация).
+
+---
+
+## T12. Reliability v2: reliable/ambiguous, без FDR (completed)
+
+**Правило:** `reliable` = \(n_{deriv}\ge1\) и \(n_{src}=0\), либо при
+\(n_{src}=M\ge1\) profile разрешает \(\ge1+M\) пиков; `ambiguous` = пик
+есть, но profile не разрешил; `absent` = \(n_{deriv}=0\).
+`unconfirmed/unreliable` не различаются. FDR и `prefix` не используются.
+
+**Длина:** идём по n, пока \(n_{deriv}\ge1\); подтверждённая длина —
+последний `reliable`, `ambiguous` на промежуточных шагах допустимы;
+неподтверждённая — последний `ambiguous`, если он больше.
+
+**Числа:** при h=0.0003 `PPD_deriv` 0.213/0.242, `PPD_src` 0.109/0.131,
+сумма 0.322/0.374; `reliable` 17.3/18.0 %, `ambiguous` 4.0/6.3 %,
+`absent` 78.7/75.8 %; средняя подтверждённая длина 0.442/0.454, 77/73 %
+якорей без надёжного шага. Profile-подтверждение \(1+M\) добавляет всего
++10/+11 позиций при 0.0003 и +1 177/+625 при 0.0010 (FWHM 0.0004–0.0009).
+
+**Артефакт:** `docs/reliability_policy_f16.md`,
+`tools/diagnostics/reliability_policy_f16.py`.

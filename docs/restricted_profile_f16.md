@@ -1,5 +1,11 @@
 # Ограниченный assign + profile-уточнение вычитания (F16)
 
+> **Обновление 2026-10-21.** Актуальная политика — в
+> `reliability_policy_f16.md`: `reliable`/`ambiguous`/`absent`, без FDR и
+> без `prefix`. Разделы 4–5 ниже используют старые
+> `unconfirmed/unreliable` и FDR; они оставлены как история и **не
+> используются для валидации**.
+
 Дата: 2026-10-21. Денойз: GMM 2.0. Скрипты:
 `build_restricted_assign.py`, `profile_resolve.py`,
 `restricted_profile_f16.py`, `hard_variants_f16.py`.

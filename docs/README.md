@@ -112,4 +112,11 @@ docs/ — документация проекта NOM-HRMS-FGA
                              объединение окон, статусы present/unconfirmed/
                              unreliable/chain, режимы none/hard/soft,
                              абсолютные окна 0.0001–0.0010 Да, длина серий.
+                             Историческая итерация; актуальная политика —
+                             reliability_policy_f16.md.
+
+  reliability_policy_f16.md  Reliability v2: reliable/ambiguous/absent,
+                             N+M разрешение, подтверждённая и
+                             неподтверждённая длина, PPD_deriv/src/sum,
+                             без FDR и без prefix.
 
