@@ -71,11 +71,9 @@ class ParamsMixin:
         """Поставить дочернее окно по центру родителя."""
         win.transient(self)
         win.resizable(True, True)
-        win.geometry(f"{width}x{height}")
-        win.update_idletasks()
         x = self.winfo_rootx() + max(0, (self.winfo_width() - width) // 2)
         y = self.winfo_rooty() + max(0, (self.winfo_height() - height) // 2)
-        win.geometry(f"+{x}+{y}")
+        win.geometry(f"{width}x{height}+{x}+{y}")
 
     def _scrollable_tab(self, nb: ttk.Notebook, title: str) -> ttk.Frame:
         """Вкладка с вертикальной прокруткой: контент не обрезается."""
