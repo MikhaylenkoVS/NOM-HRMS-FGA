@@ -69,7 +69,14 @@ jobs:
           pip install "pymzml>=0.8"
           # Сжатая база формул (src/core/formula_db/_reader.py)
           pip install "zstandard>=0.22"
+          pip install "requests>=2.31" "platformdirs>=4.0"
           pip install "rdkit>=2023.9" 2>/dev/null || pip install "rdkit-pypi>=2022.9"
+
+      - name: Install UPX
+        shell: pwsh
+        run: |
+          choco install upx -y --no-progress
+          upx --version
 
       - name: Build .exe
         shell: bash
@@ -98,4 +105,16 @@ jobs:
         run: |
           set -euo pipefail
           gh release upload "${GITHUB_REF_NAME}" dist/NOM_HRMS_FGA.exe --clobber
+          gh release upload "${GITHUB_REF_NAME}" \
+            data/formula_db/release_manifest.json \
+            data/formula_db/chposp_1000_zstd9_v2.fdb \
+            data/formula_db/chposp_1000_zstd9_v2.manifest.json \
+            --clobber
+          if [ -f data/formula_db/chorsphal_1000_v3.fdb ]; then
+            gh release upload "${GITHUB_REF_NAME}" \
+              data/formula_db/chorsphal_1000_v3.fdb \
+              data/formula_db/chorsphal_1000_v3.idx \
+              data/formula_db/chorsphal_1000_v3.manifest.json \
+              --clobber
+          fi
           gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[] | "asset: \(.name) \(.size) bytes"'

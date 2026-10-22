@@ -46,7 +46,11 @@ _hidden: list[str] = [
     # src/core/spectrum/_formula_source.open_formula_db, поэтому PyInstaller
     # не видит импорт при статическом анализе.
     "src.core.formula_db._reader",
-    "src.core.formula_db._packed",
+    "src.core.formula_db._reader_v3",
+    "src.core.formula_db._variants",
+    "src.core.formula_db._manager",
+    "platformdirs",
+    "requests",
     "zstandard",
 ]
 

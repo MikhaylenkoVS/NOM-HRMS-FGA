@@ -34,6 +34,8 @@ dependencies = [
     # Используется src/core/formula_db/_manager.py для загрузки formula_db
     # (runtime, HTTPS). Обоснование: AGENTS.md, правило 7.
     "requests>=2.31",
+    # Пользовательский каталог для отдельно скачанных баз формул.
+    "platformdirs>=4.0",
 ]
 
 [project.optional-dependencies]
