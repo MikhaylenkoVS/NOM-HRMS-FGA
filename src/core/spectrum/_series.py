@@ -112,12 +112,29 @@ def _add_penalty(detail: dict, key: str, value: float, reason: str) -> None:
         reasons.append(reason)
 
 
-def _finalize_policy(details: list[dict]) -> dict:
-    """Пересчитать confidence/confirmed/ambiguous по текущим штрафам."""
+def _finalize_policy(
+    details: list[dict], *, confirmation_mode: str = "overlap_only"
+) -> dict:
+    """Пересчитать confidence/confirmed/ambiguous.
+
+    По умолчанию (``overlap_only``) ступень считается reliable, если у неё
+    нет только двух блокирующих штрафов — ``source_overlap`` и
+    ``conflict_overlap``. Остальные штрафы (изотоп, O-лимит, профиль и т.п.)
+    сохраняются в confidence/reasons, но не отсекают ступень: их шкала ещё
+    не валидирована. Режим ``all_penalties`` оставлен для экспериментов.
+    """
+    if confirmation_mode not in ("overlap_only", "all_penalties"):
+        raise ValueError(f"неизвестный confirmation_mode: {confirmation_mode}")
     for d in details:
-        total = min(100.0, float(sum(d.get("penalties", {}).values())))
+        penalties = d.get("penalties", {})
+        total = min(100.0, float(sum(penalties.values())))
         d["confidence"] = round(100.0 - total, 1)
-        if d.get("status") != "gap":
+        if d.get("status") == "gap":
+            continue
+        if confirmation_mode == "overlap_only":
+            blocked = "source_overlap" in penalties or "conflict_overlap" in penalties
+            d["status"] = "ambiguous" if blocked else "reliable"
+        else:
             d["status"] = "reliable" if total == 0.0 else "ambiguous"
 
     reliable_ns = [d["n"] for d in details if d.get("status") == "reliable"]
@@ -155,6 +172,7 @@ def find_series(
     ppm_tol=5.0,
     max_groups=20,
     max_gaps=0,
+    confirmation_mode: str = "overlap_only",
     require_first_step: bool = False,
     significance_level: float = 0.95,
     anchor_column: str | None = None,
@@ -523,7 +541,7 @@ def find_series(
                             "несогласованный профиль интенсивностей",
                         )
 
-            policy = _finalize_policy(details)
+            policy = _finalize_policy(details, confirmation_mode=confirmation_mode)
             confirmed_length = policy["confirmed_length"]
             ambiguous_length = policy["ambiguous_length"]
             series_confidence = policy["confidence"]
@@ -716,7 +734,7 @@ def find_series(
                     )
         for ridx in range(len(result)):
             details = result.at[ridx, "step_details"]
-            policy = _finalize_policy(details)
+            policy = _finalize_policy(details, confirmation_mode=confirmation_mode)
             result.at[ridx, "confirmed_length"] = policy["confirmed_length"]
             result.at[ridx, "ambiguous_length"] = policy["ambiguous_length"]
             result.at[ridx, "confidence"] = policy["confidence"]

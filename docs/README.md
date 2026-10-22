@@ -138,3 +138,7 @@ docs/ — документация проекта NOM-HRMS-FGA
   real_sets_analysis_2026-10-22.md
                              Полный прогон F16/SRFA/F14 и сводка для статьи.
 
+  real_sets_overlap_only_2026-10-22.md
+                             Пересчёт по правилу overlap-only и сравнение с ручной
+                             обработкой F14/F16 из DOCX.
+

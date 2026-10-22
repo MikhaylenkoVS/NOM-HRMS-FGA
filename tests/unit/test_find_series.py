@@ -967,9 +967,12 @@ class TestSeriesPolicy:
         deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (1, 2, 3)])
         row = find_series(src, deriv, self.DELTA, max_groups=5).iloc[0]
         assert row["o_limit"] == 1
-        assert row["confirmed_length"] == 1
+        # O-лимит остаётся в confidence/reasons, но не блокирует confirmed:
+        # подтверждение определяется только source/conflict-overlap.
+        assert row["confirmed_length"] == 3
         assert row["ambiguous_length"] == 3
-        assert row["display_length"] == "1(3)"
+        assert row["display_length"] == "3"
+        assert all(d["status"] == "reliable" for d in row["step_details"])
         reasons = row["step_details"][1]["reasons"]
         assert any("кислород" in r for r in reasons)
 
@@ -978,17 +981,22 @@ class TestSeriesPolicy:
         deriv = _make_deriv_spectrum([100.0 + n * self.DELTA_CO for n in (1, 2, 3)])
         row = find_series(src, deriv, self.DELTA_CO, max_groups=5).iloc[0]
         assert row["o_limit"] == 2
-        assert row["confirmed_length"] == 2
+        assert row["confirmed_length"] == 3
         assert row["ambiguous_length"] == 3
-        assert row["display_length"] == "2(3)"
+        assert row["display_length"] == "3"
+        assert all(d["status"] == "reliable" for d in row["step_details"])
 
     def test_source_overlap_makes_step_ambiguous(self):
         src = self._src([100.0, 100.0 + self.DELTA], assigns=[True, False])
         deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (1, 2, 3)])
         row = find_series(src, deriv, self.DELTA, max_groups=5).iloc[0]
-        assert row["confirmed_length"] == 0
+        # Первая ступень перекрыта source-пиком и остаётся ambiguous;
+        # следующие ступени без source/conflict-перекрытия подтверждаются.
+        assert row["confirmed_length"] == 3
         assert row["ambiguous_length"] == 3
-        assert row["display_length"] == "0(3)"
+        assert row["display_length"] == "3"
+        assert row["step_details"][0]["status"] == "ambiguous"
+        assert row["step_details"][1]["status"] == "reliable"
         assert row["step_details"][0]["n_src"] == 1
         assert any("исходного" in r for r in row["step_details"][0]["reasons"])
 
@@ -996,7 +1004,9 @@ class TestSeriesPolicy:
         src = self._src([100.0], iso_status="inconsistent")
         deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (1, 2)])
         row = find_series(src, deriv, self.DELTA, max_groups=5).iloc[0]
-        assert row["confirmed_length"] == 0
+        # Изотопный штраф снижает confidence, но не блокирует confirmed.
+        assert row["confirmed_length"] == 2
+        assert row["step_details"][0]["status"] == "reliable"
         assert row["step_details"][0]["confidence"] <= 70
         assert any("изотоп" in r for r in row["step_details"][0]["reasons"])
 
@@ -1026,3 +1036,48 @@ class TestSeriesPolicy:
         assert gap["status"] == "gap"
         assert gap["confidence"] == 85.0
         assert gap["reasons"] == ["пропуск шага"]
+
+    def test_source_overlap_on_all_steps_blocks_confirmation(self):
+        src = self._src(
+            [100.0, 100.0 + self.DELTA, 100.0 + 2 * self.DELTA, 100.0 + 3 * self.DELTA],
+            assigns=[True, False, False, False],
+        )
+        deriv = _make_deriv_spectrum([100.0 + n * self.DELTA for n in (1, 2, 3)])
+        row = find_series(src, deriv, self.DELTA, max_groups=5).iloc[0]
+        assert row["confirmed_length"] == 0
+        assert all(d["status"] == "ambiguous" for d in row["step_details"])
+
+    def test_conflict_and_source_block_but_isotope_does_not(self):
+        from src.core.spectrum._series import _finalize_policy
+
+        details = [
+            {"n": 1, "status": "ambiguous", "penalties": {"conflict_overlap": 10.0}},
+            {"n": 2, "status": "ambiguous", "penalties": {"isotope": 5.0}},
+            {"n": 3, "status": "ambiguous", "penalties": {"source_overlap": 10.0}},
+        ]
+        policy = _finalize_policy(details)
+        assert [d["status"] for d in details] == [
+            "ambiguous",
+            "reliable",
+            "ambiguous",
+        ]
+        assert policy["confirmed_length"] == 2
+        assert policy["ambiguous_length"] == 3
+        assert policy["display_length"] == "2(3)"
+
+    def test_all_penalties_mode_is_opt_in(self):
+        from src.core.spectrum._series import _finalize_policy
+
+        details = [
+            {"n": 1, "status": "ambiguous", "penalties": {"isotope": 5.0}},
+        ]
+        overlap_policy = _finalize_policy(details)
+        assert overlap_policy["confirmed_length"] == 1
+        assert details[0]["status"] == "reliable"
+
+        details = [
+            {"n": 1, "status": "ambiguous", "penalties": {"isotope": 5.0}},
+        ]
+        strict_policy = _finalize_policy(details, confirmation_mode="all_penalties")
+        assert strict_policy["confirmed_length"] == 0
+        assert details[0]["status"] == "ambiguous"

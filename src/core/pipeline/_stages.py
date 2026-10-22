@@ -227,6 +227,7 @@ def _find_series_stage(
     messages,
     progress_callback,
     raw_path: str | None = None,
+    confirmation_mode: str = "overlap_only",
 ):
     """Run ``find_series`` for one derivatization and update ``series_stats``."""
     df = pd.DataFrame()
@@ -249,6 +250,7 @@ def _find_series_stage(
             profile_max_corr=profile_max_corr,
             ion_mode=ion_mode,
             raw_path=raw_path,
+            confirmation_mode=confirmation_mode,
             progress_callback=cb,
         )
         series_stats.rows = len(df)

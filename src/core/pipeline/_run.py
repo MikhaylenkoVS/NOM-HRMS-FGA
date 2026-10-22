@@ -97,6 +97,9 @@ def run_pipeline(
     max_groups: int = PIPELINE.run_pipeline_defaults["max_groups"],
     # Правило по умолчанию: не более 1 пропуска в серии (0 — без пропусков)
     max_gaps: int = PIPELINE.run_pipeline_defaults.get("max_gaps", 1),
+    confirmation_mode: str = PIPELINE.run_pipeline_defaults.get(
+        "confirmation_mode", "overlap_only"
+    ),
     # Устаревший синоним: allow_gaps=False эквивалентно max_gaps=0
     allow_gaps: bool | None = None,
     # Визуализация
@@ -551,6 +554,7 @@ def run_pipeline(
         messages,
         progress_callback,
         raw_path=dmet_path,
+        confirmation_mode=confirmation_mode,
     )
 
     # -----------------------------------------------------------------------
@@ -588,6 +592,7 @@ def run_pipeline(
         messages,
         progress_callback,
         raw_path=dacet_path,
+        confirmation_mode=confirmation_mode,
     )
 
     # -----------------------------------------------------------------------

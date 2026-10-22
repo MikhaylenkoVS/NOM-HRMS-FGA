@@ -16,6 +16,7 @@
     "ppm_tol": 2.0,
     "max_groups": 20,
     "max_gaps": 0,
+    "confirmation_mode": "overlap_only",
     "allow_gaps": false,
     "denoise_derivatives": true,
     "ratios_enabled": true,
