@@ -135,3 +135,6 @@ docs/ — документация проекта NOM-HRMS-FGA
   penalty_calibration_f16.md
                              FDR по длине серии и калибровка весов на F16.
 
+  real_sets_analysis_2026-10-22.md
+                             Полный прогон F16/SRFA/F14 и сводка для статьи.
+
