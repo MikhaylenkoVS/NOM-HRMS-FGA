@@ -88,6 +88,46 @@ def _series_o_limit(brutto: str, delta: float, max_groups: int) -> int:
     return int(max_groups)
 
 
+def _add_penalty(detail: dict, key: str, value: float, reason: str) -> None:
+    """Добавить/усилить штраф и причину, не дублируя текст."""
+    if value <= 0:
+        return
+    penalties = detail.setdefault("penalties", {})
+    penalties[key] = max(float(penalties.get(key, 0.0)), float(value))
+    reasons = detail.setdefault("reasons", [])
+    if reason not in reasons:
+        reasons.append(reason)
+
+
+def _finalize_policy(details: list[dict]) -> dict:
+    """Пересчитать confidence/confirmed/ambiguous по текущим штрафам."""
+    for d in details:
+        total = min(100.0, float(sum(d.get("penalties", {}).values())))
+        d["confidence"] = round(100.0 - total, 1)
+        if d.get("status") != "gap":
+            d["status"] = "reliable" if total == 0.0 else "ambiguous"
+
+    reliable_ns = [d["n"] for d in details if d.get("status") == "reliable"]
+    confirmed = max(reliable_ns, default=0)
+    ambiguous_ns = [
+        d["n"] for d in details if d.get("status") != "reliable" and d["n"] > confirmed
+    ]
+    ambiguous = max(ambiguous_ns, default=confirmed)
+    amb_confs = [
+        d["confidence"]
+        for d in details
+        if d.get("status") != "reliable" and d["n"] > confirmed
+    ]
+    confidence = min(amb_confs, default=100.0)
+    display = f"{confirmed}({ambiguous})" if ambiguous > confirmed else str(confirmed)
+    return {
+        "confirmed_length": int(confirmed),
+        "ambiguous_length": int(ambiguous),
+        "confidence": float(confidence),
+        "display_length": display,
+    }
+
+
 @lru_cache(maxsize=200_000)
 def _theor_ion_mass_cached(brutto_str: str, ion_mode: str) -> float:
     """Теоретическая m/z по брутто-формуле (кэш между вызовами и прогонами)."""
@@ -109,6 +149,9 @@ def find_series(
     formula_check: bool = False,
     profile_max_jump: float | None = 10.0,
     profile_max_corr: float | None = 0.5,
+    raw_path: str | None = None,
+    profile_scans: int = 16,
+    profile_min_persistence: float = 0.8,
     allow_gaps: bool | None = None,
     max_consecutive_misses=3,
     ion_mode: str | None = None,
@@ -355,10 +398,6 @@ def find_series(
                 profile_ok = profile_ok and bool(max_jump <= profile_max_jump)
             if profile_max_corr is not None and np.isfinite(int_corr):
                 profile_ok = profile_ok and bool(int_corr <= profile_max_corr)
-            if not profile_ok:
-                # Точность прежде полноты: серия с несогласованным профилем
-                # не засчитывается (ADR-0009), но только при явном включении.
-                continue
 
         if found_steps:
             o_limit = _series_o_limit(brutto, delta, max_groups)
@@ -368,6 +407,10 @@ def find_series(
                 if 0 <= int(step) - 1 < len(series_mz)
             }
             iso_status = str(getattr(row, "iso_status", "") or "")
+            try:
+                iso_dev = float(getattr(row, "iso_dev", float("nan")))
+            except (TypeError, ValueError):
+                iso_dev = float("nan")
             details = []
             for n in range(1, n_groups + 1):
                 if n not in found_mz:
@@ -395,7 +438,11 @@ def find_series(
                         "превышение допустимой длины по количеству атомов кислорода"
                     )
                 if iso_status == "inconsistent":
-                    penalties["isotope"] = 30.0
+                    if np.isfinite(iso_dev):
+                        iso_pen = min(30.0, max(5.0, 30.0 * iso_dev))
+                    else:
+                        iso_pen = 30.0
+                    penalties["isotope"] = iso_pen
                     reasons.append("изотопный паттерн не подтверждён")
                 total = min(100.0, float(sum(penalties.values())))
                 details.append(
@@ -410,25 +457,55 @@ def find_series(
                         "reasons": reasons,
                     }
                 )
-            reliable_ns = [d["n"] for d in details if d["status"] == "reliable"]
-            confirmed_length = max(reliable_ns, default=0)
-            ambiguous_ns = [
-                d["n"]
-                for d in details
-                if d["status"] != "reliable" and d["n"] > confirmed_length
-            ]
-            ambiguous_length = max(ambiguous_ns, default=confirmed_length)
-            amb_confs = [
-                d["confidence"]
-                for d in details
-                if d["status"] != "reliable" and d["n"] > confirmed_length
-            ]
-            series_confidence = min(amb_confs, default=100.0)
-            display_length = (
-                f"{confirmed_length}({ambiguous_length})"
-                if ambiguous_length > confirmed_length
-                else str(confirmed_length)
-            )
+            # Профиль интенсивностей: штрафуем конкретный скачок/корреляцию.
+            if profile_check and len(found_intensities) >= 2:
+                ints = np.asarray(found_intensities, dtype=float)
+                if np.all(ints > 0):
+                    ratios = ints[1:] / ints[:-1]
+                    worst = int(np.argmax(ratios))
+                    jump = float(ratios[worst])
+                    jump_step = int(found_steps[worst + 1])
+                    detail = next(
+                        (d for d in details if int(d["n"]) == jump_step), None
+                    )
+                    if (
+                        detail is not None
+                        and detail.get("status") != "reliable"
+                        and profile_max_jump is not None
+                        and jump > float(profile_max_jump)
+                    ):
+                        _add_penalty(
+                            detail,
+                            "intensity_profile",
+                            min(
+                                5.0,
+                                5.0 * (jump / float(profile_max_jump) - 1.0),
+                            ),
+                            "скачок интенсивности между ступенями",
+                        )
+                    if (
+                        profile_max_corr is not None
+                        and np.isfinite(int_corr)
+                        and int_corr > float(profile_max_corr)
+                    ):
+                        last_detail = details[-1]
+                        if last_detail.get("status") == "reliable":
+                            continue
+                        _add_penalty(
+                            last_detail,
+                            "intensity_profile",
+                            min(
+                                5.0,
+                                5.0 * (float(int_corr) - float(profile_max_corr)) / 0.5,
+                            ),
+                            "несогласованный профиль интенсивностей",
+                        )
+
+            policy = _finalize_policy(details)
+            confirmed_length = policy["confirmed_length"]
+            ambiguous_length = policy["ambiguous_length"]
+            series_confidence = policy["confidence"]
+            display_length = policy["display_length"]
             records.append(
                 {
                     "mass_src": m0_obs,
@@ -478,6 +555,106 @@ def find_series(
             "step_details",
         ],
     )
+
+    # Per-step RAW-профиль: считаем метрики один раз на все уникальные
+    # m/z шагов, затем раздаём штрафы. Это не удаляет шаги.
+    if raw_path and not result.empty:
+        try:
+            from src.core.io.raw_profile import validate_masses
+
+            unique_masses = sorted(
+                {
+                    float(d["mz"])
+                    for details in result["step_details"]
+                    for d in details
+                    if "mz" in d
+                }
+            )
+            if unique_masses:
+                metrics = validate_masses(
+                    raw_path,
+                    unique_masses,
+                    ppm=ppm_tol,
+                    max_scans=profile_scans,
+                ).set_index("mass")
+                for idx in range(len(result)):
+                    for detail in result.at[idx, "step_details"]:
+                        if detail.get("status") == "reliable":
+                            continue
+                        mz = detail.get("mz")
+                        if mz is None or float(mz) not in metrics.index:
+                            continue
+                        met = metrics.loc[float(mz)]
+                        persistence = float(met["persistence"])
+                        if persistence < profile_min_persistence:
+                            _add_penalty(
+                                detail,
+                                "persistence",
+                                10.0
+                                * (profile_min_persistence - persistence)
+                                / profile_min_persistence,
+                                f"низкая персистентность ({persistence:.0%})",
+                            )
+                        if not bool(met["shape_ok"]):
+                            _add_penalty(
+                                detail,
+                                "peak_profile",
+                                10.0,
+                                "неудовлетворительная форма пика",
+                            )
+                        if bool(met.get("multi", False)):
+                            _add_penalty(
+                                detail,
+                                "poor_resolution",
+                                15.0,
+                                "несколько пиков в окне",
+                            )
+        except Exception as exc:  # профиль не должен ломать поиск
+            logger.debug("profile penalties skipped: %s", exc)
+
+    # Штрафы за конфликты: наложение пиков разных серий. Дополнительный
+    # штраф «без предыдущей ступени» — только когда пропуски разрешены.
+    if not result.empty:
+        from ._conflicts import analyze_conflicts
+
+        for cluster in analyze_conflicts(result, tolerance=0.001):
+            members = cluster.get("members", [])
+            if len(members) < 2:
+                continue
+            supported = set(cluster.get("supported", []))
+            mixed = bool(supported) and any(
+                int(m["row"]) not in supported for m in members
+            )
+            for member in members:
+                ridx = int(member["row"])
+                step = int(member["step"])
+                details = result.at[ridx, "step_details"]
+                detail = next((d for d in details if int(d["n"]) == step), None)
+                if detail is None:
+                    continue
+                _add_penalty(
+                    detail,
+                    "conflict_overlap",
+                    10.0,
+                    "наложение пика другой серии",
+                )
+                if max_gaps > 0 and mixed and ridx not in supported:
+                    _add_penalty(
+                        detail,
+                        "conflict_no_prev",
+                        30.0,
+                        "конфликт без предыдущей ступени",
+                    )
+        for ridx in range(len(result)):
+            details = result.at[ridx, "step_details"]
+            policy = _finalize_policy(details)
+            result.at[ridx, "confirmed_length"] = policy["confirmed_length"]
+            result.at[ridx, "ambiguous_length"] = policy["ambiguous_length"]
+            result.at[ridx, "confidence"] = policy["confidence"]
+            result.at[ridx, "display_length"] = policy["display_length"]
+            result.at[ridx, "ambiguous"] = bool(
+                policy["ambiguous_length"] > policy["confirmed_length"]
+            )
 
     # P2/P3: химическая проверка продукта и пометка конфликтов (опционально).
     if formula_check and not result.empty:

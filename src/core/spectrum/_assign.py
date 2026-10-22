@@ -336,6 +336,7 @@ def assign_formulas(
         q1, q2 = _isotope_coefficients(elements)
     m2_el_idx = [idx[el] for el in ("S", "Cl", "Br") if el in idx]
     status_col = [""] * len(mass_values)
+    iso_dev_col = [float("nan")] * len(mass_values)
     halogen_unconfirmed_col = [False] * len(mass_values)
 
     # Заранее переведённые нейтральные массы всех пиков (векторно).
@@ -543,7 +544,7 @@ def assign_formulas(
                 # абсолютная интенсивность выше уровня шума спектра. Если
                 # сателлит не мог быть измерен, это отсутствие данных, а не
                 # отсутствие сателлита.
-                floor = max(noise_floor, 1e-12)
+                floor = max(3.0 * noise_floor, 1e-12)
                 m1_required = (m1_theor * base_int) >= floor
                 m2_required = (m2_theor * base_int) >= floor
 
@@ -597,10 +598,9 @@ def assign_formulas(
                 last_m1_req, last_m2_req = m1_required, m2_required
                 last_hal_mask = hal_mask
                 if contradicts.any():
-                    scores_win = np.where(contradicts, np.inf, scores_win)
-                    # Все кандидаты окна противоречат паттерну — пик не назначается.
-                    if not np.isfinite(scores_win).any():
-                        hard_reject_all = True
+                    # Сильный, но не абсолютный штраф: кандидат может остаться
+                    # лучшим, если все кандидаты противоречат паттерну.
+                    scores_win = np.where(contradicts, scores_win + 1e6, scores_win)
 
         if hard_reject_all:
             candidates_col[row_i] = []
@@ -640,6 +640,13 @@ def assign_formulas(
             is_halogen = bool(
                 last_hal_mask[best_local] if last_hal_mask is not None else False
             )
+            devs = []
+            if last_m1_req[best_local]:
+                devs.append(float(last_dev1[best_local]))
+            if last_m2_req[best_local]:
+                devs.append(float(last_dev2[best_local]))
+            if devs:
+                iso_dev_col[row_i] = max(devs)
             if not measurable:
                 status_col[row_i] = "uninformative"
                 halogen_unconfirmed_col[row_i] = is_halogen
@@ -664,6 +671,7 @@ def assign_formulas(
     table["brutto"] = brutto_col
     table["assign"] = assign_col
     table["iso_status"] = status_col
+    table["iso_dev"] = iso_dev_col
     table["iso_halogen_unconfirmed"] = halogen_unconfirmed_col
     table["all_candidates"] = candidates_col
     if variants_col is not None:

@@ -297,6 +297,18 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--ratio-limits",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="NOM-ratio limits H/C, O/C, N/C, S/C, P/C (по умолчанию включены)",
+    )
+    p.add_argument(
+        "--nom-dbe-limit",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="NOM-верхний предел DBE (по умолчанию включён; DBE>=0 всегда)",
+    )
+    p.add_argument(
         "--halogen-max-atoms",
         type=int,
         default=None,
@@ -420,6 +432,10 @@ def main(argv=None) -> int:
         kwargs["isotope_variants"] = args.isotope_variants
     if args.max_xc is not None:
         kwargs["max_xc"] = args.max_xc
+    if args.ratio_limits is not None:
+        kwargs["ratios_enabled"] = args.ratio_limits
+    if args.nom_dbe_limit is not None:
+        kwargs["nom_dbe_enabled"] = args.nom_dbe_limit
     if args.halogen_max_atoms is not None:
         kwargs["halogen_max_atoms"] = args.halogen_max_atoms
     if args.halogen_exhaustive is not None:

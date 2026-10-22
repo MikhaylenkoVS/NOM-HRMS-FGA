@@ -226,6 +226,7 @@ def _find_series_stage(
     end_pct,
     messages,
     progress_callback,
+    raw_path: str | None = None,
 ):
     """Run ``find_series`` for one derivatization and update ``series_stats``."""
     df = pd.DataFrame()
@@ -247,6 +248,7 @@ def _find_series_stage(
             profile_max_jump=profile_max_jump,
             profile_max_corr=profile_max_corr,
             ion_mode=ion_mode,
+            raw_path=raw_path,
             progress_callback=cb,
         )
         series_stats.rows = len(df)

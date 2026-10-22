@@ -50,14 +50,18 @@ def ranges_key(cfg: FormulaSearchConfig) -> tuple[tuple[str, int, int], ...]:
 
 def limits_key(cfg: FormulaSearchConfig) -> tuple[tuple[str, float], ...]:
     """Хэшируемое представление предельных отношений элемент/C."""
-    limits = {
-        "H": float(cfg.max_hc),
-        "O": float(cfg.max_oc),
-        "N": float(cfg.max_nc),
-        "S": float(cfg.max_sc),
-        "P": float(cfg.max_pc),
-    }
-    x_limit = float("inf") if cfg.max_xc is None else float(cfg.max_xc)
+    if cfg.ratios_enabled:
+        limits = {
+            "H": float(cfg.max_hc),
+            "O": float(cfg.max_oc),
+            "N": float(cfg.max_nc),
+            "S": float(cfg.max_sc),
+            "P": float(cfg.max_pc),
+        }
+        x_limit = float("inf") if cfg.max_xc is None else float(cfg.max_xc)
+    else:
+        limits = {el: _INF for el in ("H", "O", "N", "S", "P")}
+        x_limit = _INF
     for el in HALOGENS:
         limits[el] = x_limit
     return tuple(sorted(limits.items()))
@@ -278,7 +282,7 @@ def _generate_candidate_formulas(
         ranges_key(cfg),
         limits_key(cfg),
         cfg.min_c,
-        cfg.max_dbe,
+        float("inf") if not cfg.nom_dbe_enabled else cfg.max_dbe,
         mode,
     )
     return [tuple(row) + (m,) for row, m in zip(rows, masses)]

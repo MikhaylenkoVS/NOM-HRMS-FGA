@@ -908,7 +908,12 @@ class TestIntensityProfile:
             profile_check=True,
             profile_max_jump=10.0,
         )
-        assert result.empty
+        assert not result.empty
+        row = result.iloc[0]
+        assert bool(row["profile_ok"]) is False
+        assert any(
+            "intensity_profile" in d.get("penalties", {}) for d in row["step_details"]
+        )
 
     def test_smooth_profile_accepted(self):
         src = _make_src_spectrum([100.0])
@@ -931,7 +936,12 @@ class TestIntensityProfile:
             profile_max_jump=None,
             profile_max_corr=0.5,
         )
-        assert result.empty
+        assert not result.empty
+        row = result.iloc[0]
+        assert bool(row["profile_ok"]) is False
+        assert any(
+            "intensity_profile" in d.get("penalties", {}) for d in row["step_details"]
+        )
 
 
 class TestSeriesPolicy:
@@ -989,6 +999,24 @@ class TestSeriesPolicy:
         assert row["confirmed_length"] == 0
         assert row["step_details"][0]["confidence"] <= 70
         assert any("изотоп" in r for r in row["step_details"][0]["reasons"])
+
+    def test_conflict_without_previous_step_is_penalized(self):
+        src = self._src([100.0, 100.0 + self.DELTA])
+        deriv = _make_deriv_spectrum(
+            [
+                100.0 + self.DELTA,
+                100.0 + 2 * self.DELTA,
+                100.0 + 3 * self.DELTA,
+            ]
+        )
+        result = find_series(src, deriv, self.DELTA, max_groups=5, max_gaps=1)
+        assert not result.empty
+        # Якорь 117.03448: его шаг 1 — это шаг 2 якоря 100. У него нет
+        # предыдущей ступени, поэтому должен быть дополнительный штраф.
+        row_b = result[result["mass_src"].round(5) == round(100.0 + self.DELTA, 5)]
+        assert not row_b.empty
+        details = row_b.iloc[0]["step_details"]
+        assert any("conflict_no_prev" in d.get("penalties", {}) for d in details)
 
     def test_gap_has_reason_and_confidence(self):
         src = self._src([100.0])

@@ -150,6 +150,8 @@ def run_pipeline(
     # Пользовательский фильтр X/C = (F+Cl+Br+I)/C. None — фильтр выключен
     # (по умолчанию); значение задаётся в GUI/CLI.
     max_xc: float | None = None,
+    ratios_enabled: bool = True,
+    nom_dbe_enabled: bool = True,
     # Предельное число атомов галогенов в брутто-формуле (пользовательский
     # предел, по умолчанию 5).
     halogen_max_atoms: int = 5,
@@ -356,6 +358,8 @@ def run_pipeline(
             profile_max_jump,
             profile_max_corr,
             max_xc,
+            bool(ratios_enabled),
+            bool(nom_dbe_enabled),
             halogen_max_atoms,
             halogen_exhaustive,
             halogen_max_combinations,
@@ -436,8 +440,14 @@ def run_pipeline(
     if search_config is not None:
         # X/C — пользовательская настройка (None = выключен)
         search_config.max_xc = max_xc
-    elif max_xc is not None:
-        search_config = FormulaSearchConfig(max_xc=max_xc)
+        search_config.ratios_enabled = bool(ratios_enabled)
+        search_config.nom_dbe_enabled = bool(nom_dbe_enabled)
+    elif max_xc is not None or not ratios_enabled or not nom_dbe_enabled:
+        search_config = FormulaSearchConfig(
+            max_xc=max_xc,
+            ratios_enabled=bool(ratios_enabled),
+            nom_dbe_enabled=bool(nom_dbe_enabled),
+        )
     _debug(
         f"assign_formulas: rel_error={rel_error}, sign={sign}, "
         f"ion_mode={ion_mode}, mass_min={assign_mass_min}, mass_max={assign_mass_max}"
@@ -540,6 +550,7 @@ def run_pipeline(
         67,
         messages,
         progress_callback,
+        raw_path=src_path,
     )
 
     # -----------------------------------------------------------------------
@@ -576,6 +587,7 @@ def run_pipeline(
         82,
         messages,
         progress_callback,
+        raw_path=src_path,
     )
 
     # -----------------------------------------------------------------------

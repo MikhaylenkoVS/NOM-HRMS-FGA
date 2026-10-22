@@ -442,6 +442,19 @@ class ParamsMixin:
             command=self._show_db_variants,
         ).grid(row=14, column=0, sticky="w", padx=6, pady=(2, 8))
 
+        limits_row = ttk.Frame(lf)
+        limits_row.grid(row=15, column=0, sticky="w", padx=6, pady=(4, 2))
+        ttk.Checkbutton(
+            limits_row,
+            text="NOM-ratio limits (H/C, O/C, N/C, S/C, P/C)",
+            variable=self.ratios_enabled_var,
+        ).pack(side="left")
+        ttk.Checkbutton(
+            limits_row,
+            text="NOM DBE limit",
+            variable=self.nom_dbe_enabled_var,
+        ).pack(side="left", padx=12)
+
     # Элементы галогенов в порядке отображения в окне настроек.
     _HALOGEN_ORDER = ("F", "Cl", "Br", "I")
     #: Сколько комбинаций проверять в обычном режиме (по приоритету).
@@ -892,6 +905,8 @@ class ParamsMixin:
             max_gaps=int(_to_float(self.max_gaps_var.get()) or 0),
             denoise_derivatives=self.denoise_derivatives_var.get(),
             require_first_step=self.require_first_step_var.get(),
+            ratios_enabled=self.ratios_enabled_var.get(),
+            nom_dbe_enabled=self.nom_dbe_enabled_var.get(),
             isotope_filter=self.isotope_filter_var.get(),
             isotope_variants=self.isotope_variants_var.get(),
             max_xc=(

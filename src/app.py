@@ -260,6 +260,8 @@ class App(
         self.require_first_step_var = tk.BooleanVar(
             value=bool(_GUI_DEFAULTS.get("require_first_step", False))
         )
+        self.ratios_enabled_var = tk.BooleanVar(value=True)
+        self.nom_dbe_enabled_var = tk.BooleanVar(value=True)
         # Изотопные проверки включены по умолчанию: паттерн M+1/M+2 учитывается
         # при выборе формулы, а для найденных формул ищутся изотопные варианты.
         self.isotope_filter_var = tk.BooleanVar(value=True)

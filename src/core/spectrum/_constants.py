@@ -101,6 +101,10 @@ class FormulaSearchConfig:
     # по умолчанию ограничение не применяется (см. ADR/задачу db-02).
     max_xc: float | None = None
     max_dbe: float = _FORMULA_SEARCH["max_dbe"]  # DBE <= 30
+    # Пользовательские переключатели: NOM-ratio и NOM-верхний предел DBE.
+    # Химическая DBE >= 0 / валентность остаются всегда включёнными.
+    ratios_enabled: bool = True
+    nom_dbe_enabled: bool = True
     min_c: int = _FORMULA_SEARCH["min_c"]  # minimum carbons
     # Штрафы за экзотические гетероатомы (на атом) и бонус за изотопное
     # подтверждение M+2 — см. _penalty_note в formula_search.json.

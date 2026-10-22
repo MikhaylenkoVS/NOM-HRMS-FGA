@@ -54,8 +54,12 @@ class ResultsMixin:
         warn_count = 0
         for i, (_, r) in enumerate(df.iterrows()):
             try:
-                n_cooh = int(r.get("N_COOH", 0))
-                n_oh = int(r.get("N_OH", 0))
+                n_cooh = r.get("N_COOH_display", None)
+                n_oh = r.get("N_OH_display", None)
+                if n_cooh is None or (isinstance(n_cooh, float) and pd.isna(n_cooh)):
+                    n_cooh = int(r.get("N_COOH", 0))
+                if n_oh is None or (isinstance(n_oh, float) and pd.isna(n_oh)):
+                    n_oh = int(r.get("N_OH", 0))
             except (ValueError, TypeError):
                 n_cooh = 0
                 n_oh = 0
@@ -143,6 +147,31 @@ class ResultsMixin:
         )
         t.start()
 
+    def _show_series_reasons(self, row):
+        """Показать причины ambiguous по каждой степени серии."""
+        lines = []
+        for key, label in (
+            ("N_COOH_details", "CD3"),
+            ("N_OH_details", "CD3CO"),
+        ):
+            details = row.get(key)
+            if not isinstance(details, list):
+                continue
+            for d in details:
+                if d.get("status") not in ("ambiguous", "gap"):
+                    continue
+                reasons = d.get("reasons") or []
+                if not reasons:
+                    continue
+                lines.append(
+                    f"{label}, шаг {d.get('n')}: "
+                    + "; ".join(str(r) for r in reasons)
+                    + f" (confidence {d.get('confidence', '?')}%)"
+                )
+        if not lines:
+            lines = ["Нет ambiguous-причин: все шаги reliable."]
+        messagebox.showinfo("Причины ambiguous", chr(10).join(lines))
+
     def _on_formula_double_click(self, event):
         """Двойной клик по строке таблицы — выбор формулы из кандидатов."""
         selection = self.result_tree.selection()
@@ -160,7 +189,8 @@ class ResultsMixin:
         row = self.result_df.iloc[idx]
         candidates = row.get("all_candidates", None)
         if not isinstance(candidates, list) or len(candidates) <= 1:
-            return  # только один кандидат — нечего выбирать
+            self._show_series_reasons(row)
+            return  # только один кандидат — показываем причины ambiguous
 
         current_brutto = row.get("brutto", "")
 

@@ -94,22 +94,27 @@ GUI/CLI не показываются и не влияют на рабочую �
 
 ## 9. Статус реализации
 
-Реализовано в `find_series`:
+Реализовано:
 
-- новые значения по умолчанию (`max_gaps=0`, `require_first_step=False`);
+- новые значения по умолчанию (max_gaps=0, require_first_step=False);
 - запрет серий при отсутствии первых трёх ступеней;
-- удаление `min_series_length` и `drop_ambiguous`;
-- O-лимит, `confirmed_length`, `ambiguous_length`, `confidence`,
-  `display_length`, `step_details`;
-- штрафы за наложение исходника, O-превышение, изотопный статус и пропуск;
+- удаление min_series_length, drop_ambiguous, trim_to_confirmed_last;
+- O-лимит, confirmed_length, ambiguous_length, confidence,
+  display_length, step_details;
+- штрафы source overlap, O-excess, isotope, gap, conflict;
+- per-step RAW-метрики: persistence, shape, multi → poor_resolution;
+- профиль интенсивностей (скачок и корреляция) как штраф;
+- изотопный порог 3× шума в assign и iso_dev для пропорционального
+  штрафа в сериях;
+- NOM-ratio и NOM-DBE как переключатели GUI/CLI (химическая DBE всегда);
+- отчёт N_COOH/N_OH — confirmed-длина, N_*_display — 3(5),
+  N_*_details — причины; двойной клик в GUI показывает причины;
 - удаление вычитания исходника из pipeline/UI/CLI;
-- удаление `trim_to_confirmed_last` и persistence-статуса.
+- удаление persistence-статуса.
 
-Следующий этап:
+Осталось:
 
-- per-step profile/persistence/intensity штрафы (сейчас в `step_details`
-  только source/O/isotope/gap);
-- конфликтный штраф в `step_details`;
-- пропорциональный изотопный штраф внутри assign (сейчас используется
-  `iso_status` и относительное отклонение не сохраняется);
-- кликабельный вывод причин в GUI.
+- profile-разрешение наложений: сейчас любой n_src > 0 даёт ambiguous;
+  нужно переводить разрешённые наложения в reliable;
+- более точное решение по изотопам, когда оба кандидата выше/ниже 3× шума
+  (сейчас сильный штраф, но без полного попарного сравнения).
