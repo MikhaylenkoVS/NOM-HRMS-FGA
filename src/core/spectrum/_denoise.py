@@ -21,6 +21,8 @@ def denoise(
     force=2.0,
     intensity=None,
     quantile=None,
+    intensity_relative=False,
+    max_removed_ratio=None,
 ):
     """Remove noise peaks from a spectrum.
 
@@ -33,9 +35,17 @@ def denoise(
     force : float, keyword-only, optional
         Multiplier applied to the auto-detected noise level. Default 2.0.
     intensity : float, keyword-only, optional
-        Hard absolute intensity threshold. Takes priority when given.
+        Intensity threshold. Takes priority when given.
     quantile : float, keyword-only, optional
         Lower intensity quantile in [0, 1]. Used if ``intensity`` is None.
+    intensity_relative : bool, keyword-only, optional
+        If True, ``intensity`` is a fraction of the base peak (max
+        intensity = 1); must be in ``(0, 1]``. If False (default),
+        ``intensity`` is an absolute threshold.
+    max_removed_ratio : float or None, keyword-only, optional
+        Override the safety guard: if the threshold removes more than this
+        fraction of peaks, the filter is skipped. ``1.0`` disables the guard;
+        ``None`` (default) uses ``NOISE_CFG.max_removed_ratio``.
 
     Returns
     -------
@@ -46,7 +56,13 @@ def denoise(
     -----
     Parameter priority is ``intensity`` > ``quantile`` > ``force``.
     """
-    return spec.noise_filter(force=force, intensity=intensity, quantile=quantile)
+    return spec.noise_filter(
+        force=force,
+        intensity=intensity,
+        quantile=quantile,
+        intensity_relative=intensity_relative,
+        max_removed_ratio=max_removed_ratio,
+    )
 
 
 # ===========================================================================

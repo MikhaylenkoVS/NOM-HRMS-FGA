@@ -61,13 +61,16 @@ def find_manifest() -> Path | None:
     Переменная окружения ``NOM_FORMULA_DB=chnosp|chorsphal|none`` позволяет
     переопределить выбор.
     """
-    dirs: list[Path] = []
-    # Проектный путь: <repo>/data/formula_db
-    dirs.append(Path(__file__).resolve().parents[3] / "data" / "formula_db")
-    # PyInstaller onefile распаковывает данные в sys._MEIPASS
-    meipass = getattr(sys, "_MEIPASS", None)
-    if meipass:
-        dirs.append(Path(meipass) / "data" / "formula_db")
+    # Проект, PyInstaller-бандл и user data (скачанная отдельно база).
+    try:
+        from src.core.formula_db._variants import search_dirs
+
+        dirs = search_dirs()
+    except Exception:
+        dirs = [Path(__file__).resolve().parents[3] / "data" / "formula_db"]
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            dirs.append(Path(meipass) / "data" / "formula_db")
     try:
         from src.core.formula_db._variants import active_variant
 
@@ -370,23 +373,26 @@ def _passes_filters(counts: dict[str, int], cfg: FormulaSearchConfig) -> bool:
     s_at = counts.get("S", 0)
     x_at = sum(counts.get(el, 0) for el in HALOGENS)
 
-    if h > cfg.max_hc * c:
-        return False
-    if o_at > cfg.max_oc * c:
-        return False
-    if n_at > cfg.max_nc * c:
-        return False
-    if s_at > cfg.max_sc * c:
-        return False
-    if p_at > cfg.max_pc * c:
-        return False
-    if cfg.max_xc is not None and x_at > cfg.max_xc * c:
-        return False
+    if cfg.ratios_enabled:
+        if h > cfg.max_hc * c:
+            return False
+        if o_at > cfg.max_oc * c:
+            return False
+        if n_at > cfg.max_nc * c:
+            return False
+        if s_at > cfg.max_sc * c:
+            return False
+        if p_at > cfg.max_pc * c:
+            return False
+        if cfg.max_xc is not None and x_at > cfg.max_xc * c:
+            return False
 
     dbe_num = 2 * c + 2 + n_at + p_at - h - x_at
     if dbe_num < 0 or dbe_num % 2:
         return False
-    return (dbe_num / 2.0) <= cfg.max_dbe
+    if cfg.nom_dbe_enabled and (dbe_num / 2.0) > cfg.max_dbe:
+        return False
+    return True
 
 
 def _combo_delta_u(combo: tuple[tuple[str, int], ...]) -> int:

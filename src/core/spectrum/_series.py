@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from src.configs import CHEM
 from ._chem import exact_mass_from_counts
+from ._penalty import PenaltyWeights
 from ._generate import _neutral_to_ion_mass
 from src.core.domain.molecule import parse_formula
 
@@ -63,6 +64,83 @@ def _find_peak_sorted(mz_sorted: np.ndarray, target_mz: float, ppm_tol: float):
     return best
 
 
+def _count_in_window(sorted_mz: np.ndarray, target_mz: float, ppm_tol: float) -> int:
+    """Сколько пиков попадает в ppm-окно вокруг target."""
+    if sorted_mz.size == 0:
+        return 0
+    tol = abs(target_mz) * float(ppm_tol) * 1e-6
+    lo = int(np.searchsorted(sorted_mz, target_mz - tol, side="left"))
+    hi = int(np.searchsorted(sorted_mz, target_mz + tol, side="right"))
+    return max(0, hi - lo)
+
+
+def _peaks_in_window(
+    sorted_mz: np.ndarray, target_mz: float, ppm_tol: float
+) -> list[float]:
+    """Список пиков в ppm-окне вокруг target."""
+    if sorted_mz.size == 0:
+        return []
+    tol = abs(target_mz) * float(ppm_tol) * 1e-6
+    lo = int(np.searchsorted(sorted_mz, target_mz - tol, side="left"))
+    hi = int(np.searchsorted(sorted_mz, target_mz + tol, side="right"))
+    return [float(v) for v in sorted_mz[lo:hi]]
+
+
+def _series_o_limit(brutto: str, delta: float, max_groups: int) -> int:
+    """Предел длины по кислороду: CD3 — O//2, CD3CO — O."""
+    try:
+        counts = parse_formula(str(brutto))
+    except Exception:
+        return int(max_groups)
+    o = int(counts.get("O", 0))
+    d = float(delta)
+    if abs(d - float(CHEM.derivatization_shifts["delta_cd3"])) < 0.01:
+        return min(int(max_groups), o // 2)
+    if abs(d - float(CHEM.derivatization_shifts["delta_cd3co"])) < 0.01:
+        return min(int(max_groups), o)
+    return int(max_groups)
+
+
+def _add_penalty(detail: dict, key: str, value: float, reason: str) -> None:
+    """Добавить/усилить штраф и причину, не дублируя текст."""
+    if value <= 0:
+        return
+    penalties = detail.setdefault("penalties", {})
+    penalties[key] = max(float(penalties.get(key, 0.0)), float(value))
+    reasons = detail.setdefault("reasons", [])
+    if reason not in reasons:
+        reasons.append(reason)
+
+
+def _finalize_policy(details: list[dict]) -> dict:
+    """Пересчитать confidence/confirmed/ambiguous по текущим штрафам."""
+    for d in details:
+        total = min(100.0, float(sum(d.get("penalties", {}).values())))
+        d["confidence"] = round(100.0 - total, 1)
+        if d.get("status") != "gap":
+            d["status"] = "reliable" if total == 0.0 else "ambiguous"
+
+    reliable_ns = [d["n"] for d in details if d.get("status") == "reliable"]
+    confirmed = max(reliable_ns, default=0)
+    ambiguous_ns = [
+        d["n"] for d in details if d.get("status") != "reliable" and d["n"] > confirmed
+    ]
+    ambiguous = max(ambiguous_ns, default=confirmed)
+    amb_confs = [
+        d["confidence"]
+        for d in details
+        if d.get("status") != "reliable" and d["n"] > confirmed
+    ]
+    confidence = min(amb_confs, default=100.0)
+    display = f"{confirmed}({ambiguous})" if ambiguous > confirmed else str(confirmed)
+    return {
+        "confirmed_length": int(confirmed),
+        "ambiguous_length": int(ambiguous),
+        "confidence": float(confidence),
+        "display_length": display,
+    }
+
+
 @lru_cache(maxsize=200_000)
 def _theor_ion_mass_cached(brutto_str: str, ion_mode: str) -> float:
     """Теоретическая m/z по брутто-формуле (кэш между вызовами и прогонами)."""
@@ -76,11 +154,20 @@ def find_series(
     delta,
     ppm_tol=5.0,
     max_groups=20,
-    max_gaps=1,
-    require_first_step: bool = True,
+    max_gaps=0,
+    require_first_step: bool = False,
     significance_level: float = 0.95,
+    anchor_column: str | None = None,
+    profile_check: bool = False,
+    formula_check: bool = False,
+    profile_max_jump: float | None = 10.0,
+    profile_max_corr: float | None = 0.5,
+    raw_path: str | None = None,
+    profile_scans: int = 16,
+    resolution_scans: int | None = None,
+    profile_min_persistence: float = 0.8,
+    weights: PenaltyWeights | None = None,
     allow_gaps: bool | None = None,
-    min_series_length=1,
     max_consecutive_misses=3,
     ion_mode: str | None = None,
     progress_callback=None,
@@ -116,6 +203,21 @@ def find_series(
         Устаревший синоним: ``False`` эквивалентно ``max_gaps=0``, ``True``
         и ``None`` — используется ``max_gaps`` (число пропусков ограничено).
         Оставлен для совместимости. Default ``None``.
+    profile_check : bool, optional
+        Включить проверку профиля интенсивностей продуктов (по умолчанию
+        выключено — сначала сравниваем на данных). Default ``False``.
+    profile_max_jump : float or None, optional
+        Максимально допустимое отношение I(n+1)/I(n) между соседними
+        ступенями. ``None`` — проверка отключена. Default 10.0.
+    profile_max_corr : float or None, optional
+        Максимально допустимая корреляция Спирмена «номер ступени —
+        интенсивность». ``None`` — отключена. Default 0.5.
+    anchor_column : str or None, optional
+        Колонка исходного спектра с наблюдаемой m/z того же соединения в
+        производном спектре (``anchor_mz_dmet`` / ``anchor_mz_dacet``).
+        Если задана и значение не пустое, шаг считается от неё, а не от
+        теоретической массы (компенсация дрейфа калибровки).
+        Default ``None`` (теоретическая масса).
     significance_level : float, optional
         Уровень доверия для длины серии (0.95 → порог p < 0.05).
         Значимость считается по локальной плотности пиков (ADR-0009).
@@ -159,13 +261,13 @@ def find_series(
     listed under ``missing``.
     """
 
+    weights = weights or PenaltyWeights()
     if ppm_tol <= 0:
         raise ValueError(f"ppm_tol должно быть > 0, получено {ppm_tol}")
-    if max_groups < 1 or min_series_length < 1 or max_consecutive_misses < 1:
+    if max_groups < 1 or max_consecutive_misses < 1:
         raise ValueError(
-            f"max_groups ({max_groups}), min_series_length ({min_series_length}) "
-            f"и max_consecutive_misses ({max_consecutive_misses}) "
-            "должны быть >= 1"
+            f"max_groups ({max_groups}) и max_consecutive_misses "
+            f"({max_consecutive_misses}) должны быть >= 1"
         )
     # Совместимость: allow_gaps=False — это max_gaps=0 (без пропусков).
     # allow_gaps=True больше не означает «пропусков сколько угодно»: их число
@@ -187,11 +289,17 @@ def find_series(
         )
 
     mz_deriv = deriv.table["mass"].values
+    int_deriv = (
+        np.asarray(deriv.table["intensity"].values, dtype=float)
+        if "intensity" in deriv.table.columns
+        else np.ones(len(mz_deriv), dtype=float)
+    )
     records = []
 
     # Вероятность случайного попадания в окно на одном шаге: отношение
     # ширины окна к среднему шагу между пиками производного спектра.
     _mz_sorted = np.sort(np.asarray(mz_deriv, dtype=float))
+    _src_mz_sorted = np.sort(np.asarray(src.table["mass"], dtype=float))
     _span = float(_mz_sorted[-1] - _mz_sorted[0]) if _mz_sorted.size > 1 else 0.0
     _spacing = _span / max(1, _mz_sorted.size - 1) if _span > 0 else 0.0
     if not 0.0 < float(significance_level) < 1.0:
@@ -225,18 +333,26 @@ def find_series(
                 m0_theor = m0_obs
         except Exception:
             m0_theor = m0_obs
+
+        m0_ref = m0_theor
+        if anchor_column:
+            anchor_val = getattr(row, anchor_column, None)
+            if anchor_val is not None and not pd.isna(anchor_val):
+                m0_ref = float(anchor_val)
         found_steps = []
         series_mz = []
+        found_intensities = []
         consecutive_misses = 0
         gaps = 0
 
         for step in range(1, max_groups + 1):
-            target = m0_theor + step * delta
+            target = m0_ref + step * delta
             idx = _find_peak_sorted(_mz_sorted, target, ppm_tol)
 
             if idx is not None:
                 found_steps.append(step)
                 series_mz.append(float(_mz_sorted[idx]))
+                found_intensities.append(float(int_deriv[idx]))
                 consecutive_misses = 0
             else:
                 series_mz.append(None)
@@ -261,9 +377,12 @@ def find_series(
             missing_steps = sorted(all_steps - set(found_steps))
             trimmed = series_mz[:n_groups]
 
+        # Первые три ступени отсутствуют — серия не считается, даже если
+        # пользователь отключил require_first_step (защита от случайных
+        # совпадений на высоких степенях).
+        if not any(step in found_steps for step in (1, 2, 3)):
+            continue
         if require_first_step and 1 not in found_steps:
-            # Первая ступень не подтверждена — серия не считается
-            # (точность важнее полноты: см. ADR-0008/0009).
             continue
 
         # Статистическая значимость длины: сколько шагов подтверждено и
@@ -277,7 +396,138 @@ def find_series(
             p_value = 1.0
         significant = bool(p_value < p_threshold)
 
-        if n_groups >= min_series_length:
+        # Профиль интенсивностей: у реальной молекулы продукты 1..k образуют
+        # согласованную смесь; случайные наборы пиков такого профиля не дают.
+        max_jump = float("nan")
+        int_corr = float("nan")
+        profile_ok = True
+        if profile_check and len(found_steps) >= 2:
+            ints = np.asarray(found_intensities, dtype=float)
+            steps_arr = np.asarray(found_steps, dtype=float)
+            if np.all(ints > 0):
+                max_jump = float(np.max(ints[1:] / ints[:-1]))
+                ranks_i = np.argsort(np.argsort(ints)).astype(float)
+                ranks_s = np.argsort(np.argsort(steps_arr)).astype(float)
+                if ranks_i.std() > 0 and ranks_s.std() > 0:
+                    int_corr = float(np.corrcoef(ranks_s, ranks_i)[0, 1])
+            if profile_max_jump is not None and np.isfinite(max_jump):
+                profile_ok = profile_ok and bool(max_jump <= profile_max_jump)
+            if profile_max_corr is not None and np.isfinite(int_corr):
+                profile_ok = profile_ok and bool(int_corr <= profile_max_corr)
+
+        if found_steps:
+            o_limit = _series_o_limit(brutto, delta, max_groups)
+            found_mz = {
+                int(step): series_mz[int(step) - 1]
+                for step in found_steps
+                if 0 <= int(step) - 1 < len(series_mz)
+            }
+            iso_status = str(getattr(row, "iso_status", "") or "")
+            try:
+                iso_dev = float(getattr(row, "iso_dev", float("nan")))
+            except (TypeError, ValueError):
+                iso_dev = float("nan")
+            details = []
+            for n in range(1, n_groups + 1):
+                if n not in found_mz:
+                    details.append(
+                        {
+                            "n": n,
+                            "status": "gap",
+                            "confidence": 100.0 - weights.gap(1),
+                            "penalties": {"gap": weights.gap(1)},
+                            "reasons": ["пропуск шага"],
+                        }
+                    )
+                    continue
+                target = m0_ref + n * delta
+                src_hits = _peaks_in_window(_src_mz_sorted, target, ppm_tol)
+                n_src = len(src_hits)
+                n_deriv = _count_in_window(_mz_sorted, target, ppm_tol)
+                penalties = {}
+                reasons = []
+                if n_src > 0:
+                    penalties["source_overlap"] = weights.source_overlap(n_src)
+                    reasons.append("наложение на пик исходного спектра")
+                if n > o_limit:
+                    penalties["o_excess"] = weights.o_excess(n - o_limit)
+                    reasons.append(
+                        "превышение допустимой длины по количеству атомов кислорода"
+                    )
+                if iso_status == "inconsistent":
+                    if np.isfinite(iso_dev):
+                        iso_pen = weights.isotope(iso_dev)
+                    else:
+                        iso_pen = weights.isotope(float("nan"))
+                    penalties["isotope"] = iso_pen
+                    reasons.append("изотопный паттерн не подтверждён")
+                total = min(100.0, float(sum(penalties.values())))
+                details.append(
+                    {
+                        "n": n,
+                        "mz": float(found_mz[n]),
+                        "n_deriv": int(n_deriv),
+                        "n_src": int(n_src),
+                        "src_mz": src_hits,
+                        "o_excess": bool(n > o_limit),
+                        "iso_status": iso_status,
+                        "iso_dev": float(iso_dev),
+                        "status": "reliable" if total == 0.0 else "ambiguous",
+                        "confidence": round(100.0 - total, 1),
+                        "penalties": penalties,
+                        "reasons": reasons,
+                    }
+                )
+            # Профиль интенсивностей: штрафуем конкретный скачок/корреляцию.
+            if profile_check and len(found_intensities) >= 2:
+                ints = np.asarray(found_intensities, dtype=float)
+                if np.all(ints > 0):
+                    ratios = ints[1:] / ints[:-1]
+                    worst = int(np.argmax(ratios))
+                    jump = float(ratios[worst])
+                    jump_step = int(found_steps[worst + 1])
+                    detail = next(
+                        (d for d in details if int(d["n"]) == jump_step), None
+                    )
+                    if detail is not None:
+                        detail["intensity_jump"] = jump
+                    if (
+                        detail is not None
+                        and detail.get("status") != "reliable"
+                        and profile_max_jump is not None
+                        and jump > float(profile_max_jump)
+                    ):
+                        _add_penalty(
+                            detail,
+                            "intensity_profile",
+                            weights.intensity(
+                                5.0 * (jump / float(profile_max_jump) - 1.0)
+                            ),
+                            "скачок интенсивности между ступенями",
+                        )
+                    if (
+                        profile_max_corr is not None
+                        and np.isfinite(int_corr)
+                        and int_corr > float(profile_max_corr)
+                    ):
+                        last_detail = details[-1]
+                        last_detail["int_corr"] = float(int_corr)
+                        if last_detail.get("status") == "reliable":
+                            continue
+                        _add_penalty(
+                            last_detail,
+                            "intensity_profile",
+                            weights.intensity(
+                                5.0 * (float(int_corr) - float(profile_max_corr)) / 0.5
+                            ),
+                            "несогласованный профиль интенсивностей",
+                        )
+
+            policy = _finalize_policy(details)
+            confirmed_length = policy["confirmed_length"]
+            ambiguous_length = policy["ambiguous_length"]
+            series_confidence = policy["confidence"]
+            display_length = policy["display_length"]
             records.append(
                 {
                     "mass_src": m0_obs,
@@ -288,13 +538,23 @@ def find_series(
                     "series_mz": trimmed,
                     "p_value": p_value,
                     "significant": significant,
+                    "profile_ok": profile_ok,
+                    "max_jump": max_jump,
+                    "int_corr": int_corr,
+                    "o_limit": int(o_limit),
+                    "confirmed_length": int(confirmed_length),
+                    "ambiguous_length": int(ambiguous_length),
+                    "ambiguous": bool(ambiguous_length > confirmed_length),
+                    "confidence": float(series_confidence),
+                    "display_length": display_length,
+                    "step_details": details,
                 }
             )
 
         if not found_steps:
             continue
 
-    return pd.DataFrame(
+    result = pd.DataFrame(
         records,
         columns=[
             "mass_src",
@@ -305,8 +565,192 @@ def find_series(
             "series_mz",
             "p_value",
             "significant",
+            "profile_ok",
+            "max_jump",
+            "int_corr",
+            "o_limit",
+            "confirmed_length",
+            "ambiguous_length",
+            "ambiguous",
+            "confidence",
+            "display_length",
+            "step_details",
         ],
     )
+
+    # Profile-разрешение наложений source/derivative. Если в объединённом
+    # окне видно >= 1 + n_src пиков, наложение разрешено: source-штраф
+    # снимается, и шаг может стать reliable.
+    if raw_path and not result.empty:
+        try:
+            from ._profile_resolve import ProfileResolver
+
+            resolver = ProfileResolver(raw_path, scans=resolution_scans)
+            for idx in range(len(result)):
+                for detail in result.at[idx, "step_details"]:
+                    src_mz = detail.get("src_mz") or []
+                    penalties = detail.get("penalties", {})
+                    if not src_mz or "source_overlap" not in penalties:
+                        continue
+                    center = float(detail["mz"])
+                    tol = abs(center) * float(ppm_tol) * 1e-6
+                    lo = min([center] + [float(v) for v in src_mz]) - tol
+                    hi = max([center] + [float(v) for v in src_mz]) + tol
+                    resolved = resolver.resolve(lo, hi)
+                    expected = 1 + len(src_mz)
+                    detail["profile_peaks"] = int(resolved["n_peaks"])
+                    detail["profile_expected"] = int(expected)
+                    if int(resolved["n_peaks"]) >= expected:
+                        penalties.pop("source_overlap", None)
+                        detail["reasons"] = [
+                            r for r in detail.get("reasons", []) if "исходного" not in r
+                        ]
+                        detail["profile_resolved"] = True
+                    else:
+                        deficit = (expected - int(resolved["n_peaks"])) / expected
+                        _add_penalty(
+                            detail,
+                            "poor_resolution",
+                            min(
+                                weights.poor_resolution_max,
+                                weights.poor_resolution_max * deficit,
+                            ),
+                            "плохое разрешение пиков",
+                        )
+        except Exception as exc:  # RAW может быть недоступен
+            logger.debug("profile resolution skipped: %s", exc)
+
+    # Per-step RAW-профиль: считаем метрики один раз на все уникальные
+    # m/z шагов, затем раздаём штрафы. Это не удаляет шаги.
+    if raw_path and not result.empty:
+        try:
+            from src.core.io.raw_profile import validate_masses
+
+            unique_masses = sorted(
+                {
+                    float(d["mz"])
+                    for details in result["step_details"]
+                    for d in details
+                    if "mz" in d
+                }
+            )
+            if unique_masses:
+                metrics = validate_masses(
+                    raw_path,
+                    unique_masses,
+                    ppm=ppm_tol,
+                    max_scans=profile_scans,
+                ).set_index("mass")
+                for idx in range(len(result)):
+                    for detail in result.at[idx, "step_details"]:
+                        if detail.get("status") == "reliable":
+                            continue
+                        mz = detail.get("mz")
+                        if mz is None or float(mz) not in metrics.index:
+                            continue
+                        met = metrics.loc[float(mz)]
+                        persistence = float(met["persistence"])
+                        detail["persistence"] = persistence
+                        detail["shape_ok"] = bool(met["shape_ok"])
+                        detail["multi"] = bool(met.get("multi", False))
+                        if persistence < profile_min_persistence:
+                            _add_penalty(
+                                detail,
+                                "persistence",
+                                weights.persistence(
+                                    persistence, profile_min_persistence
+                                ),
+                                f"низкая персистентность ({persistence:.0%})",
+                            )
+                        if not bool(met["shape_ok"]):
+                            _add_penalty(
+                                detail,
+                                "peak_profile",
+                                weights.peak_profile,
+                                "неудовлетворительная форма пика",
+                            )
+                        if bool(met.get("multi", False)):
+                            _add_penalty(
+                                detail,
+                                "poor_resolution",
+                                weights.multi_resolution,
+                                "несколько пиков в окне",
+                            )
+        except Exception as exc:  # профиль не должен ломать поиск
+            logger.debug("profile penalties skipped: %s", exc)
+
+    # Штрафы за конфликты: наложение пиков разных серий. Дополнительный
+    # штраф «без предыдущей ступени» — только когда пропуски разрешены.
+    if not result.empty:
+        from ._conflicts import analyze_conflicts
+
+        for cluster in analyze_conflicts(result, tolerance=0.001):
+            members = cluster.get("members", [])
+            if len(members) < 2:
+                continue
+            supported = set(cluster.get("supported", []))
+            mixed = bool(supported) and any(
+                int(m["row"]) not in supported for m in members
+            )
+            for member in members:
+                ridx = int(member["row"])
+                step = int(member["step"])
+                details = result.at[ridx, "step_details"]
+                detail = next((d for d in details if int(d["n"]) == step), None)
+                if detail is None:
+                    continue
+                detail["conflict_overlap"] = True
+                _add_penalty(
+                    detail,
+                    "conflict_overlap",
+                    weights.conflict_overlap,
+                    "наложение пика другой серии",
+                )
+                if max_gaps > 0 and mixed and ridx not in supported:
+                    detail["conflict_no_prev"] = True
+                    _add_penalty(
+                        detail,
+                        "conflict_no_prev",
+                        weights.conflict_no_prev,
+                        "конфликт без предыдущей ступени",
+                    )
+        for ridx in range(len(result)):
+            details = result.at[ridx, "step_details"]
+            policy = _finalize_policy(details)
+            result.at[ridx, "confirmed_length"] = policy["confirmed_length"]
+            result.at[ridx, "ambiguous_length"] = policy["ambiguous_length"]
+            result.at[ridx, "confidence"] = policy["confidence"]
+            result.at[ridx, "display_length"] = policy["display_length"]
+            result.at[ridx, "ambiguous"] = bool(
+                policy["ambiguous_length"] > policy["confirmed_length"]
+            )
+
+    # P2/P3: химическая проверка продукта и пометка конфликтов (опционально).
+    if formula_check and not result.empty:
+        from ._validate import attach_formula_check
+
+        if formula_check:
+            group = None
+            if (
+                abs(float(delta) - float(CHEM.derivatization_shifts["delta_cd3"]))
+                < 0.01
+            ):
+                group = "cd3"
+            elif (
+                abs(float(delta) - float(CHEM.derivatization_shifts["delta_cd3co"]))
+                < 0.01
+            ):
+                group = "cd3co"
+            if group:
+                counts_by_brutto = {}
+                for brutto in result["brutto"].unique():
+                    try:
+                        counts_by_brutto[str(brutto)] = parse_formula(str(brutto))
+                    except Exception:
+                        continue
+                result = attach_formula_check(result, group, counts_by_brutto)
+
+    return result
 
 
 # ===========================================================================

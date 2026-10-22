@@ -125,21 +125,33 @@ def run_pipeline(
     # Шумоподавление исходного спектра: можно отключить, если пиклист уже
     # отфильтрован прибором/исследователем (пункт 11).
     denoise_source: bool = True,
-    # Вычитание исходника из производных спектров: исключить все пики,
-    # дублирующиеся по m/z (без учёта интенсивностей).
-    subtract_source: bool = PIPELINE.run_pipeline_defaults.get("subtract_source", True),
-    subtract_ppm: float = PIPELINE.run_pipeline_defaults.get("subtract_ppm", 2.0),
     # Точность прежде полноты: без подтверждённой первой ступени серия
     # не считается (см. ADR-0008).
     require_first_step: bool = PIPELINE.run_pipeline_defaults.get(
-        "require_first_step", True
+        "require_first_step", False
     ),
     significance_level: float = PIPELINE.run_pipeline_defaults.get(
         "significance_level", 0.95
     ),
+    # Сдвиг ступеней: "theoretical" (от брутто) или "observed" (от
+    # наблюдаемого пика того же соединения в производном спектре).
+    series_anchor: str = PIPELINE.run_pipeline_defaults.get(
+        "series_anchor", "theoretical"
+    ),
+    anchor_ppm: float = PIPELINE.run_pipeline_defaults.get("anchor_ppm", 10.0),
+    # Профиль интенсивностей продуктов (опционально, по умолчанию выключен).
+    profile_check: bool = PIPELINE.run_pipeline_defaults.get("profile_check", False),
+    profile_max_jump: float | None = PIPELINE.run_pipeline_defaults.get(
+        "profile_max_jump", 10.0
+    ),
+    profile_max_corr: float | None = PIPELINE.run_pipeline_defaults.get(
+        "profile_max_corr", 0.5
+    ),
     # Пользовательский фильтр X/C = (F+Cl+Br+I)/C. None — фильтр выключен
     # (по умолчанию); значение задаётся в GUI/CLI.
     max_xc: float | None = None,
+    ratios_enabled: bool = True,
+    nom_dbe_enabled: bool = True,
     # Предельное число атомов галогенов в брутто-формуле (пользовательский
     # предел, по умолчанию 5).
     halogen_max_atoms: int = 5,
@@ -338,11 +350,16 @@ def run_pipeline(
             use_formula_db,
             denoise_derivatives,
             denoise_source,
-            subtract_source,
-            subtract_ppm,
             require_first_step,
             significance_level,
+            series_anchor,
+            anchor_ppm,
+            profile_check,
+            profile_max_jump,
+            profile_max_corr,
             max_xc,
+            bool(ratios_enabled),
+            bool(nom_dbe_enabled),
             halogen_max_atoms,
             halogen_exhaustive,
             halogen_max_combinations,
@@ -407,8 +424,8 @@ def run_pipeline(
         progress_callback,
         denoise_derivatives,
         denoise_source,
-        subtract_source,
-        subtract_ppm,
+        series_anchor,
+        anchor_ppm,
     )
 
     # -----------------------------------------------------------------------
@@ -423,8 +440,14 @@ def run_pipeline(
     if search_config is not None:
         # X/C — пользовательская настройка (None = выключен)
         search_config.max_xc = max_xc
-    elif max_xc is not None:
-        search_config = FormulaSearchConfig(max_xc=max_xc)
+        search_config.ratios_enabled = bool(ratios_enabled)
+        search_config.nom_dbe_enabled = bool(nom_dbe_enabled)
+    elif max_xc is not None or not ratios_enabled or not nom_dbe_enabled:
+        search_config = FormulaSearchConfig(
+            max_xc=max_xc,
+            ratios_enabled=bool(ratios_enabled),
+            nom_dbe_enabled=bool(nom_dbe_enabled),
+        )
     _debug(
         f"assign_formulas: rel_error={rel_error}, sign={sign}, "
         f"ion_mode={ion_mode}, mass_min={assign_mass_min}, mass_max={assign_mass_max}"
@@ -488,6 +511,12 @@ def run_pipeline(
         progress_callback("Назначение формул завершено", 52)
 
     # -----------------------------------------------------------------------
+    # Колонка наблюдаемых «якорей» (режим series_anchor="observed")
+    if str(series_anchor).lower() == "observed":
+        _anchor_col, _anchor_col2 = "anchor_mz_dmet", "anchor_mz_dacet"
+    else:
+        _anchor_col, _anchor_col2 = None, None
+
     # ШАГ 3: Серии CD3 (N_COOH)
     # -----------------------------------------------------------------------
     print()
@@ -507,6 +536,10 @@ def run_pipeline(
         max_gaps,
         require_first_step,
         significance_level,
+        _anchor_col,
+        profile_check,
+        profile_max_jump,
+        profile_max_corr,
         ion_mode,
         stats.dmet,
         "dmet",
@@ -517,6 +550,7 @@ def run_pipeline(
         67,
         messages,
         progress_callback,
+        raw_path=dmet_path,
     )
 
     # -----------------------------------------------------------------------
@@ -539,6 +573,10 @@ def run_pipeline(
         max_gaps,
         require_first_step,
         significance_level,
+        _anchor_col2,
+        profile_check,
+        profile_max_jump,
+        profile_max_corr,
         ion_mode,
         stats.dacet,
         "dacet",
@@ -549,6 +587,7 @@ def run_pipeline(
         82,
         messages,
         progress_callback,
+        raw_path=dacet_path,
     )
 
     # -----------------------------------------------------------------------

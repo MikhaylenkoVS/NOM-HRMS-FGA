@@ -303,6 +303,8 @@ class Spectrum:
         force: float = 2.0,
         intensity: float | None = None,
         quantile: float | None = None,
+        intensity_relative: bool = False,
+        max_removed_ratio: float | None = None,
         max_components: int = NOISE_CFG.max_components,
     ) -> Spectrum:
         """Remove noise peaks from the spectrum.
@@ -315,6 +317,17 @@ class Spectrum:
         Gaussians — the noise / signal boundary.  The result is multiplied
         by *force* (default 2.0; use 1.0 for the exact boundary).
 
+        ``intensity`` is an absolute threshold by default.  With
+        ``intensity_relative=True`` it is interpreted as a fraction of the
+        base peak (the most intense peak is 1.0), so the threshold is
+        comparable between spectra with different absolute scales; in that
+        mode ``intensity`` must be in ``(0, 1]``.
+
+        ``max_removed_ratio`` overrides the safety guard from
+        ``NOISE_CFG``: if the threshold would remove more than this fraction
+        of peaks, the filter is not applied (a warning is logged).  Pass
+        ``1.0`` to disable the guard.
+
         Returns a **new** Spectrum; does not mutate ``self``.
         """
         if quantile is not None and not 0.0 <= quantile <= 1.0:
@@ -323,7 +336,17 @@ class Spectrum:
             )
 
         if intensity is not None:
-            threshold = intensity
+            if intensity_relative:
+                if not 0.0 < intensity <= 1.0:
+                    raise ValueError(
+                        "при intensity_relative=True intensity должен быть "
+                        f"в (0, 1], получено {intensity!r}"
+                    )
+                intens = self.intensity
+                base = float(np.max(intens)) if intens.size else 0.0
+                threshold = intensity * base
+            else:
+                threshold = intensity
         elif quantile is not None:
             threshold = float(self.table["intensity"].quantile(quantile))
         else:
@@ -350,7 +373,11 @@ class Spectrum:
         n_total = len(self._peaks)
         if n_total:
             removed_ratio = 1.0 - len(keep) / n_total
-            max_removed = float(getattr(NOISE_CFG, "max_removed_ratio", 0.9))
+            max_removed = float(
+                getattr(NOISE_CFG, "max_removed_ratio", 0.9)
+                if max_removed_ratio is None
+                else max_removed_ratio
+            )
             if removed_ratio > max_removed:
                 logger.warning(
                     "Шумоподавление: порог %.3g отсекает %.0f%% пиков "

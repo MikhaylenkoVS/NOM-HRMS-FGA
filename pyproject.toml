@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nom-hrms-fga"
-version = "0.9.0"
+version = "0.10.0"
 description = "NOM HRMS FGA: functional-group analyzer for natural organic matter (NOM) mass spectra"
 readme = "README.md"
 license = {text = "MPL-2.0"}
@@ -34,6 +34,8 @@ dependencies = [
     # Используется src/core/formula_db/_manager.py для загрузки formula_db
     # (runtime, HTTPS). Обоснование: AGENTS.md, правило 7.
     "requests>=2.31",
+    # Пользовательский каталог для отдельно скачанных баз формул.
+    "platformdirs>=4.0",
 ]
 
 [project.optional-dependencies]

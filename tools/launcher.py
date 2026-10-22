@@ -8,6 +8,7 @@ silent exit (critical for --windowed / --noconsole builds).
 import sys
 import traceback
 import os
+import threading
 
 # -- Work around a common tkinter issue in PyInstaller onefile builds:
 #    the Tcl/Tk runtime may fail to locate its library path.
@@ -49,8 +50,28 @@ def _show_crash_dialog(message: str) -> None:
             print(message, file=sys.stderr)
 
 
+def _start_update_check() -> None:
+    """Фоновый автоапдейт по GitHub Releases (только для собранного exe)."""
+    if not getattr(sys, "frozen", False):
+        return
+    if os.environ.get("NOM_HRMS_DISABLE_UPDATE") == "1":
+        return
+
+    def worker() -> None:
+        try:
+            from tools.auto_updater import check_and_prompt
+
+            if check_and_prompt():
+                os._exit(0)
+        except Exception:
+            pass
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
 def main():
     try:
+        _start_update_check()
         from src.app import main as app_main
 
         app_main()

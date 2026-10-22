@@ -87,8 +87,15 @@ class TestM1MeasurementPolicy:
         row = row_for(assign(spec), target)
         assert bool(row["assign"]) is True
         assert "Cl" in str(row["brutto"]), row["brutto"]
+        # При пороге 3× шума M+2=336 < 600, поэтому статус uninformative.
+        assert row["iso_status"] == "uninformative"
+        assert bool(row["iso_halogen_unconfirmed"]) is True
+
+    def test_chlorinated_m2_above_3x_noise_is_confirmed(self):
+        target = {"C": 12, "H": 9, "Cl": 1, "O": 4}
+        spec = build_spectrum(target, satellites={2: 0.336}, noise_level=50.0)
+        row = row_for(assign(spec), target)
         assert row["iso_status"] == "confirmed"
-        assert bool(row["iso_halogen_unconfirmed"]) is False
 
     def test_brominated_m2_visible_m1_below_threshold(self):
         """Br: M+2 ≈ 97 %, M+1 ≈ 6.5 % ниже уровня шума."""

@@ -15,13 +15,18 @@
     "assign_mass_max": 1000,
     "ppm_tol": 2.0,
     "max_groups": 20,
-    "max_gaps": 1,
-    "allow_gaps": true,
+    "max_gaps": 0,
+    "allow_gaps": false,
     "denoise_derivatives": true,
-    "subtract_source": true,
-    "subtract_ppm": 2.0,
-    "require_first_step": true,
-    "significance_level": 0.95
+    "ratios_enabled": true,
+    "nom_dbe_enabled": true,
+    "require_first_step": false,
+    "significance_level": 0.95,
+    "series_anchor": "theoretical",
+    "anchor_ppm": 10.0,
+    "profile_check": false,
+    "profile_max_jump": 10.0,
+    "profile_max_corr": 0.5
   },
   "test_mode": {
     "load": {
@@ -44,9 +49,8 @@
     "series": {
       "ppm_tol": 0.5,
       "max_groups": 20,
-      "max_gaps": 1,
-      "allow_gaps": true,
-      "min_series_length": 1
+      "max_gaps": 0,
+      "allow_gaps": false
     },
     "match_ppm": 0.5
   },
@@ -66,8 +70,8 @@
     "assign_mass_max": 1000,
     "ppm_tol": 0.5,
     "max_groups": 20,
-    "max_gaps": 1,
-    "allow_gaps": true,
+    "max_gaps": 0,
+    "allow_gaps": false,
     "visualize": false
   }
 }

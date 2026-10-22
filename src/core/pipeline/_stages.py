@@ -99,8 +99,8 @@ def _denoise_triple(
     progress_callback,
     denoise_derivatives: bool = False,
     denoise_source: bool = True,
-    subtract_source: bool = False,
-    subtract_ppm: float = 5.0,
+    series_anchor: str = "theoretical",
+    anchor_ppm: float = 10.0,
 ):
     """Denoise the source spectrum; derivatives — только по явному запросу.
 
@@ -175,28 +175,28 @@ def _denoise_triple(
         f"  После шумоподавления: src={stats.src_denoised},  dmet={stats.dmet_denoised},  dacet={stats.dacet_denoised}"
     )
 
-    # Вычитание исходника из производных спектров (опционально):
-    # исключаем все пики, дублирующиеся по m/z, без учёта интенсивностей.
-    if subtract_source:
-        from src.core.spectrum._overlap import subtract_matching_peaks
+    # Режим «сдвиг от наблюдаемого пика»: до вычитания запоминаем m/z
+    # соответствующего пика дериватизата для каждого пика исходника.
+    if str(series_anchor).lower() == "observed":
+        from src.core.spectrum._overlap import anchor_masses
 
+        src_mz = src.table["mass"].to_numpy()
         for label, deriv_obj in (("dmet", dmet), ("dacet", dacet)):
             if deriv_obj is None or not hasattr(deriv_obj, "table"):
                 continue
-            cleaned, st = subtract_matching_peaks(deriv_obj, src, ppm_tol=subtract_ppm)
-            if label == "dmet":
-                dmet, stats.dmet_overlap_removed = cleaned, st["removed"]
-                stats.dmet_denoised = len(cleaned.table)
-            else:
-                dacet, stats.dacet_overlap_removed = cleaned, st["removed"]
-                stats.dacet_denoised = len(cleaned.table)
-            msg = (
-                f"  Вычитание исходника ({label}): удалено {st['removed']} из "
-                f"{st['total']} пиков ({st['removed_frac']:.1%}) при "
-                f"{subtract_ppm:g} ppm"
+            src.table[f"anchor_mz_{label}"] = anchor_masses(
+                src_mz,
+                deriv_obj.table["mass"].to_numpy(),
+                anchor_ppm,
             )
-            print(msg)
-            messages.append(msg.strip())
+        n_anchor = int(src.table["anchor_mz_dmet"].notna().sum())
+        msg = (
+            f"  Сдвиг от наблюдаемого пика: якорей dmet={n_anchor} из "
+            f"{len(src.table)} ({n_anchor / max(1, len(src.table)):.1%}) при "
+            f"{anchor_ppm:g} ppm"
+        )
+        print(msg)
+        messages.append(msg.strip())
 
     if progress_callback:
         progress_callback("Шумоподавление завершено", 20)
@@ -212,6 +212,10 @@ def _find_series_stage(
     max_gaps,
     require_first_step,
     significance_level,
+    anchor_column,
+    profile_check,
+    profile_max_jump,
+    profile_max_corr,
     ion_mode,
     series_stats,
     deriv_label,
@@ -222,6 +226,7 @@ def _find_series_stage(
     end_pct,
     messages,
     progress_callback,
+    raw_path: str | None = None,
 ):
     """Run ``find_series`` for one derivatization and update ``series_stats``."""
     df = pd.DataFrame()
@@ -238,7 +243,12 @@ def _find_series_stage(
             max_gaps=max_gaps,
             require_first_step=require_first_step,
             significance_level=significance_level,
+            anchor_column=anchor_column,
+            profile_check=profile_check,
+            profile_max_jump=profile_max_jump,
+            profile_max_corr=profile_max_corr,
             ion_mode=ion_mode,
+            raw_path=raw_path,
             progress_callback=cb,
         )
         series_stats.rows = len(df)

@@ -180,37 +180,56 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ppm-tol", type=float)
     p.add_argument("--max-groups", type=int)
     p.add_argument(
+        "--profile-check",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="проверять профиль интенсивностей продуктов (по умолчанию выключено)",
+    )
+    p.add_argument(
+        "--profile-max-jump",
+        type=float,
+        default=None,
+        help="максимальное отношение I(n+1)/I(n) между ступенями (0 — не проверять)",
+    )
+    p.add_argument(
+        "--profile-max-corr",
+        type=float,
+        default=None,
+        help="максимальная корреляция «номер ступени — интенсивность»",
+    )
+    p.add_argument(
+        "--series-anchor",
+        choices=["theoretical", "observed"],
+        default=None,
+        help="от чего считать сдвиг ступеней: от теоретической массы брутто "
+        "(theoretical) или от наблюдаемого пика того же соединения в "
+        "производном спектре (observed)",
+    )
+    p.add_argument(
+        "--anchor-ppm",
+        type=float,
+        default=None,
+        help="окно поиска якорного пика для series-anchor=observed, ppm",
+    )
+    p.add_argument(
         "--significance-level",
         type=float,
         default=None,
         help="уровень доверия для длины серии (0.95 → p<0.05; чем выше, тем строже)",
     )
     p.add_argument(
-        "--subtract-source",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="исключать из производных спектров пики, дублирующие исходник "
-        "(только по m/z, без учёта интенсивностей)",
-    )
-    p.add_argument(
         "--require-first-step",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="требовать подтверждённую первую ступень серии (по умолчанию включено; "
-        "--no-require-first-step — разрешить серии без первой ступени)",
-    )
-    p.add_argument(
-        "--subtract-ppm",
-        type=float,
-        default=None,
-        help="окно совпадения по m/z для вычитания исходника, ppm (по умолчанию 5)",
+        help="требовать подтверждённую первую ступень серии (по умолчанию выключено; "
+        "--require-first-step — включить)",
     )
     p.add_argument(
         "--max-gaps",
         type=int,
         default=None,
         help="допустимое число пропущенных ступеней внутри серии "
-        "(по умолчанию 1; 0 — без пропусков)",
+        "(по умолчанию 0 — без пропусков)",
     )
     p.add_argument(
         "--allow-gaps",
@@ -276,6 +295,18 @@ def _build_parser() -> argparse.ArgumentParser:
             "жёсткий фильтр (F+Cl+Br+I)/C, напр. 0.1; по умолчанию выключен "
             "(фильтр — пользовательская настройка)"
         ),
+    )
+    p.add_argument(
+        "--ratio-limits",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="NOM-ratio limits H/C, O/C, N/C, S/C, P/C (по умолчанию включены)",
+    )
+    p.add_argument(
+        "--nom-dbe-limit",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="NOM-верхний предел DBE (по умолчанию включён; DBE>=0 всегда)",
     )
     p.add_argument(
         "--halogen-max-atoms",
@@ -379,14 +410,20 @@ def main(argv=None) -> int:
         kwargs["sep"] = args.sep
     if args.max_gaps is not None:
         kwargs["max_gaps"] = args.max_gaps
-    if args.subtract_source is not None:
-        kwargs["subtract_source"] = args.subtract_source
-    if args.subtract_ppm is not None:
-        kwargs["subtract_ppm"] = args.subtract_ppm
     if args.require_first_step is not None:
         kwargs["require_first_step"] = args.require_first_step
     if args.significance_level is not None:
         kwargs["significance_level"] = args.significance_level
+    if args.series_anchor is not None:
+        kwargs["series_anchor"] = args.series_anchor
+    if args.profile_check is not None:
+        kwargs["profile_check"] = args.profile_check
+    if args.profile_max_jump is not None:
+        kwargs["profile_max_jump"] = args.profile_max_jump or None
+    if args.profile_max_corr is not None:
+        kwargs["profile_max_corr"] = args.profile_max_corr
+    if args.anchor_ppm is not None:
+        kwargs["anchor_ppm"] = args.anchor_ppm
     if args.allow_gaps is not None:
         kwargs["allow_gaps"] = args.allow_gaps
     if args.isotope_filter is not None:
@@ -395,6 +432,10 @@ def main(argv=None) -> int:
         kwargs["isotope_variants"] = args.isotope_variants
     if args.max_xc is not None:
         kwargs["max_xc"] = args.max_xc
+    if args.ratio_limits is not None:
+        kwargs["ratios_enabled"] = args.ratio_limits
+    if args.nom_dbe_limit is not None:
+        kwargs["nom_dbe_enabled"] = args.nom_dbe_limit
     if args.halogen_max_atoms is not None:
         kwargs["halogen_max_atoms"] = args.halogen_max_atoms
     if args.halogen_exhaustive is not None:

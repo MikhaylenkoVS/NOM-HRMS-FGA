@@ -73,3 +73,65 @@ docs/ — документация проекта NOM-HRMS-FGA
                              ADR: почему назначение переведено на сжатую базу
                              формул и как добавлены галогены (слой подстановок).
 
+Аналитические отчёты по контролю ложных назначений
+---------------------------------------------------
+  false_positive_validation_report.md
+                             Сводка P0–P3 на F16: decoy/FDR, конфликты,
+                             формула, профиль; рабочие умолчания.
+
+  series_precision.md        Точность длины серий: негативный контроль,
+                             сетка денойза/вычитания/окна, профиль,
+                             сетка шумоподавления по FDR (§11).
+
+  statistical_processing_next_variants.md
+                             Внешний отчёт 2026-10-19 о следующем варианте
+                             статистической обработки (рандомизация,
+                             likelihood/PEP, HMM, глобальная оптимизация,
+                             MetAssign/MS-Deconv/MetExtract II) и разбор
+                             применимости к проекту; денойз — GMM 2.0.
+
+  statistical_processing_design.md
+                             Проект следующего слоя проверки: P1 continuation
+                             test, P2 глобальные конфликты, P3 cross-CD3/CD3CO,
+                             P4 likelihood/PEP, P5 template decoy, P6 HMM;
+                             гипотезы, нулевые модели, калибровка, критерии
+                             приёмки и порядок внедрения.
+
+  statistical_processing_backlog.md
+                             Бэклог T0.1–T10: статусы, приоритеты, зависимости,
+                             критерии приёмки; денойз GMM 2.0.
+
+  ppm_window_occupancy_f16.md
+                             Занятость ppm-окон ожидаемых продуктов на F16:
+                             окна 0.5–10 ppm, прямое/обратное направление,
+                             факторы (масса, степень, плотность, интенсивность,
+                             неоднозначность assign), Poisson GLM.
+
+  restricted_profile_f16.md  Restricted assign (NOM-элементы/ratio) +
+                             profile-уточнение вычитания исходника:
+                             объединение окон, статусы present/unconfirmed/
+                             unreliable/chain, режимы none/hard/soft,
+                             абсолютные окна 0.0001–0.0010 Да, длина серий.
+                             Историческая итерация; актуальная политика —
+                             reliability_policy_f16.md.
+
+  reliability_policy_f16.md  Reliability v2: reliable/ambiguous/absent,
+                             N+M разрешение, подтверждённая и
+                             неподтверждённая длина, PPD_deriv/src/sum,
+                             без FDR и без prefix.
+
+  reference_length_no_filters_f16.md
+                             Референс: длина CD3/CD3CO без фильтров
+                             (0.0003/0.0005 Да; 0.5/1/3/5 ppm).
+
+  ambiguous_stats_f16.md    Знаменатели формул, доля серий с ambiguous
+                             последним шагом, длина ambiguous-хвоста.
+
+  series_policy_v3.md       Зафиксированная политика серий: reliable/
+                             ambiguous, confidence, O-лимит, штрафы.
+
+  auto_update.md            Автообновление exe по GitHub Releases.
+
+  penalty_calibration_f16.md
+                             FDR по длине серии и калибровка весов на F16.
+

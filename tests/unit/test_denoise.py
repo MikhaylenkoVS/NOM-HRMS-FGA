@@ -31,7 +31,9 @@ def test_denoise_original_preserves_signals_and_reduces_noise(set_dir: Path):
 
     rel_error_ppm = 0.5
 
-    denoised = denoise(src, force=10.0, intensity=100, quantile=None)  # denoise wrapper
+    denoised = denoise(
+        src, force=10.0, intensity=100, quantile=None, max_removed_ratio=1.0
+    )  # denoise wrapper
     den_df = denoised.table.copy()
 
     # 1. recall по сигналам
@@ -87,7 +89,9 @@ def test_force_mode_is_applied_to_gmm_threshold(force: float):
     """
     spec = _synthetic_spectrum()
 
-    denoised = denoise(spec, force=force, intensity=None, quantile=None)
+    denoised = denoise(
+        spec, force=force, intensity=None, quantile=None, max_removed_ratio=1.0
+    )
 
     kept = denoised.table
     assert 0 < len(kept) <= len(spec.table)
@@ -100,7 +104,15 @@ def test_force_is_monotone_and_actually_filters():
     spec = _synthetic_spectrum()
 
     counts = [
-        len(denoise(spec, force=f, intensity=None, quantile=None).table)
+        len(
+            denoise(
+                spec,
+                force=f,
+                intensity=None,
+                quantile=None,
+                max_removed_ratio=1.0,
+            ).table
+        )
         for f in (1.0, 2.0, 4.0, 8.0, 16.0)
     ]
 
@@ -112,8 +124,10 @@ def test_intensity_has_priority_over_force():
     """При заданном intensity множитель force игнорируется."""
     spec = _synthetic_spectrum()
 
-    low = denoise(spec, force=1.0, intensity=50.0, quantile=None)
-    high = denoise(spec, force=100.0, intensity=50.0, quantile=None)
+    low = denoise(spec, force=1.0, intensity=50.0, quantile=None, max_removed_ratio=1.0)
+    high = denoise(
+        spec, force=100.0, intensity=50.0, quantile=None, max_removed_ratio=1.0
+    )
 
     assert len(low.table) == len(high.table)
     assert (low.table["intensity"] > 50.0).all()
@@ -126,3 +140,23 @@ def test_quantile_mode_returns_subset_of_input():
     denoised = denoise(spec, force=1.0, intensity=None, quantile=0.9)
 
     assert 0 < len(denoised.table) <= len(spec.table)
+
+
+def test_intensity_relative_uses_base_peak():
+    """При intensity_relative=True порог — доля базового пика (max = 1)."""
+    spec = _synthetic_spectrum()  # базовый пик 1000
+
+    relative = denoise(spec, intensity=0.005, intensity_relative=True)
+    absolute = denoise(spec, intensity=0.005)
+
+    # 0.005 * 1000 = 5 -> отсекается часть шума (1..5), но не все 320 пиков
+    assert len(relative.table) < len(spec.table)
+    assert (relative.table["intensity"] > 5.0).all()
+    # тот же порог как абсолютный (0.005) не отсекает ничего
+    assert len(absolute.table) == len(spec.table)
+
+
+def test_intensity_relative_rejects_out_of_range():
+    spec = _synthetic_spectrum()
+    with pytest.raises(ValueError):
+        denoise(spec, intensity=2.0, intensity_relative=True)

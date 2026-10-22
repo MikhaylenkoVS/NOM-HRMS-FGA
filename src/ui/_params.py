@@ -297,14 +297,14 @@ class ParamsMixin:
         ttk.Entry(lf, textvariable=self.ppm_tol_var, width=8).grid(
             row=0, column=1, sticky="w", padx=4, pady=3
         )
-        ttk.Label(lf, text="Макс. число групп:").grid(
+        ttk.Label(lf, text="Макс. длина серии:").grid(
             row=1, column=0, sticky="w", padx=6, pady=3
         )
         ttk.Entry(lf, textvariable=self.max_groups_var, width=8).grid(
             row=1, column=1, sticky="w", padx=4, pady=3
         )
-        # Правило по умолчанию — не более 1 пропуска; 0 = без пропусков
-        ttk.Label(lf, text="Пропусков в серии (0 = без пропусков):").grid(
+        # По умолчанию пропуски запрещены; число можно задать вручную.
+        ttk.Label(lf, text="Пропусков в серии (0 = запрещены):").grid(
             row=2, column=0, sticky="w", padx=6, pady=3
         )
         ttk.Entry(lf, textvariable=self.max_gaps_var, width=8).grid(
@@ -317,15 +317,9 @@ class ParamsMixin:
         ).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=2)
         ttk.Checkbutton(
             lf,
-            text="Вычитать исходник из дериватизатов (по m/z)",
-            variable=self.subtract_source_var,
+            text="Требовать первую ступень серии",
+            variable=self.require_first_step_var,
         ).grid(row=4, column=0, columnspan=2, sticky="w", padx=6, pady=2)
-        ttk.Label(lf, text="Окно вычитания, ppm:").grid(
-            row=5, column=0, sticky="w", padx=6, pady=3
-        )
-        ttk.Entry(lf, textvariable=self.subtract_ppm_var, width=8).grid(
-            row=5, column=1, sticky="w", padx=4, pady=3
-        )
 
     def _build_params_advanced(self, nb: ttk.Notebook):
         frame = ttk.Frame(nb)
@@ -448,6 +442,19 @@ class ParamsMixin:
             command=self._show_db_variants,
         ).grid(row=14, column=0, sticky="w", padx=6, pady=(2, 8))
 
+        limits_row = ttk.Frame(lf)
+        limits_row.grid(row=15, column=0, sticky="w", padx=6, pady=(4, 2))
+        ttk.Checkbutton(
+            limits_row,
+            text="NOM-ratio limits (H/C, O/C, N/C, S/C, P/C)",
+            variable=self.ratios_enabled_var,
+        ).pack(side="left")
+        ttk.Checkbutton(
+            limits_row,
+            text="NOM DBE limit",
+            variable=self.nom_dbe_enabled_var,
+        ).pack(side="left", padx=12)
+
     # Элементы галогенов в порядке отображения в окне настроек.
     _HALOGEN_ORDER = ("F", "Cl", "Br", "I")
     #: Сколько комбинаций проверять в обычном режиме (по приоритету).
@@ -503,7 +510,9 @@ class ParamsMixin:
         подхватит его автоматически, если файл положить рядом.
         """
         from src.core.formula_db._variants import (
+            DB_VARIANTS,
             describe_choice,
+            find_variant_path,
             installer_plan,
             variants_report,
         )
@@ -568,9 +577,9 @@ class ParamsMixin:
         ttk.Label(
             win,
             text=(
-                "CHNOSPHal (с галогенами) пока не предлагается: он примерно в 15 "
-                "раз больше. Его можно положить вручную в data/formula_db — "
-                "программа подхватит его автоматически как более быстрый.\n"
+                "CHNOSPHal (с галогенами) не входит в exe: его можно скачать "
+                "отдельно, не переустанавливая программу. База сохраняется в "
+                "пользовательский каталог и подхватывается при следующем запуске.\n"
                 "Принудительный выбор: переменная окружения "
                 "NOM_FORMULA_DB = chnosp | chorsphal | none."
             ),
@@ -579,8 +588,120 @@ class ParamsMixin:
             justify="left",
             wraplength=680,
         ).grid(
-            row=base_row + 2, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 10)
+            row=base_row + 2, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 6)
         )
+
+        missing = [v for v in DB_VARIANTS if not find_variant_path(v)]
+        if missing:
+            dl_row = ttk.Frame(win)
+            dl_row.grid(
+                row=base_row + 3,
+                column=0,
+                columnspan=5,
+                sticky="w",
+                padx=10,
+                pady=(0, 10),
+            )
+            for v in missing:
+                ttk.Button(
+                    dl_row,
+                    text=f"Скачать {v.title.split(' — ')[0]} ({v.size_mb:.0f} МБ)…",
+                    command=lambda v=v: self._download_db_variant(v),
+                ).pack(side="left", padx=(0, 8))
+
+    def _download_db_variant(self, variant) -> None:
+        """Скачать опциональную базу формул в пользовательский каталог."""
+        from src.core.formula_db._manager import DatabaseManager
+        from src.core.formula_db._variants import find_variant_path
+
+        if find_variant_path(variant):
+            messagebox.showinfo("База формул", "Эта база уже установлена.", parent=self)
+            return
+        if not messagebox.askyesno(
+            "Скачать базу формул?",
+            f"Будет скачано {variant.size_mb:.0f} МБ ({variant.title}).\n"
+            "База сохранится отдельно от exe и будет использована после перезапуска.",
+            parent=self,
+        ):
+            return
+
+        win = tk.Toplevel(self)
+        win.title("Загрузка базы формул")
+        win.transient(self)
+        win.resizable(False, False)
+        ttk.Label(
+            win,
+            text=f"{variant.title}\n{variant.description}",
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", padx=12, pady=(12, 6))
+        stage_var = tk.StringVar(value="Подготовка…")
+        ttk.Label(win, textvariable=stage_var).pack(anchor="w", padx=12)
+        progress = ttk.Progressbar(win, length=500, maximum=100)
+        progress.pack(fill="x", padx=12, pady=8)
+
+        state = {
+            "cancel": False,
+            "done": False,
+            "error": None,
+            "stage": "",
+            "frac": 0.0,
+        }
+
+        def on_cancel() -> None:
+            state["cancel"] = True
+            stage_var.set("Отмена…")
+
+        ttk.Button(win, text="Отмена", command=on_cancel).pack(
+            anchor="e", padx=12, pady=(0, 10)
+        )
+        win.protocol("WM_DELETE_WINDOW", on_cancel)
+
+        def progress_cb(stage: str, frac: float) -> None:
+            state["stage"] = stage
+            state["frac"] = float(frac)
+
+        def worker() -> None:
+            try:
+                mgr = DatabaseManager()
+                mgr.download_variant(
+                    variant,
+                    progress_callback=progress_cb,
+                    cancel_check=lambda: state["cancel"],
+                )
+                state["done"] = True
+            except Exception as exc:  # noqa: BLE001 - показываем пользователю
+                state["error"] = exc
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        def poll() -> None:
+            if state["done"]:
+                win.destroy()
+                messagebox.showinfo(
+                    "База формул",
+                    "База скачана. Перезапустите программу, чтобы она стала активной.",
+                    parent=self,
+                )
+                return
+            if state["error"] is not None:
+                win.destroy()
+                if state["cancel"]:
+                    messagebox.showinfo(
+                        "База формул", "Загрузка отменена.", parent=self
+                    )
+                else:
+                    messagebox.showerror(
+                        "Ошибка загрузки базы",
+                        f"Не удалось скачать базу:\n{state['error']}",
+                        parent=self,
+                    )
+                return
+            stage_var.set(state["stage"] or "Загрузка…")
+            progress["value"] = max(0.0, min(100.0, state["frac"] * 100.0))
+            win.after(150, poll)
+
+        win.after(150, poll)
 
     def _show_halogen_settings(self):
         """Окно с настройками поиска по галогенам.
@@ -897,8 +1018,9 @@ class ParamsMixin:
             max_groups=max_groups,
             max_gaps=int(_to_float(self.max_gaps_var.get()) or 0),
             denoise_derivatives=self.denoise_derivatives_var.get(),
-            subtract_source=self.subtract_source_var.get(),
-            subtract_ppm=(_to_float(self.subtract_ppm_var.get()) or 5.0),
+            require_first_step=self.require_first_step_var.get(),
+            ratios_enabled=self.ratios_enabled_var.get(),
+            nom_dbe_enabled=self.nom_dbe_enabled_var.get(),
             isotope_filter=self.isotope_filter_var.get(),
             isotope_variants=self.isotope_variants_var.get(),
             max_xc=(
@@ -909,7 +1031,6 @@ class ParamsMixin:
             halogen_max_atoms=_to_int(self.halogen_max_atoms_var.get(), 5),
             halogen_exhaustive=bool(self.halogen_exhaustive_var.get()),
             halogen_max_combinations=self.HALOGEN_MAX_COMBINATIONS,
-            denoise_derivatives=self.denoise_derivatives_var.get(),
             denoise_source=self.denoise_source_var.get(),
             brutto_dict=brutto_dict,
             output_csv=self.output_csv_var.get() or None,
