@@ -67,9 +67,49 @@ class ParamsMixin:
         run_btn.grid(row=1, column=0, pady=12, ipadx=20, ipady=4)
         self._run_button = run_btn  # для блокировки во время прогона
 
+    def _center_dialog(self, win: tk.Toplevel, width: int, height: int) -> None:
+        """Поставить дочернее окно по центру родителя."""
+        win.transient(self)
+        win.resizable(True, True)
+        win.geometry(f"{width}x{height}")
+        win.update_idletasks()
+        x = self.winfo_rootx() + max(0, (self.winfo_width() - width) // 2)
+        y = self.winfo_rooty() + max(0, (self.winfo_height() - height) // 2)
+        win.geometry(f"+{x}+{y}")
+
+    def _scrollable_tab(self, nb: ttk.Notebook, title: str) -> ttk.Frame:
+        """Вкладка с вертикальной прокруткой: контент не обрезается."""
+        outer = ttk.Frame(nb)
+        nb.add(outer, text=title)
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(0, weight=1)
+
+        canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
+        scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scroll.grid(row=0, column=1, sticky="ns")
+
+        inner = ttk.Frame(canvas)
+        window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind(
+            "<Configure>",
+            lambda _e: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+        canvas.bind(
+            "<Configure>",
+            lambda e: canvas.itemconfigure(window_id, width=e.width),
+        )
+
+        def _wheel(event):
+            canvas.yview_scroll(int(-event.delta / 120), "units")
+
+        canvas.bind("<Enter>", lambda _e: canvas.bind_all("<MouseWheel>", _wheel))
+        canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
+        return inner
+
     def _build_params_files(self, nb: ttk.Notebook):
-        frame = ttk.Frame(nb)
-        nb.add(frame, text="📂  Файлы")
+        frame = self._scrollable_tab(nb, "📂  Файлы")
         frame.columnconfigure(0, weight=1)
         files_lf = ttk.LabelFrame(frame, text="Входные спектры")
         files_lf.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
@@ -130,20 +170,6 @@ class ParamsMixin:
                     text="разбить на отрезки",
                     variable=self.segment_mode_var,
                 ).pack(side="left", padx=4)
-                ttk.Label(
-                    frame,
-                    text=(
-                        "⚠ Режим отрезков: исходный спектр делится по RT, а "
-                        "дериватизаты усредняются по всему файлу. Сопоставление "
-                        "по RT для дериватизатов не делается (у продукта и "
-                        "исходного соединения RT может различаться), поэтому "
-                        "возможны ложные совпадения — режим экспериментальный."
-                    ),
-                    font=("Segoe UI", 8),
-                    foreground="#b07000",
-                    wraplength=760,
-                    justify="left",
-                ).grid(row=0, column=0, sticky="w", padx=10, pady=(0, 4))
         out_lf = ttk.LabelFrame(frame, text="💾  Выходной файл")
         out_lf.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
         out_lf.columnconfigure(0, weight=1)
@@ -196,8 +222,7 @@ class ParamsMixin:
         ).grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 2))
 
     def _build_params_processing(self, nb: ttk.Notebook):
-        frame = ttk.Frame(nb)
-        nb.add(frame, text="📏  Обработка")
+        frame = self._scrollable_tab(nb, "📏  Обработка")
         frame.columnconfigure(0, weight=1)
         load_lf = ttk.LabelFrame(frame, text="Загрузка и фильтрация")
         load_lf.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
@@ -241,8 +266,7 @@ class ParamsMixin:
         )
 
     def _build_params_formulas(self, nb: ttk.Notebook):
-        frame = ttk.Frame(nb)
-        nb.add(frame, text="🔬  Формулы")
+        frame = self._scrollable_tab(nb, "🔬  Формулы")
         frame.columnconfigure(0, weight=1)
         lf = ttk.LabelFrame(frame, text="Назначение брутто-формул")
         lf.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
@@ -286,8 +310,7 @@ class ParamsMixin:
             ttk.Entry(ef, textvariable=mx, width=5).pack(side="left")
 
     def _build_params_series(self, nb: ttk.Notebook):
-        frame = ttk.Frame(nb)
-        nb.add(frame, text="🔍  Серии")
+        frame = self._scrollable_tab(nb, "🔍  Серии")
         frame.columnconfigure(0, weight=1)
         lf = ttk.LabelFrame(frame, text="Поиск гомологических серий")
         lf.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
@@ -312,148 +335,129 @@ class ParamsMixin:
         )
         ttk.Checkbutton(
             lf,
-            text="Шумоподавление спектров дериватизации",
-            variable=self.denoise_derivatives_var,
-        ).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=2)
-        ttk.Checkbutton(
-            lf,
             text="Требовать первую ступень серии",
             variable=self.require_first_step_var,
-        ).grid(row=4, column=0, columnspan=2, sticky="w", padx=6, pady=2)
+        ).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=2)
 
     def _build_params_advanced(self, nb: ttk.Notebook):
-        frame = ttk.Frame(nb)
-        nb.add(frame, text="🧪  Фильтры")
+        frame = self._scrollable_tab(nb, "🧪  Фильтры")
         frame.columnconfigure(0, weight=1)
-        lf = ttk.LabelFrame(frame, text="Дополнительные фильтры")
-        lf.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
-        cb = ttk.Checkbutton(
-            lf,
-            text="🔬 Изотопный фильтр (M+1/M+2 по таблице изотопов)",
+
+        # ── Изотопы ──────────────────────────────────────────────────
+        iso = ttk.LabelFrame(frame, text="Изотопы")
+        iso.grid(row=0, column=0, sticky="ew", padx=8, pady=(4, 2))
+        iso.columnconfigure(0, weight=1)
+        ttk.Checkbutton(
+            iso,
+            text="Изотопный фильтр M+1/M+2",
             variable=self.isotope_filter_var,
-        )
-        cb.grid(row=0, column=0, sticky="w", padx=6, pady=4)
-        ttk.Label(
-            lf,
-            text="Сравнивает изотопный паттерн M+1/M+2 кандидата с исходным\n"
-            "спектром (до шумоподавления): расхождение — штраф, совпадение\n"
-            "M+2 для S/Cl/Br — бонус (изотопное подтверждение состава).",
-            font=("Segoe UI", 8),
-            foreground="#888",
-        ).grid(row=1, column=0, sticky="w", padx=12, pady=(0, 6))
-
-        cb2 = ttk.Checkbutton(
-            lf,
-            text="🧬 Искать изотопные варианты (13C, 34S, 37Cl, 81Br, …)",
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=(6, 2))
+        ttk.Checkbutton(
+            iso,
+            text="Искать изотопные варианты (13C, 34S, 37Cl, 81Br, …)",
             variable=self.isotope_variants_var,
-        )
-        cb2.grid(row=2, column=0, sticky="w", padx=6, pady=4)
-        ttk.Label(
-            lf,
-            text="Для каждой найденной формулы ищутся её изотопные варианты,\n"
-            "а пики-сателлиты помечаются и не попадают в отчёт как\n"
-            "самостоятельные соединения.",
-            font=("Segoe UI", 8),
-            foreground="#888",
-        ).grid(row=3, column=0, sticky="w", padx=12, pady=(0, 6))
-
-        ttk.Separator(lf, orient="horizontal").grid(
-            row=4, column=0, sticky="ew", padx=6, pady=6
-        )
-
-        # X/C — пользовательский фильтр (по умолчанию выключен)
-        xc_row = ttk.Frame(lf)
-        xc_row.grid(row=5, column=0, sticky="w", padx=6, pady=(0, 2))
-        ttk.Checkbutton(
-            xc_row,
-            text="Ограничивать X/C (F+Cl+Br+I)/C",
-            variable=self.max_xc_enabled_var,
-        ).pack(side="left")
-        ttk.Entry(xc_row, textvariable=self.max_xc_var, width=8).pack(
-            side="left", padx=6
-        )
-        ttk.Label(
-            lf,
-            text=(
-                "Жёсткий фильтр отношения галогенов к углероду. По умолчанию "
-                "выключен: галогенные формулы подтверждаются изотопным "
-                "паттерном, а не отношением. Включайте, если нужен явный предел."
-            ),
-            font=("Segoe UI", 8),
-            foreground="#888",
-            wraplength=560,
-            justify="left",
-        ).grid(row=6, column=0, sticky="w", padx=12, pady=(0, 6))
-
-        # Предел числа атомов галогенов
-        hal_row = ttk.Frame(lf)
-        hal_row.grid(row=7, column=0, sticky="w", padx=6, pady=(0, 2))
-        ttk.Label(hal_row, text="Максимум атомов галогенов в формуле:").pack(
-            side="left"
-        )
-        ttk.Entry(hal_row, textvariable=self.halogen_max_atoms_var, width=6).pack(
-            side="left", padx=6
-        )
-        ttk.Label(
-            lf,
-            text="По умолчанию 5. Большие значения увеличивают время поиска.",
-            font=("Segoe UI", 8),
-            foreground="#888",
-        ).grid(row=8, column=0, sticky="w", padx=12, pady=(0, 6))
-
-        ttk.Label(lf, text="Шумоподавление спектров:").grid(
-            row=9, column=0, sticky="w", padx=6, pady=(4, 0)
-        )
-        ttk.Checkbutton(
-            lf,
-            text="Фильтровать дериватизаты (по умолчанию выключено)",
-            variable=self.denoise_derivatives_var,
-        ).grid(row=10, column=0, sticky="w", padx=6)
-        ttk.Checkbutton(
-            lf,
-            text="Шумоподавление исходного спектра (по умолчанию включено)",
-            variable=self.denoise_source_var,
-        ).grid(row=10, column=0, sticky="e", padx=6, pady=(24, 0))
-        ttk.Label(
-            lf,
-            text=(
-                "Пики продуктов дериватизации низкоинтенсивные: шумоподавление "
-                "может вырезать их вместе с шумом, поэтому по умолчанию выключено."
-            ),
-            font=("Segoe UI", 8),
-            foreground="#888",
-            wraplength=560,
-            justify="left",
-        ).grid(row=11, column=0, sticky="w", padx=12, pady=(0, 6))
-
+        ).grid(row=1, column=0, sticky="w", padx=8, pady=(0, 2))
         ttk.Button(
-            lf,
+            iso,
             text="📋 Список изотопов…",
             command=self._show_isotope_table,
-        ).grid(row=12, column=0, sticky="w", padx=6, pady=(2, 4))
+        ).grid(row=2, column=0, sticky="w", padx=8, pady=(4, 8))
+
+        # ── Галогены ─────────────────────────────────────────────────
+        hal = ttk.LabelFrame(frame, text="Галогены")
+        hal.grid(row=1, column=0, sticky="ew", padx=8, pady=2)
+        hal.columnconfigure(1, weight=1)
+        ttk.Checkbutton(
+            hal,
+            text="Ограничивать X/C (F+Cl+Br+I)/C:",
+            variable=self.max_xc_enabled_var,
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=(6, 2))
+        ttk.Entry(hal, textvariable=self.max_xc_var, width=8).grid(
+            row=0, column=1, sticky="w", padx=4, pady=(6, 2)
+        )
+        ttk.Label(hal, text="Максимум атомов галогенов:").grid(
+            row=1, column=0, sticky="w", padx=8, pady=2
+        )
+        ttk.Spinbox(
+            hal,
+            from_=0,
+            to=8,
+            width=7,
+            textvariable=self.halogen_max_atoms_var,
+        ).grid(row=1, column=1, sticky="w", padx=4, pady=2)
         ttk.Button(
-            lf,
+            hal,
             text="⚙ Настройки поиска по галогенам…",
             command=self._show_halogen_settings,
-        ).grid(row=13, column=0, sticky="w", padx=6, pady=(2, 4))
+        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=8, pady=(4, 8))
+
+        # ── Шумоподавление ───────────────────────────────────────────
+        den = ttk.LabelFrame(frame, text="Шумоподавление")
+        den.grid(row=2, column=0, sticky="ew", padx=8, pady=2)
+        den.columnconfigure(0, weight=1)
+        den.columnconfigure(1, weight=1)
+        ttk.Checkbutton(
+            den,
+            text="Исходный спектр",
+            variable=self.denoise_source_var,
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=6)
+        ttk.Checkbutton(
+            den,
+            text="Спектры дериватизации",
+            variable=self.denoise_derivatives_var,
+        ).grid(row=0, column=1, sticky="w", padx=8, pady=6)
+
+        # ── Ограничения NOM ──────────────────────────────────────────
+        lim = ttk.LabelFrame(frame, text="Ограничения NOM")
+        lim.grid(row=3, column=0, sticky="ew", padx=8, pady=2)
+        ttk.Checkbutton(
+            lim,
+            text="H/C, O/C, N/C, S/C, P/C",
+            variable=self.ratios_enabled_var,
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=6)
+        ttk.Checkbutton(
+            lim,
+            text="DBE limit",
+            variable=self.nom_dbe_enabled_var,
+        ).grid(row=0, column=1, sticky="w", padx=8, pady=6)
+
+        # ── База формул ──────────────────────────────────────────────
+        db = ttk.LabelFrame(frame, text="База формул")
+        db.grid(row=4, column=0, sticky="ew", padx=8, pady=2)
         ttk.Button(
-            lf,
+            db,
             text="📦 База формул…",
             command=self._show_db_variants,
-        ).grid(row=14, column=0, sticky="w", padx=6, pady=(2, 8))
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=8)
 
-        limits_row = ttk.Frame(lf)
-        limits_row.grid(row=15, column=0, sticky="w", padx=6, pady=(4, 2))
-        ttk.Checkbutton(
-            limits_row,
-            text="NOM-ratio limits (H/C, O/C, N/C, S/C, P/C)",
-            variable=self.ratios_enabled_var,
+        # ── Справка ──────────────────────────────────────────────────
+        help_row = ttk.Frame(frame)
+        help_row.grid(row=5, column=0, sticky="ew", padx=8, pady=(4, 4))
+        ttk.Button(
+            help_row,
+            text="📖 Руководство пользователя",
+            command=self._open_user_guide,
         ).pack(side="left")
-        ttk.Checkbutton(
-            limits_row,
-            text="NOM DBE limit",
-            variable=self.nom_dbe_enabled_var,
-        ).pack(side="left", padx=12)
+        ttk.Label(
+            help_row,
+            text="Подробности по параметрам — в документации.",
+            foreground="#777",
+        ).pack(side="left", padx=10)
+
+    def _open_user_guide(self) -> None:
+        """Открыть пользовательскую документацию из GUI."""
+        import webbrowser
+
+        doc = Path(__file__).resolve().parents[2] / "docs" / "user_guide.md"
+        if doc.is_file():
+            try:
+                os.startfile(str(doc))  # type: ignore[attr-defined]
+                return
+            except Exception:
+                pass
+        webbrowser.open(
+            "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/blob/main/docs/user_guide.md"
+        )
 
     # Элементы галогенов в порядке отображения в окне настроек.
     _HALOGEN_ORDER = ("F", "Cl", "Br", "I")
@@ -502,112 +506,82 @@ class ParamsMixin:
         )
 
     def _show_db_variants(self):
-        """Информация о базе формул (и о правиле инсталлера).
-
-        Инсталлер ставит CHNOSP всегда — выключать её незачем. Переключатель
-        «или одно, или другое» появится только если объём CHNOSPHal станет
-        сопоставим с CHNOSP; сейчас CHNOSPHal не предлагается, но программа
-        подхватит его автоматически, если файл положить рядом.
-        """
+        """Компактное окно управления базами формул."""
         from src.core.formula_db._variants import (
             DB_VARIANTS,
             describe_choice,
             find_variant_path,
-            installer_plan,
             variants_report,
         )
 
-        plan = installer_plan()
         win = tk.Toplevel(self)
         win.title("База формул")
-        win.transient(self)
-        win.resizable(False, False)
+        win.minsize(620, 360)
+        self._center_dialog(win, 760, 460)
 
+        body = ttk.Frame(win)
+        body.pack(fill="both", expand=True, padx=12, pady=12)
+        ttk.Label(body, text="База формул", font=("Segoe UI", 11, "bold")).pack(
+            anchor="w"
+        )
         ttk.Label(
-            win,
-            text=(
-                "Сжатая база формул ускоряет работу. Базовая (CHNOSP) ставится "
-                "всегда: она занимает десятки мегабайт и ускоряет пайплайн "
-                "примерно в 19 раз."
-            ),
-            wraplength=680,
+            body,
+            text="CHNOSP уже включена в сборку. CHNOSPHal можно скачать отдельно — "
+            "она ускоряет назначение формул и будет использована после перезапуска.",
+            foreground="#777",
+            wraplength=700,
             justify="left",
-        ).grid(row=0, column=0, columnspan=5, sticky="w", padx=10, pady=(10, 4))
+        ).pack(anchor="w", pady=(0, 10))
 
-        head = ("вариант", "объём", "ускорение", "установлен", "в инсталлере")
-        for col, text in enumerate(head):
-            ttk.Label(win, text=text, font=("Segoe UI", 9, "bold")).grid(
-                row=1, column=col, sticky="w", padx=(10 if col == 0 else 6, 6), pady=2
+        table = ttk.Frame(body)
+        table.pack(fill="both", expand=True)
+        table.columnconfigure(0, weight=1)
+        table.rowconfigure(0, weight=1)
+        cols = ("variant", "size", "speed", "state")
+        tv = ttk.Treeview(table, columns=cols, show="headings", height=3)
+        headings = {
+            "variant": "Вариант",
+            "size": "Объём",
+            "speed": "Ускорение",
+            "state": "Статус",
+        }
+        widths = {"variant": 340, "size": 100, "speed": 110, "state": 120}
+        for c in cols:
+            tv.heading(c, text=headings[c])
+            tv.column(c, width=widths[c], anchor="w" if c == "variant" else "center")
+        for i, row in enumerate(variants_report()):
+            tv.insert(
+                "",
+                "end",
+                tags=("odd",) if i % 2 else (),
+                values=(
+                    row["title"],
+                    f"{row['size_mb']:.1f} МБ" if row["size_mb"] else "—",
+                    row["speedup"],
+                    "установлена" if row["installed"] else "нет",
+                ),
             )
-        for i, row in enumerate(variants_report(), start=2):
-            if row["id"] == "chnosp":
-                note = "ставится всегда"
-            elif row["id"] in plan["choice"]:
-                note = "по выбору"
-            else:
-                note = "не предлагается"
-            cells = (
-                row["title"],
-                f"{row['size_mb']:.1f} МБ" if row["size_mb"] else "—",
-                row["speedup"],
-                "да" if row["installed"] else "нет",
-                note,
-            )
-            for col, text in enumerate(cells):
-                ttk.Label(win, text=text).grid(
-                    row=i,
-                    column=col,
-                    sticky="w",
-                    padx=(10 if col == 0 else 6, 6),
-                    pady=1,
-                )
-        base_row = 2 + len(variants_report())
+        tv.tag_configure("odd", background="#f5f5f5")
+        scroll = ttk.Scrollbar(table, orient="vertical", command=tv.yview)
+        tv.configure(yscrollcommand=scroll.set)
+        tv.grid(row=0, column=0, sticky="nsew")
+        scroll.grid(row=0, column=1, sticky="ns")
+
         ttk.Label(
-            win,
+            body,
             text=f"Сейчас используется: {describe_choice()}",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=base_row, column=0, columnspan=5, sticky="w", padx=10, pady=(8, 2))
-        ttk.Label(
-            win,
-            text=f"Инсталлер: {plan['summary']}",
-            font=("Segoe UI", 9),
-        ).grid(
-            row=base_row + 1, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 2)
-        )
-        ttk.Label(
-            win,
-            text=(
-                "CHNOSPHal (с галогенами) не входит в exe: его можно скачать "
-                "отдельно, не переустанавливая программу. База сохраняется в "
-                "пользовательский каталог и подхватывается при следующем запуске.\n"
-                "Принудительный выбор: переменная окружения "
-                "NOM_FORMULA_DB = chnosp | chorsphal | none."
-            ),
-            font=("Segoe UI", 8),
-            foreground="#666",
-            justify="left",
-            wraplength=680,
-        ).grid(
-            row=base_row + 2, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 6)
-        )
+        ).pack(anchor="w", pady=(10, 6))
 
-        missing = [v for v in DB_VARIANTS if not find_variant_path(v)]
-        if missing:
-            dl_row = ttk.Frame(win)
-            dl_row.grid(
-                row=base_row + 3,
-                column=0,
-                columnspan=5,
-                sticky="w",
-                padx=10,
-                pady=(0, 10),
-            )
-            for v in missing:
-                ttk.Button(
-                    dl_row,
-                    text=f"Скачать {v.title.split(' — ')[0]} ({v.size_mb:.0f} МБ)…",
-                    command=lambda v=v: self._download_db_variant(v),
-                ).pack(side="left", padx=(0, 8))
+        actions = ttk.Frame(body)
+        actions.pack(fill="x")
+        for v in [v for v in DB_VARIANTS if not find_variant_path(v)]:
+            ttk.Button(
+                actions,
+                text=f"Скачать {v.title.split(' — ')[0]} ({v.size_mb:.0f} МБ)…",
+                command=lambda v=v: self._download_db_variant(v),
+            ).pack(side="left", padx=(0, 8))
+        ttk.Button(actions, text="Закрыть", command=win.destroy).pack(side="right")
 
     def _download_db_variant(self, variant) -> None:
         """Скачать опциональную базу формул в пользовательский каталог."""
@@ -627,18 +601,26 @@ class ParamsMixin:
 
         win = tk.Toplevel(self)
         win.title("Загрузка базы формул")
-        win.transient(self)
+        self._center_dialog(win, 560, 240)
         win.resizable(False, False)
+        body = ttk.Frame(win)
+        body.pack(fill="both", expand=True, padx=14, pady=14)
         ttk.Label(
-            win,
-            text=f"{variant.title}\n{variant.description}",
+            body,
+            text=variant.title,
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            body,
+            text="Скачивание отдельной базы формул. После завершения перезапустите программу.",
+            foreground="#777",
             wraplength=520,
             justify="left",
-        ).pack(anchor="w", padx=12, pady=(12, 6))
+        ).pack(anchor="w", pady=(2, 10))
         stage_var = tk.StringVar(value="Подготовка…")
-        ttk.Label(win, textvariable=stage_var).pack(anchor="w", padx=12)
-        progress = ttk.Progressbar(win, length=500, maximum=100)
-        progress.pack(fill="x", padx=12, pady=8)
+        ttk.Label(body, textvariable=stage_var).pack(anchor="w")
+        progress = ttk.Progressbar(body, length=520, maximum=100)
+        progress.pack(fill="x", pady=8)
 
         state = {
             "cancel": False,
@@ -704,56 +686,51 @@ class ParamsMixin:
         win.after(150, poll)
 
     def _show_halogen_settings(self):
-        """Окно с настройками поиска по галогенам.
-
-        Обычный режим: проверяется ограниченное число комбинаций, выбранных
-        ДИНАМИЧЕСКИ по окнам пользователя (сначала варианты с большим числом
-        атомов одного галогена). Галочка сверху включает полный перебор.
-        """
+        """Окно настроек поиска по галогенам."""
         win = tk.Toplevel(self)
         win.title("Настройки поиска по галогенам")
-        win.transient(self)
-        win.resizable(False, False)
-        win.columnconfigure(0, weight=1)
+        win.minsize(680, 480)
+        self._center_dialog(win, 760, 560)
 
+        body = ttk.Frame(win)
+        body.pack(fill="both", expand=True, padx=12, pady=12)
+
+        top = ttk.Frame(body)
+        top.pack(fill="x")
         ttk.Checkbutton(
-            win,
-            text=(
-                "Проверить все комбинации галогенов "
-                "(значительно замедляет обработку)"
-            ),
+            top,
+            text="Проверить все комбинации галогенов (медленно)",
             variable=self.halogen_exhaustive_var,
-        ).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 2))
+        ).pack(side="left")
+        ttk.Label(
+            top,
+            text="Подробнее — в руководстве пользователя.",
+            foreground="#777",
+        ).pack(side="right")
 
-        note = ttk.Label(
-            win,
-            text=(
-                "Обычный режим: проверяются только самые приоритетные комбинации "
-                "— сначала варианты с большим числом атомов одного галогена "
-                "(например, F5 или Cl4F важнее, чем F2ClBrI). Набор зависит от "
-                "пределов ниже: окна выбирают, какие комбинации вообще допустимы."
-            ),
-            font=("Segoe UI", 8),
-            foreground="#666",
-            wraplength=520,
-            justify="left",
-        )
-        note.grid(row=1, column=0, sticky="w", padx=10, pady=(0, 6))
+        content = ttk.Frame(body)
+        content.pack(fill="both", expand=True, pady=(10, 8))
+        content.columnconfigure(0, weight=0)
+        content.columnconfigure(1, weight=1)
+        content.rowconfigure(0, weight=1)
 
-        limits = ttk.LabelFrame(win, text="Пределы по галогенам (макс. атомов)")
-        limits.grid(row=2, column=0, sticky="ew", padx=10, pady=4)
+        limits = ttk.LabelFrame(content, text="Пределы (макс. атомов)")
+        limits.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
         spin_vars = {}
         for i, el in enumerate(self._HALOGEN_ORDER):
-            ttk.Label(limits, text=f"{el} не более:").grid(
-                row=i, column=0, sticky="w", padx=6, pady=2
+            ttk.Label(limits, text=f"{el}:").grid(
+                row=i, column=0, sticky="w", padx=8, pady=3
             )
             max_var = self.el_vars.get(el, (None, None))[1]
-            spin = ttk.Spinbox(limits, from_=0, to=5, width=5, textvariable=max_var)
-            spin.grid(row=i, column=1, sticky="w", padx=6, pady=2)
+            ttk.Spinbox(limits, from_=0, to=5, width=5, textvariable=max_var).grid(
+                row=i, column=1, sticky="w", padx=8, pady=3
+            )
             spin_vars[el] = max_var
-
-        ttk.Label(limits, text="всего атомов галогенов:").grid(
-            row=len(self._HALOGEN_ORDER), column=0, sticky="w", padx=6, pady=2
+        ttk.Separator(limits, orient="horizontal").grid(
+            row=len(self._HALOGEN_ORDER), column=0, columnspan=2, sticky="ew", pady=6
+        )
+        ttk.Label(limits, text="Всего:").grid(
+            row=len(self._HALOGEN_ORDER) + 1, column=0, sticky="w", padx=8, pady=3
         )
         ttk.Spinbox(
             limits,
@@ -761,17 +738,45 @@ class ParamsMixin:
             to=8,
             width=5,
             textvariable=self.halogen_max_atoms_var,
-        ).grid(row=len(self._HALOGEN_ORDER), column=1, sticky="w", padx=6, pady=2)
+        ).grid(
+            row=len(self._HALOGEN_ORDER) + 1,
+            column=1,
+            sticky="w",
+            padx=8,
+            pady=3,
+        )
 
-        preview = ttk.Label(win, text="", font=("Segoe UI", 9), justify="left")
-        preview.grid(row=3, column=0, sticky="w", padx=10, pady=(6, 2))
+        preview_lf = ttk.LabelFrame(content, text="Предпросмотр")
+        preview_lf.grid(row=0, column=1, sticky="nsew")
+        preview_lf.columnconfigure(0, weight=1)
+        preview_lf.rowconfigure(1, weight=1)
 
-        listing = tk.Text(win, height=8, width=58, font=("Consolas", 9))
-        listing.grid(row=4, column=0, sticky="ew", padx=10, pady=(0, 10))
+        preview = ttk.Label(
+            preview_lf, text="", font=("Segoe UI", 9), justify="left", wraplength=420
+        )
+        preview.grid(row=0, column=0, sticky="w", padx=8, pady=(6, 4))
+
+        listing_holder = ttk.Frame(preview_lf)
+        listing_holder.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+        listing_holder.columnconfigure(0, weight=1)
+        listing_holder.rowconfigure(0, weight=1)
+        listing = tk.Text(
+            listing_holder,
+            height=12,
+            width=50,
+            font=("Consolas", 9),
+            wrap="word",
+            relief="flat",
+        )
+        listing_scroll = ttk.Scrollbar(
+            listing_holder, orient="vertical", command=listing.yview
+        )
+        listing.configure(yscrollcommand=listing_scroll.set)
+        listing.grid(row=0, column=0, sticky="nsew")
+        listing_scroll.grid(row=0, column=1, sticky="ns")
         listing.configure(state="disabled")
 
         def _current_cfg():
-            """Текущие настройки как FormulaSearchConfig (для предпросмотра)."""
             from src.core.spectrum._constants import FormulaSearchConfig
 
             cfg = FormulaSearchConfig()
@@ -787,7 +792,7 @@ class ParamsMixin:
                     combo_priority,
                     select_halogen_combos,
                 )
-            except Exception as exc:  # pragma: no cover - база/ядро недоступны
+            except Exception as exc:  # pragma: no cover
                 preview.configure(text=f"Предпросмотр недоступен: {exc}")
                 return
             cfg = _current_cfg()
@@ -805,26 +810,17 @@ class ParamsMixin:
                 return "".join(el + (str(n) if n > 1 else "") for el, n in combo) or "—"
 
             if exhaustive:
-                head = (
-                    f"Полный перебор: будет проверено ВСЕХ {allowed} комбинаций "
-                    f"(из них {self.HALOGEN_MAX_COMBINATIONS} в обычном режиме)."
-                )
+                head = f"Полный перебор: {allowed} комбинаций."
             else:
-                head = (
-                    f"Будет проверено {len(combos)} из {allowed} допустимых "
-                    f"комбинаций (приоритет по числу атомов одного галогена)."
-                )
+                head = f"Будет проверено {len(combos)} из {allowed} комбинаций."
             preview.configure(text=head)
             listing.configure(state="normal")
             listing.delete("1.0", "end")
-            listing.insert(
-                "end", "Первые по приоритету: " + ", ".join(map(_name, shown))
-            )
+            listing.insert("end", ", ".join(map(_name, shown)))
             if not exhaustive and allowed > len(combos):
                 listing.insert(
                     "end",
-                    "\n\nОстальные комбинации не проверяются: включите галочку "
-                    "выше, чтобы перебрать все.",
+                    "\n\nОстальные не проверяются: включите полный перебор.",
                 )
             listing.configure(state="disabled")
 
@@ -833,37 +829,37 @@ class ParamsMixin:
         self.halogen_exhaustive_var.trace_add("write", _update)
         _update()
 
-    def _show_isotope_table(self):
-        """Отдельное окно со списком изотопов элементов поиска.
+        ttk.Button(body, text="Закрыть", command=win.destroy).pack(anchor="e")
 
-        Таблица не висит в основной вкладке: её открывают кнопкой, когда
-        нужно посмотреть массы и природные распространённости изотопов,
-        которые использует изотопный фильтр и поиск вариантов.
-        """
+    def _show_isotope_table(self):
+        """Отдельное окно со списком изотопов элементов поиска."""
         from src.core.spectrum._isotopes import ISOTOPE_TABLE, isotope_label
 
         win = tk.Toplevel(self)
         win.title("Список изотопов")
-        win.transient(self)
-        win.geometry("620x620")
+        win.minsize(560, 420)
+        self._center_dialog(win, 640, 560)
 
+        body = ttk.Frame(win)
+        body.pack(fill="both", expand=True, padx=12, pady=12)
         ttk.Label(
-            win,
-            text="Изотопы элементов поиска (масса и природная распространённость)",
+            body,
+            text="Изотопы элементов поиска",
             font=("Segoe UI", 11, "bold"),
-        ).pack(anchor="w", padx=12, pady=(12, 2))
+        ).pack(anchor="w")
         ttk.Label(
-            win,
-            text="M+1/M+2 считаются по этой таблице; моноизотопные элементы "
-            "(P, F, I) имеют один изотоп.",
-            font=("Segoe UI", 8),
-            foreground="#888",
-        ).pack(anchor="w", padx=12, pady=(0, 8))
+            body,
+            text="Массы и природная распространённость; моноизотопные элементы — P, F, I.",
+            foreground="#777",
+        ).pack(anchor="w", pady=(0, 8))
 
-        holder = ttk.Frame(win)
-        holder.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        holder = ttk.Frame(body)
+        holder.pack(fill="both", expand=True)
+        holder.columnconfigure(0, weight=1)
+        holder.rowconfigure(0, weight=1)
+
         cols = ("el", "iso", "mass", "abund")
-        tv = ttk.Treeview(holder, columns=cols, show="headings", height=22)
+        tv = ttk.Treeview(holder, columns=cols, show="headings")
         widths = {"el": 90, "iso": 90, "mass": 170, "abund": 200}
         titles = {
             "el": "Элемент",
@@ -874,11 +870,13 @@ class ParamsMixin:
         for c in cols:
             tv.heading(c, text=titles[c])
             tv.column(c, width=widths[c], anchor="center")
-        for el, pairs in ISOTOPE_TABLE.items():
+        tv.tag_configure("odd", background="#f5f5f5")
+        for idx, (el, pairs) in enumerate(ISOTOPE_TABLE.items()):
             for i, (mass, abundance) in enumerate(pairs):
                 tv.insert(
                     "",
                     "end",
+                    tags=("odd",) if idx % 2 else (),
                     values=(
                         el,
                         isotope_label(el, i),
@@ -888,10 +886,12 @@ class ParamsMixin:
                 )
         scroll = ttk.Scrollbar(holder, orient="vertical", command=tv.yview)
         tv.configure(yscrollcommand=scroll.set)
-        tv.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+        tv.grid(row=0, column=0, sticky="nsew")
+        scroll.grid(row=0, column=1, sticky="ns")
 
-        ttk.Button(win, text="Закрыть", command=win.destroy).pack(pady=(0, 12))
+        ttk.Button(body, text="Закрыть", command=win.destroy).pack(
+            anchor="e", pady=(10, 0)
+        )
 
     def _browse(self, var: tk.StringVar):
         path = filedialog.askopenfilename(

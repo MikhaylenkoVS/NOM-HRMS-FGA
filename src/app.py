@@ -254,9 +254,6 @@ class App(
         self.max_groups_var = tk.StringVar(value=str(_GUI_DEFAULTS["max_groups"]))
         # По умолчанию пропуски запрещены; число задаётся пользователем.
         self.max_gaps_var = tk.StringVar(value=str(_GUI_DEFAULTS.get("max_gaps", 0)))
-        self.denoise_derivatives_var = tk.BooleanVar(
-            value=bool(_GUI_DEFAULTS.get("denoise_derivatives", True))
-        )
         self.require_first_step_var = tk.BooleanVar(
             value=bool(_GUI_DEFAULTS.get("require_first_step", False))
         )
