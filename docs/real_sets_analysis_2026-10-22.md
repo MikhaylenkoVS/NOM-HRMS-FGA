@@ -28,6 +28,10 @@ ppm_tol=2.0  rel_error=1.0  max_groups=20  max_gaps=0
 require_first_step=False  profile_check=False  significance_level=0.95
 ```
 
+`profile_check=False` относится только к проверке профиля интенсивностей.
+Profile-разрешение наложений source/derivative по RAW и штрафы надёжности
+входят в текущие правила и применяются в этом прогоне.
+
 `N_COOH` / `N_OH` — подтверждённая reliable-длина серии.
 `*_raw` — длина серии до отбрасывания ambiguous-шагов.
 В таблице ниже приведены оба значения: raw показывает найденные серии,
