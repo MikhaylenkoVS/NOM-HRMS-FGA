@@ -132,3 +132,6 @@ docs/ — документация проекта NOM-HRMS-FGA
 
   auto_update.md            Автообновление exe по GitHub Releases.
 
+  penalty_calibration_f16.md
+                             FDR по длине серии и калибровка весов на F16.
+

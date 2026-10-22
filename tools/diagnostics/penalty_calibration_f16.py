@@ -77,11 +77,15 @@ def _reweight(df: pd.DataFrame, w: PenaltyWeights) -> pd.Series:
     return pd.Series(lengths, index=df.index, dtype=int)
 
 
-def _fdr(target: np.ndarray, decoys: list[np.ndarray]) -> tuple[float, int, float]:
+def _fdr(
+    target: np.ndarray, decoys: list[np.ndarray], min_len: int = 2
+) -> tuple[float, int, float]:
     if target.size == 0:
         return 1.0, 0, 0.0
-    n_t = int((target >= 1).sum())
-    n_d = float(np.mean([(d >= 1).sum() for d in decoys])) if decoys else 0.0
+    n_t = int((target >= min_len).sum())
+    n_d = (
+        float(np.mean([(d >= min_len).sum() for d in decoys])) if decoys else 0.0
+    )
     return (n_d / max(1, n_t), n_t, n_d)
 
 
@@ -138,10 +142,14 @@ def main() -> None:
         for k, frames in decoys.items()
     }
     base_metrics = {
-        k: _fdr(
-            target_lengths[k].to_numpy(),
-            [s.to_numpy() for s in decoy_lengths[k]],
-        )
+        k: {
+            f"fdr_{L}": _fdr(
+                target_lengths[k].to_numpy(),
+                [s.to_numpy() for s in decoy_lengths[k]],
+                min_len=L,
+            )[0]
+            for L in range(1, 9)
+        }
         for k in target
     }
     print("base", base_metrics, flush=True)
@@ -163,7 +171,10 @@ def main() -> None:
         for k in target:
             tl = _reweight(target[k], w).to_numpy()
             dl = [_reweight(f, w).to_numpy() for f in decoys[k]]
-            fdr, n_t, n_d = _fdr(tl, dl)
+            fdr, n_t, n_d = _fdr(tl, dl, min_len=2)
+            rec[f"{k}_fdr1"] = _fdr(tl, dl, min_len=1)[0]
+            rec[f"{k}_fdr2"] = fdr
+            rec[f"{k}_fdr3"] = _fdr(tl, dl, min_len=3)[0]
             rec[f"{k}_fdr"] = fdr
             rec[f"{k}_target"] = n_t
             rec[f"{k}_decoy"] = n_d
@@ -174,6 +185,13 @@ def main() -> None:
         rec["target_total"] = rec["cd3_target"] + rec["cd3co_target"]
         rows.append(rec)
 
+    if not rows:
+        summary = {"decoys": args.decoys, "samples": 0, "base": base_metrics}
+        (OUT / "summary.json").write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return
     out = pd.DataFrame(rows).sort_values(
         ["pass", "target_total"], ascending=[False, False]
     )

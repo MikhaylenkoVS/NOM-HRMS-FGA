@@ -25,6 +25,7 @@
 | T13 | Референс длины без фильтров | — | **completed** | T12 |
 | T14 | Ambiguous-статистика F16 | P1 | **completed** | T12 |
 | T15 | Политика серий v3 | P1 | **in progress** | T14 |
+| T16 | FDR-калибровка длины/весов F16 | P1 | **completed** | T15 |
 | T8 | Сетка режимов денойза по FDR | — | **completed** | — |
 | T9 | Внешние отчёты и дизайн | — | **completed** | — |
 | T10 | Проверка специфичной изотопной подписи CD3/CD3CO | P3 | research | — |
@@ -305,3 +306,14 @@ min_series_length/trim/drop_ambiguous/subtract_source удалены.
 пропорциональный изотопный штраф в assign, кликабельные причины в GUI.
 
 **Артефакт:** `docs/series_policy_v3.md`.
+
+
+---
+
+## T16. FDR-калибровка длины/весов F16 (completed)
+
+При q=0.05 минимальная длина: CD3 = 6, CD3CO = 7. Веса source/O/
+conflict на 20% сэмпле не изменили FDR: он определяется длиной серии.
+
+**Артефакт:** `docs/penalty_calibration_f16.md`,
+`tools/diagnostics/penalty_calibration_f16.py`.
