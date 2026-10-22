@@ -41,7 +41,7 @@ _hidden: list[str] = [
     "ctypes",
     # Материалы для статьи (кнопка в панели результатов): модуль
     # подключается лениво внутри обработчика, поэтому указываем явно.
-    "tools.article_report", "tools.make_outputs",
+    "tools.article_report", "tools.make_outputs", "tools.auto_updater",
     # Сжатая база формул: читатель подключается лениво из
     # src/core/spectrum/_formula_source.open_formula_db, поэтому PyInstaller
     # не видит импорт при статическом анализе.

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from src.configs import CHEM
 from ._chem import exact_mass_from_counts
+from ._penalty import PenaltyWeights
 from ._generate import _neutral_to_ion_mass
 from src.core.domain.molecule import parse_formula
 
@@ -165,6 +166,7 @@ def find_series(
     profile_scans: int = 16,
     resolution_scans: int | None = None,
     profile_min_persistence: float = 0.8,
+    weights: PenaltyWeights | None = None,
     allow_gaps: bool | None = None,
     max_consecutive_misses=3,
     ion_mode: str | None = None,
@@ -259,6 +261,7 @@ def find_series(
     listed under ``missing``.
     """
 
+    weights = weights or PenaltyWeights()
     if ppm_tol <= 0:
         raise ValueError(f"ppm_tol должно быть > 0, получено {ppm_tol}")
     if max_groups < 1 or max_consecutive_misses < 1:
@@ -431,8 +434,8 @@ def find_series(
                         {
                             "n": n,
                             "status": "gap",
-                            "confidence": 85.0,
-                            "penalties": {"gap": 15.0},
+                            "confidence": 100.0 - weights.gap(1),
+                            "penalties": {"gap": weights.gap(1)},
                             "reasons": ["пропуск шага"],
                         }
                     )
@@ -444,18 +447,18 @@ def find_series(
                 penalties = {}
                 reasons = []
                 if n_src > 0:
-                    penalties["source_overlap"] = min(30.0, 10.0 + 10.0 * n_src)
+                    penalties["source_overlap"] = weights.source_overlap(n_src)
                     reasons.append("наложение на пик исходного спектра")
                 if n > o_limit:
-                    penalties["o_excess"] = min(40.0, 20.0 * (n - o_limit))
+                    penalties["o_excess"] = weights.o_excess(n - o_limit)
                     reasons.append(
                         "превышение допустимой длины по количеству атомов кислорода"
                     )
                 if iso_status == "inconsistent":
                     if np.isfinite(iso_dev):
-                        iso_pen = min(30.0, max(5.0, 30.0 * iso_dev))
+                        iso_pen = weights.isotope(iso_dev)
                     else:
-                        iso_pen = 30.0
+                        iso_pen = weights.isotope(float("nan"))
                     penalties["isotope"] = iso_pen
                     reasons.append("изотопный паттерн не подтверждён")
                 total = min(100.0, float(sum(penalties.values())))
@@ -466,6 +469,9 @@ def find_series(
                         "n_deriv": int(n_deriv),
                         "n_src": int(n_src),
                         "src_mz": src_hits,
+                        "o_excess": bool(n > o_limit),
+                        "iso_status": iso_status,
+                        "iso_dev": float(iso_dev),
                         "status": "reliable" if total == 0.0 else "ambiguous",
                         "confidence": round(100.0 - total, 1),
                         "penalties": penalties,
@@ -483,6 +489,8 @@ def find_series(
                     detail = next(
                         (d for d in details if int(d["n"]) == jump_step), None
                     )
+                    if detail is not None:
+                        detail["intensity_jump"] = jump
                     if (
                         detail is not None
                         and detail.get("status") != "reliable"
@@ -492,9 +500,8 @@ def find_series(
                         _add_penalty(
                             detail,
                             "intensity_profile",
-                            min(
-                                5.0,
-                                5.0 * (jump / float(profile_max_jump) - 1.0),
+                            weights.intensity(
+                                5.0 * (jump / float(profile_max_jump) - 1.0)
                             ),
                             "скачок интенсивности между ступенями",
                         )
@@ -504,14 +511,14 @@ def find_series(
                         and int_corr > float(profile_max_corr)
                     ):
                         last_detail = details[-1]
+                        last_detail["int_corr"] = float(int_corr)
                         if last_detail.get("status") == "reliable":
                             continue
                         _add_penalty(
                             last_detail,
                             "intensity_profile",
-                            min(
-                                5.0,
-                                5.0 * (float(int_corr) - float(profile_max_corr)) / 0.5,
+                            weights.intensity(
+                                5.0 * (float(int_corr) - float(profile_max_corr)) / 0.5
                             ),
                             "несогласованный профиль интенсивностей",
                         )
@@ -591,6 +598,8 @@ def find_series(
                     hi = max([center] + [float(v) for v in src_mz]) + tol
                     resolved = resolver.resolve(lo, hi)
                     expected = 1 + len(src_mz)
+                    detail["profile_peaks"] = int(resolved["n_peaks"])
+                    detail["profile_expected"] = int(expected)
                     if int(resolved["n_peaks"]) >= expected:
                         penalties.pop("source_overlap", None)
                         detail["reasons"] = [
@@ -602,7 +611,10 @@ def find_series(
                         _add_penalty(
                             detail,
                             "poor_resolution",
-                            min(25.0, 25.0 * deficit),
+                            min(
+                                weights.poor_resolution_max,
+                                weights.poor_resolution_max * deficit,
+                            ),
                             "плохое разрешение пиков",
                         )
         except Exception as exc:  # RAW может быть недоступен
@@ -638,27 +650,30 @@ def find_series(
                             continue
                         met = metrics.loc[float(mz)]
                         persistence = float(met["persistence"])
+                        detail["persistence"] = persistence
+                        detail["shape_ok"] = bool(met["shape_ok"])
+                        detail["multi"] = bool(met.get("multi", False))
                         if persistence < profile_min_persistence:
                             _add_penalty(
                                 detail,
                                 "persistence",
-                                10.0
-                                * (profile_min_persistence - persistence)
-                                / profile_min_persistence,
+                                weights.persistence(
+                                    persistence, profile_min_persistence
+                                ),
                                 f"низкая персистентность ({persistence:.0%})",
                             )
                         if not bool(met["shape_ok"]):
                             _add_penalty(
                                 detail,
                                 "peak_profile",
-                                10.0,
+                                weights.peak_profile,
                                 "неудовлетворительная форма пика",
                             )
                         if bool(met.get("multi", False)):
                             _add_penalty(
                                 detail,
                                 "poor_resolution",
-                                15.0,
+                                weights.multi_resolution,
                                 "несколько пиков в окне",
                             )
         except Exception as exc:  # профиль не должен ломать поиск
@@ -684,17 +699,19 @@ def find_series(
                 detail = next((d for d in details if int(d["n"]) == step), None)
                 if detail is None:
                     continue
+                detail["conflict_overlap"] = True
                 _add_penalty(
                     detail,
                     "conflict_overlap",
-                    10.0,
+                    weights.conflict_overlap,
                     "наложение пика другой серии",
                 )
                 if max_gaps > 0 and mixed and ridx not in supported:
+                    detail["conflict_no_prev"] = True
                     _add_penalty(
                         detail,
                         "conflict_no_prev",
-                        30.0,
+                        weights.conflict_no_prev,
                         "конфликт без предыдущей ступени",
                     )
         for ridx in range(len(result)):
