@@ -83,9 +83,7 @@ def _fdr(
     if target.size == 0:
         return 1.0, 0, 0.0
     n_t = int((target >= min_len).sum())
-    n_d = (
-        float(np.mean([(d >= min_len).sum() for d in decoys])) if decoys else 0.0
-    )
+    n_d = float(np.mean([(d >= min_len).sum() for d in decoys])) if decoys else 0.0
     return (n_d / max(1, n_t), n_t, n_d)
 
 
@@ -124,11 +122,19 @@ def main() -> None:
         f3 = find_series(src, dmet, d3 + sh, **base)
         f3co = find_series(src, dacet, d3co + sh, **base)
         if args.frac > 0:
-            f3 = f3.sample(frac=min(1.0, args.frac), random_state=1).reset_index(drop=True)
-            f3co = f3co.sample(frac=min(1.0, args.frac), random_state=1).reset_index(drop=True)
+            f3 = f3.sample(frac=min(1.0, args.frac), random_state=1).reset_index(
+                drop=True
+            )
+            f3co = f3co.sample(frac=min(1.0, args.frac), random_state=1).reset_index(
+                drop=True
+            )
         elif args.rows > 0:
-            f3 = f3.sample(n=min(args.rows, len(f3)), random_state=1).reset_index(drop=True)
-            f3co = f3co.sample(n=min(args.rows, len(f3co)), random_state=1).reset_index(drop=True)
+            f3 = f3.sample(n=min(args.rows, len(f3)), random_state=1).reset_index(
+                drop=True
+            )
+            f3co = f3co.sample(n=min(args.rows, len(f3co)), random_state=1).reset_index(
+                drop=True
+            )
         decoys["cd3"].append(f3)
         decoys["cd3co"].append(f3co)
         if (i + 1) % 5 == 0:
