@@ -57,11 +57,39 @@ _collect_packages = ["rdkit", "matplotlib", "PIL", "scipy"]
 _collected_datas: list[tuple[str, str]] = []
 _collected_binaries: list[tuple[str, str]] = []
 
+
+def _is_test_component(value: str) -> bool:
+    """True для путей/модулей тестов, которые не нужны в exe."""
+    parts = str(value).replace("\\", "/").split("/")
+    for part in parts:
+        low = part.lower()
+        if low in {"test", "tests", "nbtests", "_multiarray_tests"}:
+            return True
+        if low.startswith(("test_", "_test", "unittest")):
+            return True
+        if low.endswith("_test"):
+            return True
+        if low.endswith(".sqlt") and "test" in low:
+            return True
+    return False
+
+
+def _is_test_module(name: str) -> bool:
+    return any(
+        part.lower() in {"test", "tests", "nbtests", "_multiarray_tests"}
+        or part.lower().startswith(("test_", "_test", "unittest"))
+        or part.lower().endswith("_test")
+        for part in str(name).split(".")
+    )
+
+
 for _pkg in _collect_packages:
     _d, _b, _h = collect_all(_pkg)
-    _collected_datas.extend(_d)
-    _collected_binaries.extend(_b)
-    _hidden.extend(_h)
+    _collected_datas.extend(item for item in _d if not _is_test_component(item[0]))
+    _collected_binaries.extend(
+        item for item in _b if not _is_test_component(item[0])
+    )
+    _hidden.extend(item for item in _h if not _is_test_module(item))
 
 # ---------------------------------------------------------------------------
 # Data files: config JSONs
@@ -94,9 +122,25 @@ if _icon_path.is_file():
 # (ищется в sys._MEIPASS/data/formula_db). Без неё назначение работает
 # перебором — медленнее, но корректно.
 _db_dir = _ROOT / "data" / "formula_db"
+_full_db = os.environ.get("NOM_BUILD_FULL_FORMULA_DB") == "1"
 if _db_dir.is_dir():
-    for _f in sorted(_db_dir.glob("*.fdb")) + sorted(_db_dir.glob("*.manifest.json")):
-        _added_datas.append((str(_f), "data/formula_db"))
+    if _full_db:
+        _db_files = (
+            sorted(_db_dir.glob("*.fdb"))
+            + sorted(_db_dir.glob("*.manifest.json"))
+            + sorted(_db_dir.glob("*.idx"))
+        )
+    else:
+        # По умолчанию в exe кладём только обязательную CHNOSP-базу (~36 МБ).
+        # CHNOSPHal (~538 МБ) — опциональная, её можно включить
+        # NOM_BUILD_FULL_FORMULA_DB=1 или положить рядом с exe вручную.
+        _db_files = [
+            _db_dir / "chposp_1000_zstd9_v2.fdb",
+            _db_dir / "chposp_1000_zstd9_v2.manifest.json",
+        ]
+    for _f in _db_files:
+        if _f.is_file():
+            _added_datas.append((str(_f), "data/formula_db"))
 
 # Merge all datas
 _all_datas: list[tuple[str, str]] = []
@@ -114,7 +158,11 @@ _excludes: list[str] = [
     # (src/core/pipeline/_export.py) и загрузки .xlsx (src/core/spectrum/_load.py).
     "sympy", "xlrd", "xlsxwriter",
     "lxml", "html5lib", "bs4", "sphinx",
-    "pytest", "setuptools", "pip", "wheel", "Cython",
+    "pytest", "_pytest", "setuptools", "pip", "wheel", "Cython",
+    "matplotlib.tests", "rdkit.sping.tests", "numpy.tests", "pandas.tests",
+    "PIL.tests", "scipy.tests", "scipy.stats.tests", "scipy.spatial.tests",
+    "scipy.optimize.tests", "scipy.special.tests", "scipy.linalg.tests",
+    "scipy.signal.tests", "scipy.sparse.tests", "scipy.io.tests",
     # "distutils" НЕ исключается: на Python >=3.12 PyInstaller-хук
     # hook-distutils алиасит setuptools._distutils -> distutils, и исключение
     # приводит к ValueError: Target module "distutils" already imported
