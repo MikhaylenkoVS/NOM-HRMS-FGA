@@ -210,6 +210,20 @@ def _candidate_scores(
     )
     ndist = np.where(hc_arr <= 0, 10.0, ndist)
 
+    # Априорный приоритет CHO-формул в NOM-like области Ван-Кревелена:
+    # H/C 0.7–1.5, O/C 0.2–0.7. Это мягкий бонус к score; жёсткие
+    # изотопные противоречия (1e6) остаются сильнее.
+    cho_nom = (
+        (n_arr == 0)
+        & (s_arr == 0)
+        & (p_arr == 0)
+        & (x_arr == 0)
+        & (hc_arr >= 0.7)
+        & (hc_arr <= 1.5)
+        & (oc_arr >= 0.2)
+        & (oc_arr <= 0.7)
+    )
+
     score = (
         nom_weight * ndist
         + np.where(dbe > 20, (dbe - 20) * 0.5, 0.0)
@@ -226,6 +240,7 @@ def _candidate_scores(
         + s_arr * penalty_s
         + p_arr * penalty_p
         + x_arr * penalty_halogen
+        - np.where(cho_nom, cfg.bonus_cho_nom, 0.0)
     )
     return np.where(valid, score, np.inf)
 

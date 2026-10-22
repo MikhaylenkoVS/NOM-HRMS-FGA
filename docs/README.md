@@ -138,7 +138,20 @@ docs/ — документация проекта NOM-HRMS-FGA
   real_sets_analysis_2026-10-22.md
                              Полный прогон F16/SRFA/F14 и сводка для статьи.
 
+  formula_assignment_cho_priority.md
+                             Априорный приоритет CHO-формул в NOM-like области.
+
   real_sets_overlap_only_2026-10-22.md
                              Пересчёт по правилу overlap-only и сравнение с ручной
                              обработкой F14/F16 из DOCX.
+
+  real_sets_cho_priority_2026-10-22.md
+                             Прогон с CHO-приоритетом и сравнение с DOCX.
+
+  manual_peak_overlap_details.md
+                             Source/conflict overlap по каждому ручному пику.
+
+  manual_vs_pipeline_cho.md
+                             Построчное сравнение ручных COOH/OH с ПО после
+                             CHO-приоритета.
 

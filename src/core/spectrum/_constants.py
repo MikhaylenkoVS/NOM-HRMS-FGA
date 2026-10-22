@@ -112,6 +112,10 @@ class FormulaSearchConfig:
     penalty_p: float = _fs_get("penalty_p", 1.5)
     penalty_halogen: float = _fs_get("penalty_halogen", 1.5)
     bonus_isotope_m2: float = _fs_get("bonus_isotope_m2", 2.5)
+    # Априорный приоритет CHO-формул в NOM-like области (H/C 0.7–1.5,
+    # O/C 0.2–0.7). Это бонус к score, а не жёсткий фильтр: сильное
+    # изотопное противоречие (1e6) по-прежнему имеет приоритет.
+    bonus_cho_nom: float = _fs_get("bonus_cho_nom", 100.0)
 
     def __post_init__(self):
         if self.ranges is None:

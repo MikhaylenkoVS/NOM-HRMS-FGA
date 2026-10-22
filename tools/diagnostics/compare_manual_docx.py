@@ -102,9 +102,10 @@ def compare(docx: Path, result_root: Path, old_root: Path, out: Path) -> None:
     doc = Document(docx)
     rows = []
     for dataset, cfg in DATASETS.items():
-        new_df = pd.read_csv(
-            result_root / dataset / "result_overlap_only.csv.gz", low_memory=False
-        )
+        new_path = result_root / dataset / "result_overlap_only.csv.gz"
+        if not new_path.is_file():
+            new_path = result_root / dataset / "result.csv.gz"
+        new_df = pd.read_csv(new_path, low_memory=False)
         old_df = pd.read_csv(old_root / dataset / "result.csv.gz", low_memory=False)
         for manual in _manual_rows(doc, cfg):
             new = _nearest(new_df, manual["mass"])
