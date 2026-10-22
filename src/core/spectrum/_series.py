@@ -163,6 +163,7 @@ def find_series(
     profile_max_corr: float | None = 0.5,
     raw_path: str | None = None,
     profile_scans: int = 16,
+    resolution_scans: int | None = None,
     profile_min_persistence: float = 0.8,
     allow_gaps: bool | None = None,
     max_consecutive_misses=3,
@@ -577,7 +578,7 @@ def find_series(
         try:
             from ._profile_resolve import ProfileResolver
 
-            resolver = ProfileResolver(raw_path, scans=3)
+            resolver = ProfileResolver(raw_path, scans=resolution_scans)
             for idx in range(len(result)):
                 for detail in result.at[idx, "step_details"]:
                     src_mz = detail.get("src_mz") or []

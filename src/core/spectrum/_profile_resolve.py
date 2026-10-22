@@ -100,7 +100,7 @@ class ProfileResolver:
         self,
         raw_path: str,
         *,
-        scans: int = 3,
+        scans: int | None = None,
         min_snr: float = 3.0,
         fwhm_bounds: tuple[float, float] = (1e-4, 0.05),
         min_sep_factor: float = 0.5,
@@ -112,7 +112,8 @@ class ProfileResolver:
         self._profiles: list[tuple[np.ndarray, np.ndarray]] = []
         raw = _open_raw(self.raw_path)
         try:
-            for scan in scan_numbers(raw, max_scans=int(scans)):
+            max_scans = None if scans is None else int(scans)
+            for scan in scan_numbers(raw, max_scans=max_scans):
                 mz, inten = scan_profile(raw, scan)
                 if mz.size:
                     self._profiles.append((mz, inten))
