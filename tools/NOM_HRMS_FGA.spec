@@ -129,6 +129,7 @@ if _db_dir.is_dir():
             sorted(_db_dir.glob("*.fdb"))
             + sorted(_db_dir.glob("*.manifest.json"))
             + sorted(_db_dir.glob("*.idx"))
+            + [_db_dir / "release_manifest.json"]
         )
     else:
         # По умолчанию в exe кладём только обязательную CHNOSP-базу (~36 МБ).
@@ -137,6 +138,7 @@ if _db_dir.is_dir():
         _db_files = [
             _db_dir / "chposp_1000_zstd9_v2.fdb",
             _db_dir / "chposp_1000_zstd9_v2.manifest.json",
+            _db_dir / "release_manifest.json",
         ]
     for _f in _db_files:
         if _f.is_file():

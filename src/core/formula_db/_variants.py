@@ -103,17 +103,25 @@ DB_VARIANTS: tuple[FormulaDbVariant, ...] = (
 )
 
 
-def _candidate_dirs(dirs: list[Path] | None = None) -> list[Path]:
-    if dirs is not None:
-        return list(dirs)
-    out: list[Path] = []
+def search_dirs() -> list[Path]:
+    """Каталоги поиска баз: проект, PyInstaller-бандл и user data."""
     import sys
 
-    out.append(Path(__file__).resolve().parents[3] / "data" / "formula_db")
+    out: list[Path] = [Path(__file__).resolve().parents[3] / "data" / "formula_db"]
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
         out.append(Path(meipass) / "data" / "formula_db")
+    try:
+        from platformdirs import user_data_dir
+
+        out.append(Path(user_data_dir("NOM-HRMS-FGA")))
+    except Exception:
+        pass
     return out
+
+
+def _candidate_dirs(dirs: list[Path] | None = None) -> list[Path]:
+    return list(dirs) if dirs is not None else search_dirs()
 
 
 def find_variant_path(
@@ -124,7 +132,11 @@ def find_variant_path(
         return None
     for d in _candidate_dirs(dirs):
         p = d / variant.manifest
-        if p.is_file():
+        if not p.is_file():
+            continue
+        # Манифест без .fdb — недокачанная/битая установка.
+        stem = variant.manifest[: -len(".manifest.json")]
+        if (d / f"{stem}.fdb").is_file():
             return p
     return None
 

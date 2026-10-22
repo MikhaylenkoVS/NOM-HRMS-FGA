@@ -61,13 +61,16 @@ def find_manifest() -> Path | None:
     Переменная окружения ``NOM_FORMULA_DB=chnosp|chorsphal|none`` позволяет
     переопределить выбор.
     """
-    dirs: list[Path] = []
-    # Проектный путь: <repo>/data/formula_db
-    dirs.append(Path(__file__).resolve().parents[3] / "data" / "formula_db")
-    # PyInstaller onefile распаковывает данные в sys._MEIPASS
-    meipass = getattr(sys, "_MEIPASS", None)
-    if meipass:
-        dirs.append(Path(meipass) / "data" / "formula_db")
+    # Проект, PyInstaller-бандл и user data (скачанная отдельно база).
+    try:
+        from src.core.formula_db._variants import search_dirs
+
+        dirs = search_dirs()
+    except Exception:
+        dirs = [Path(__file__).resolve().parents[3] / "data" / "formula_db"]
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            dirs.append(Path(meipass) / "data" / "formula_db")
     try:
         from src.core.formula_db._variants import active_variant
 

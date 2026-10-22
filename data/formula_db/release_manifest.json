@@ -1,0 +1,25 @@
+{
+  "databases": [
+    {
+      "id": "chorsphal_1000_v3",
+      "fdb_size_bytes": 537963393,
+      "fdb_sha256": "88900699e40b5ea69af61a2ebd28acaef64b6dd9e798e8874430093a80865e16",
+      "fdb_url": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases/latest/download/chorsphal_1000_v3.fdb",
+      "idx_size_bytes": 188640,
+      "idx_sha256": "14fffd5700d78e1426236677a1cac068229c3b4d4804b240215cf846e4c3c28a",
+      "idx_url": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases/latest/download/chorsphal_1000_v3.idx",
+      "manifest_size_bytes": 1205,
+      "manifest_sha256": "99d641f36397bb497e1c5f4a05a03832f54bdaa80e8d257e8f5b6bb4ea98abbc",
+      "manifest_url": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases/latest/download/chorsphal_1000_v3.manifest.json"
+    },
+    {
+      "id": "chposp_1000_zstd9_v2",
+      "fdb_size_bytes": 36232461,
+      "fdb_sha256": "4607ec521bc1ac4df3b1e03a1e83251a79326eefd69c37ba8f426b46af2ab541",
+      "fdb_url": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases/latest/download/chposp_1000_zstd9_v2.fdb",
+      "manifest_size_bytes": 2519764,
+      "manifest_sha256": "7a462d8bd94d7788142d7b583420bc6eee89061557ff5dce9c18bcf3b399f643",
+      "manifest_url": "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/releases/latest/download/chposp_1000_zstd9_v2.manifest.json"
+    }
+  ]
+}

@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 # Default release manifest URL — configured by developer, not hardcoded
 _RELEASE_MANIFEST_URL_DEFAULT: str = (
+    "https://github.com/MikhaylenkoVS/NOM-HRMS-FGA/"
+    "releases/latest/download/release_manifest.json"
+)
+_RELEASE_MANIFEST_URL_FALLBACK: str = (
     "https://raw.githubusercontent.com/MikhaylenkoVS/NOM-HRMS-FGA/"
     "main/data/formula_db/release_manifest.json"
 )
@@ -44,7 +48,11 @@ class DatabaseManager:
         import platformdirs
 
         self._data_dir = Path(data_dir or platformdirs.user_data_dir("NOM-HRMS-FGA"))
-        self._release_url = release_manifest_url or _RELEASE_MANIFEST_URL_DEFAULT
+        self._release_url = (
+            release_manifest_url
+            or os.environ.get("NOM_FORMULA_DB_MANIFEST_URL")
+            or _RELEASE_MANIFEST_URL_DEFAULT
+        )
         self._data_dir.mkdir(parents=True, exist_ok=True)
 
     @property
@@ -56,6 +64,9 @@ class DatabaseManager:
 
     def _local_fdb_path(self, db_id: str) -> Path:
         return self._data_dir / f"{db_id}.fdb"
+
+    def _local_idx_path(self, db_id: str) -> Path:
+        return self._data_dir / f"{db_id}.idx"
 
     def is_available(self, db_id: str = "chposp_1000") -> bool:
         """Check if a valid local database exists."""
@@ -103,9 +114,18 @@ class DatabaseManager:
 
         Returns the JSON dict or raises on network/parse error.
         """
-        resp = requests.get(self._release_url, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
+        urls = [self._release_url]
+        if self._release_url == _RELEASE_MANIFEST_URL_DEFAULT:
+            urls.append(_RELEASE_MANIFEST_URL_FALLBACK)
+        last_exc: Exception | None = None
+        for url in urls:
+            try:
+                resp = requests.get(url, timeout=30)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as exc:  # noqa: BLE001 - пробуем fallback
+                last_exc = exc
+        raise RuntimeError(f"Не удалось получить release manifest: {last_exc}")
 
     def download(
         self,
@@ -134,22 +154,46 @@ class DatabaseManager:
                 f"Available: {[d.get('id') for d in info.get('databases', [])]}"
             )
 
-        total_size = entry["fdb_size_bytes"] + 1024  # + manifest overhead
+        total_size = (
+            int(entry.get("fdb_size_bytes", 0))
+            + int(entry.get("idx_size_bytes", 0))
+            + int(entry.get("manifest_size_bytes", 0))
+            + 1024
+        )
         downloaded = 0
 
         def _report(stage: str):
             if progress_callback:
                 progress_callback(stage, min(downloaded / max(total_size, 1), 0.99))
 
-        # Download manifest
+        # Download manifest to .part; устанавливаем последним, чтобы
+        # недокачанная база не стала «активной».
         mp = self._local_manifest_path(db_id)
-        mp_part = mp.with_suffix(".manifest.json.part")
+        mp_part = Path(str(mp) + ".part")
         self._download_file(entry["manifest_url"], mp_part)
-        os.replace(mp_part, mp)
+        self._verify_file(mp_part, entry.get("manifest_sha256"), "manifest")
+
+        # В манифесте варианта может не быть SHA/размера .fdb: добавляем их
+        # из release-манифеста, иначе _verify_local() не сможет проверить базу.
+        try:
+            meta = json.loads(mp_part.read_text(encoding="utf-8"))
+            for key in (
+                "fdb_sha256",
+                "fdb_size_bytes",
+                "idx_sha256",
+                "idx_size_bytes",
+            ):
+                if entry.get(key) is not None:
+                    meta[key] = entry[key]
+            mp_part.write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except (OSError, ValueError):
+            pass
 
         # Download .fdb with resume support
         fdb = self._local_fdb_path(db_id)
-        fdb_part = fdb.with_suffix(".fdb.part")
+        fdb_part = Path(str(fdb) + ".part")
         fdb_url = entry["fdb_url"]
         fdb_size = entry["fdb_size_bytes"]
 
@@ -189,19 +233,50 @@ class DatabaseManager:
 
         # Verify SHA-256
         _report("Проверка целостности...")
-        actual = hashlib.sha256(fdb_part.read_bytes()).hexdigest()
-        expected = entry["fdb_sha256"]
+        self._verify_file(fdb_part, entry.get("fdb_sha256"), "fdb")
+
+        # Optional index (v3 CHNOSPHal)
+        idx_part = None
+        idx = None
+        if entry.get("idx_url"):
+            idx = self._local_idx_path(db_id)
+            idx_part = Path(str(idx) + ".part")
+            _report("Загрузка индекса...")
+            self._download_file(entry["idx_url"], idx_part)
+            self._verify_file(idx_part, entry.get("idx_sha256"), "idx")
+
+        # Atomic install: данные, затем манифест.
+        os.replace(fdb_part, fdb)
+        if idx_part is not None and idx is not None:
+            os.replace(idx_part, idx)
+        os.replace(mp_part, mp)
+        _report("Готово")
+
+    def download_variant(
+        self,
+        variant,
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+        cancel_check: Optional[Callable[[], bool]] = None,
+    ) -> str:
+        """Скачать FormulaDbVariant в user data и вернуть db_id."""
+        db_id = Path(variant.manifest).name
+        if db_id.endswith(".manifest.json"):
+            db_id = db_id[: -len(".manifest.json")]
+        self.download(db_id, progress_callback, cancel_check)
+        return db_id
+
+    @staticmethod
+    def _verify_file(path: Path, expected: str | None, label: str) -> None:
+        if not expected:
+            return
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
         if actual != expected:
-            fdb_part.unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
             raise RuntimeError(
-                f"Downloaded DB SHA-256 mismatch.\n"
+                f"Downloaded {label} SHA-256 mismatch.\n"
                 f"  Expected: {expected}\n"
                 f"  Got:      {actual}"
             )
-
-        # Atomic replace
-        os.replace(fdb_part, fdb)
-        _report("Готово")
 
     @staticmethod
     def _download_file(url: str, dest: Path) -> None:

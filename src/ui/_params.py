@@ -510,7 +510,9 @@ class ParamsMixin:
         подхватит его автоматически, если файл положить рядом.
         """
         from src.core.formula_db._variants import (
+            DB_VARIANTS,
             describe_choice,
+            find_variant_path,
             installer_plan,
             variants_report,
         )
@@ -575,9 +577,9 @@ class ParamsMixin:
         ttk.Label(
             win,
             text=(
-                "CHNOSPHal (с галогенами) пока не предлагается: он примерно в 15 "
-                "раз больше. Его можно положить вручную в data/formula_db — "
-                "программа подхватит его автоматически как более быстрый.\n"
+                "CHNOSPHal (с галогенами) не входит в exe: его можно скачать "
+                "отдельно, не переустанавливая программу. База сохраняется в "
+                "пользовательский каталог и подхватывается при следующем запуске.\n"
                 "Принудительный выбор: переменная окружения "
                 "NOM_FORMULA_DB = chnosp | chorsphal | none."
             ),
@@ -586,8 +588,120 @@ class ParamsMixin:
             justify="left",
             wraplength=680,
         ).grid(
-            row=base_row + 2, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 10)
+            row=base_row + 2, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 6)
         )
+
+        missing = [v for v in DB_VARIANTS if not find_variant_path(v)]
+        if missing:
+            dl_row = ttk.Frame(win)
+            dl_row.grid(
+                row=base_row + 3,
+                column=0,
+                columnspan=5,
+                sticky="w",
+                padx=10,
+                pady=(0, 10),
+            )
+            for v in missing:
+                ttk.Button(
+                    dl_row,
+                    text=f"Скачать {v.title.split(' — ')[0]} ({v.size_mb:.0f} МБ)…",
+                    command=lambda v=v: self._download_db_variant(v),
+                ).pack(side="left", padx=(0, 8))
+
+    def _download_db_variant(self, variant) -> None:
+        """Скачать опциональную базу формул в пользовательский каталог."""
+        from src.core.formula_db._manager import DatabaseManager
+        from src.core.formula_db._variants import find_variant_path
+
+        if find_variant_path(variant):
+            messagebox.showinfo("База формул", "Эта база уже установлена.", parent=self)
+            return
+        if not messagebox.askyesno(
+            "Скачать базу формул?",
+            f"Будет скачано {variant.size_mb:.0f} МБ ({variant.title}).\n"
+            "База сохранится отдельно от exe и будет использована после перезапуска.",
+            parent=self,
+        ):
+            return
+
+        win = tk.Toplevel(self)
+        win.title("Загрузка базы формул")
+        win.transient(self)
+        win.resizable(False, False)
+        ttk.Label(
+            win,
+            text=f"{variant.title}\n{variant.description}",
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", padx=12, pady=(12, 6))
+        stage_var = tk.StringVar(value="Подготовка…")
+        ttk.Label(win, textvariable=stage_var).pack(anchor="w", padx=12)
+        progress = ttk.Progressbar(win, length=500, maximum=100)
+        progress.pack(fill="x", padx=12, pady=8)
+
+        state = {
+            "cancel": False,
+            "done": False,
+            "error": None,
+            "stage": "",
+            "frac": 0.0,
+        }
+
+        def on_cancel() -> None:
+            state["cancel"] = True
+            stage_var.set("Отмена…")
+
+        ttk.Button(win, text="Отмена", command=on_cancel).pack(
+            anchor="e", padx=12, pady=(0, 10)
+        )
+        win.protocol("WM_DELETE_WINDOW", on_cancel)
+
+        def progress_cb(stage: str, frac: float) -> None:
+            state["stage"] = stage
+            state["frac"] = float(frac)
+
+        def worker() -> None:
+            try:
+                mgr = DatabaseManager()
+                mgr.download_variant(
+                    variant,
+                    progress_callback=progress_cb,
+                    cancel_check=lambda: state["cancel"],
+                )
+                state["done"] = True
+            except Exception as exc:  # noqa: BLE001 - показываем пользователю
+                state["error"] = exc
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        def poll() -> None:
+            if state["done"]:
+                win.destroy()
+                messagebox.showinfo(
+                    "База формул",
+                    "База скачана. Перезапустите программу, чтобы она стала активной.",
+                    parent=self,
+                )
+                return
+            if state["error"] is not None:
+                win.destroy()
+                if state["cancel"]:
+                    messagebox.showinfo(
+                        "База формул", "Загрузка отменена.", parent=self
+                    )
+                else:
+                    messagebox.showerror(
+                        "Ошибка загрузки базы",
+                        f"Не удалось скачать базу:\n{state['error']}",
+                        parent=self,
+                    )
+                return
+            stage_var.set(state["stage"] or "Загрузка…")
+            progress["value"] = max(0.0, min(100.0, state["frac"] * 100.0))
+            win.after(150, poll)
+
+        win.after(150, poll)
 
     def _show_halogen_settings(self):
         """Окно с настройками поиска по галогенам.

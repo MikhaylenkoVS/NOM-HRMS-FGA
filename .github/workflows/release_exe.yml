@@ -64,7 +64,22 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/NOM_HRMS_FGA.exe
+          files: |
+            dist/NOM_HRMS_FGA.exe
+            data/formula_db/release_manifest.json
+            data/formula_db/chposp_1000_zstd9_v2.fdb
+            data/formula_db/chposp_1000_zstd9_v2.manifest.json
+
+      # CHNOSPHal (~538 МБ) не хранится в git; если файл подготовлен в
+      # workspace, он попадёт в релиз и станет доступен для скачивания из GUI.
+      - name: Upload optional CHNOSPHal DB assets
+        if: github.event_name == 'release' && hashFiles('data/formula_db/chorsphal_1000_v3.fdb') != ''
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            data/formula_db/chorsphal_1000_v3.fdb
+            data/formula_db/chorsphal_1000_v3.idx
+            data/formula_db/chorsphal_1000_v3.manifest.json
 
       - name: Upload as Artifact
         if: inputs.upload_artifact || github.event_name == 'workflow_dispatch'
