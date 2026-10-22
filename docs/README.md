@@ -130,3 +130,5 @@ docs/ — документация проекта NOM-HRMS-FGA
   series_policy_v3.md       Зафиксированная политика серий: reliable/
                              ambiguous, confidence, O-лимит, штрафы.
 
+  auto_update.md            Автообновление exe по GitHub Releases.
+

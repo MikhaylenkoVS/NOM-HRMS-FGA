@@ -89,6 +89,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--decoys", type=int, default=10)
     ap.add_argument("--samples", type=int, default=80)
+    ap.add_argument("--rows", type=int, default=0)
+    ap.add_argument("--frac", type=float, default=0.2)
     args = ap.parse_args()
 
     cache = pd.read_pickle(CACHE)
@@ -102,11 +104,29 @@ def main() -> None:
         "cd3": find_series(src, dmet, d3, **base),
         "cd3co": find_series(src, dacet, d3co, **base),
     }
+    if args.frac > 0:
+        target = {
+            k: v.sample(frac=min(1.0, args.frac), random_state=1).reset_index(drop=True)
+            for k, v in target.items()
+        }
+    elif args.rows > 0:
+        target = {
+            k: v.sample(n=min(args.rows, len(v)), random_state=1).reset_index(drop=True)
+            for k, v in target.items()
+        }
     shifts = decoy_shifts(d3, k=args.decoys, seed=DECOY_SEED)
     decoys = {"cd3": [], "cd3co": []}
     for i, sh in enumerate(shifts):
-        decoys["cd3"].append(find_series(src, dmet, d3 + sh, **base))
-        decoys["cd3co"].append(find_series(src, dacet, d3co + sh, **base))
+        f3 = find_series(src, dmet, d3 + sh, **base)
+        f3co = find_series(src, dacet, d3co + sh, **base)
+        if args.frac > 0:
+            f3 = f3.sample(frac=min(1.0, args.frac), random_state=1).reset_index(drop=True)
+            f3co = f3co.sample(frac=min(1.0, args.frac), random_state=1).reset_index(drop=True)
+        elif args.rows > 0:
+            f3 = f3.sample(n=min(args.rows, len(f3)), random_state=1).reset_index(drop=True)
+            f3co = f3co.sample(n=min(args.rows, len(f3co)), random_state=1).reset_index(drop=True)
+        decoys["cd3"].append(f3)
+        decoys["cd3co"].append(f3co)
         if (i + 1) % 5 == 0:
             print(
                 f"[{time.strftime('%H:%M:%S')}] decoys {i+1}/{len(shifts)}", flush=True
