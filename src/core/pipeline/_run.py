@@ -550,7 +550,7 @@ def run_pipeline(
         67,
         messages,
         progress_callback,
-        raw_path=src_path,
+        raw_path=dmet_path,
     )
 
     # -----------------------------------------------------------------------
@@ -587,7 +587,7 @@ def run_pipeline(
         82,
         messages,
         progress_callback,
-        raw_path=src_path,
+        raw_path=dacet_path,
     )
 
     # -----------------------------------------------------------------------

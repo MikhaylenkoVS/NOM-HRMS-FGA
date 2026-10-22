@@ -73,6 +73,18 @@ def _count_in_window(sorted_mz: np.ndarray, target_mz: float, ppm_tol: float) ->
     return max(0, hi - lo)
 
 
+def _peaks_in_window(
+    sorted_mz: np.ndarray, target_mz: float, ppm_tol: float
+) -> list[float]:
+    """Список пиков в ppm-окне вокруг target."""
+    if sorted_mz.size == 0:
+        return []
+    tol = abs(target_mz) * float(ppm_tol) * 1e-6
+    lo = int(np.searchsorted(sorted_mz, target_mz - tol, side="left"))
+    hi = int(np.searchsorted(sorted_mz, target_mz + tol, side="right"))
+    return [float(v) for v in sorted_mz[lo:hi]]
+
+
 def _series_o_limit(brutto: str, delta: float, max_groups: int) -> int:
     """Предел длины по кислороду: CD3 — O//2, CD3CO — O."""
     try:
@@ -425,7 +437,8 @@ def find_series(
                     )
                     continue
                 target = m0_ref + n * delta
-                n_src = _count_in_window(_src_mz_sorted, target, ppm_tol)
+                src_hits = _peaks_in_window(_src_mz_sorted, target, ppm_tol)
+                n_src = len(src_hits)
                 n_deriv = _count_in_window(_mz_sorted, target, ppm_tol)
                 penalties = {}
                 reasons = []
@@ -451,6 +464,7 @@ def find_series(
                         "mz": float(found_mz[n]),
                         "n_deriv": int(n_deriv),
                         "n_src": int(n_src),
+                        "src_mz": src_hits,
                         "status": "reliable" if total == 0.0 else "ambiguous",
                         "confidence": round(100.0 - total, 1),
                         "penalties": penalties,
@@ -555,6 +569,43 @@ def find_series(
             "step_details",
         ],
     )
+
+    # Profile-разрешение наложений source/derivative. Если в объединённом
+    # окне видно >= 1 + n_src пиков, наложение разрешено: source-штраф
+    # снимается, и шаг может стать reliable.
+    if raw_path and not result.empty:
+        try:
+            from ._profile_resolve import ProfileResolver
+
+            resolver = ProfileResolver(raw_path, scans=3)
+            for idx in range(len(result)):
+                for detail in result.at[idx, "step_details"]:
+                    src_mz = detail.get("src_mz") or []
+                    penalties = detail.get("penalties", {})
+                    if not src_mz or "source_overlap" not in penalties:
+                        continue
+                    center = float(detail["mz"])
+                    tol = abs(center) * float(ppm_tol) * 1e-6
+                    lo = min([center] + [float(v) for v in src_mz]) - tol
+                    hi = max([center] + [float(v) for v in src_mz]) + tol
+                    resolved = resolver.resolve(lo, hi)
+                    expected = 1 + len(src_mz)
+                    if int(resolved["n_peaks"]) >= expected:
+                        penalties.pop("source_overlap", None)
+                        detail["reasons"] = [
+                            r for r in detail.get("reasons", []) if "исходного" not in r
+                        ]
+                        detail["profile_resolved"] = True
+                    else:
+                        deficit = (expected - int(resolved["n_peaks"])) / expected
+                        _add_penalty(
+                            detail,
+                            "poor_resolution",
+                            min(25.0, 25.0 * deficit),
+                            "плохое разрешение пиков",
+                        )
+        except Exception as exc:  # RAW может быть недоступен
+            logger.debug("profile resolution skipped: %s", exc)
 
     # Per-step RAW-профиль: считаем метрики один раз на все уникальные
     # m/z шагов, затем раздаём штрафы. Это не удаляет шаги.

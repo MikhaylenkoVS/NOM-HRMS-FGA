@@ -548,6 +548,26 @@ def assign_formulas(
                 m1_required = (m1_theor * base_int) >= floor
                 m2_required = (m2_theor * base_int) >= floor
 
+                # Попарное решение по изотопам: только если у обоих
+                # кандидатов сателлиты измеримы и теоретическая сила одного
+                # минимум в 3 раза больше другого. Наличие/отсутствие
+                # наблюдаемого сателлита решает, кого штрафовать.
+                measurable_mask = m1_required | m2_required
+                if int(measurable_mask.sum()) >= 2:
+                    strengths = np.maximum(m1_theor, m2_theor)
+                    hi_strength = float(strengths[measurable_mask].max())
+                    lo_strength = float(strengths[measurable_mask].min())
+                    if hi_strength > 0 and hi_strength >= 3.0 * max(lo_strength, 1e-12):
+                        observed = max(float(m1_ratio), float(m2_ratio))
+                        if observed >= 0.5 * hi_strength:
+                            scores_win = scores_win + np.where(
+                                strengths < hi_strength / 3.0, 50.0, 0.0
+                            )
+                        elif observed < 0.5 * max(lo_strength, 1e-12):
+                            scores_win = scores_win + np.where(
+                                strengths >= hi_strength / 3.0, 50.0, 0.0
+                            )
+
                 # Отрицательные проверки применяем только если сателлиты вообще
                 # измеримы на этом пике: если не видно даже M+1 (обычно 5–25 %),
                 # изотопные пики лежат ниже порога чувствительности, и требовать
