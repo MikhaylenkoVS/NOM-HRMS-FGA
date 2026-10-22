@@ -12,7 +12,7 @@ abstract: >
   data, performing peak detection, matching derived functional groups, and
   exporting analysis results for downstream interpretation.
 type: software
-version: "0.10.0"
+version: "0.10.1"
 date-released: "2026-10-13"
 authors:
   - family-names: "Mikhaylenko"
