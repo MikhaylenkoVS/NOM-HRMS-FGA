@@ -89,6 +89,9 @@ def _shape_metrics(
             "fwhm": float("nan"),
             "ok": False,
             "multi": False,
+            "apex": 0.0,
+            "noise_median": 0.0,
+            "noise_sigma": 0.0,
         }
     win_i = inten[lo:hi]
     win_mz = mz[lo:hi]
@@ -106,6 +109,9 @@ def _shape_metrics(
             "fwhm": float("nan"),
             "ok": False,
             "multi": False,
+            "apex": apex,
+            "noise_median": 0.0,
+            "noise_sigma": 0.0,
         }
     med = float(np.median(noise))
     mad = float(np.median(np.abs(noise - med))) * 1.4826
@@ -144,6 +150,9 @@ def _shape_metrics(
         "fwhm": fwhm,
         "ok": (not touches_edge) and single,
         "multi": bool(outside.size and outside.max() >= half),
+        "apex": apex,
+        "noise_median": med,
+        "noise_sigma": sigma,
     }
 
 
