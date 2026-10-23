@@ -56,6 +56,7 @@ SETS = {
 DELTAS = {"CD3": 17.03448, "CD3CO": 45.02939}
 MAX_N = 10
 PPM = 2.0
+SNR_MIN = 3.0
 
 
 def _clean(value: str) -> str:
@@ -166,7 +167,11 @@ def _tables(rows: pd.DataFrame) -> str:
             vals = []
             for n in range(1, MAX_N + 1):
                 value = row.get(n, np.nan)
-                vals.append("—" if pd.isna(value) else f"{float(value):.1f}")
+                vals.append(
+                    "—"
+                    if pd.isna(value) or float(value) < SNR_MIN
+                    else f"{float(value):.1f}"
+                )
             lines.append(
                 f"| {dataset} | {number} | {mass:.5f} | {formula} | "
                 + " | ".join(vals)
@@ -219,6 +224,7 @@ def main() -> None:
                         if intensity is not None and sigma > 0
                         else np.nan
                     )
+                    passed = bool(np.isfinite(ratio) and ratio >= SNR_MIN)
                     ratio_raw = (
                         float(intensity) / sigma_raw
                         if intensity is not None and sigma_raw > 0
@@ -237,6 +243,7 @@ def main() -> None:
                             "intensity": intensity,
                             "local_noise": sigma,
                             "ratio": ratio,
+                            "passed": passed,
                             "local_noise_raw": sigma_raw,
                             "ratio_raw": ratio_raw,
                         }
@@ -256,8 +263,8 @@ def main() -> None:
         "`mu` — теоретическая масса; интенсивность — пик в усреднённом",
         "спектре дериватизата в окне 2 ppm; локальный шум — MAD",
         "центроидных интенсивностей в ±0.2 Да, без ±0.02 Да вокруг `mu`.",
-        "`—` — пик в окне не найден. В CSV также есть `ratio_raw` —",
-        "отношение к шуму RAW-профиля (медиана/MAD по нескольким сканам).",
+        "`—` — пик не найден или `I/шум < 3` (жёсткий критерий S/N).",
+        "В CSV остаются исходные `ratio`, `ratio_raw` и флаг `passed`.",
         "",
         _tables(df),
     ]

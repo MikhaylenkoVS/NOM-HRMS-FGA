@@ -1081,3 +1081,73 @@ class TestSeriesPolicy:
         strict_policy = _finalize_policy(details, confirmation_mode="all_penalties")
         assert strict_policy["confirmed_length"] == 0
         assert details[0]["status"] == "ambiguous"
+
+    def test_hard_snr_filter_trims_at_low_snr_step(self):
+        from src.core.spectrum._series import _apply_hard_snr_filter
+
+        def detail(n, mz, snr, status="reliable"):
+            return {
+                "n": n,
+                "mz": mz,
+                "status": status,
+                "penalties": {},
+                "reasons": [],
+                "snr": snr,
+            }
+
+        df = pd.DataFrame(
+            {
+                "step_details": [
+                    [
+                        detail(1, 100.0, 20.0),
+                        detail(2, 117.0, 1.0),
+                        detail(3, 134.0, 30.0),
+                    ]
+                ],
+                "n_groups": [3],
+                "steps_found": [[1, 2, 3]],
+                "series_mz": [[100.0, 117.0, 134.0]],
+                "confirmed_length": [3],
+                "ambiguous_length": [3],
+                "confidence": [100.0],
+                "display_length": ["3"],
+                "ambiguous": [False],
+            }
+        )
+        out = _apply_hard_snr_filter(df, snr_min=3.0)
+        assert len(out) == 1
+        row = out.iloc[0]
+        assert row["n_groups"] == 1
+        assert row["steps_found"] == [1]
+        assert row["series_mz"] == [100.0]
+        assert row["confirmed_length"] == 1
+        assert row["display_length"] == "1"
+
+    def test_hard_snr_filter_drops_series_when_first_step_low(self):
+        from src.core.spectrum._series import _apply_hard_snr_filter
+
+        df = pd.DataFrame(
+            {
+                "step_details": [
+                    [
+                        {
+                            "n": 1,
+                            "mz": 100.0,
+                            "status": "reliable",
+                            "penalties": {},
+                            "reasons": [],
+                            "snr": 1.0,
+                        }
+                    ]
+                ],
+                "n_groups": [1],
+                "steps_found": [[1]],
+                "series_mz": [[100.0]],
+                "confirmed_length": [1],
+                "ambiguous_length": [1],
+                "confidence": [100.0],
+                "display_length": ["1"],
+                "ambiguous": [False],
+            }
+        )
+        assert _apply_hard_snr_filter(df, snr_min=3.0).empty

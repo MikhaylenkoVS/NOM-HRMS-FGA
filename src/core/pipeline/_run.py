@@ -100,6 +100,7 @@ def run_pipeline(
     confirmation_mode: str = PIPELINE.run_pipeline_defaults.get(
         "confirmation_mode", "overlap_only"
     ),
+    snr_min: float = PIPELINE.run_pipeline_defaults.get("snr_min", 3.0),
     # Устаревший синоним: allow_gaps=False эквивалентно max_gaps=0
     allow_gaps: bool | None = None,
     # Визуализация
@@ -555,6 +556,7 @@ def run_pipeline(
         progress_callback,
         raw_path=dmet_path,
         confirmation_mode=confirmation_mode,
+        snr_min=snr_min,
     )
 
     # -----------------------------------------------------------------------
@@ -593,6 +595,7 @@ def run_pipeline(
         progress_callback,
         raw_path=dacet_path,
         confirmation_mode=confirmation_mode,
+        snr_min=snr_min,
     )
 
     # -----------------------------------------------------------------------

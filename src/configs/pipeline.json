@@ -17,6 +17,7 @@
     "max_groups": 20,
     "max_gaps": 0,
     "confirmation_mode": "overlap_only",
+    "snr_min": 3.0,
     "allow_gaps": false,
     "denoise_derivatives": true,
     "ratios_enabled": true,

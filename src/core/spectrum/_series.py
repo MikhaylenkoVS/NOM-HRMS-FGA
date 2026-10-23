@@ -165,6 +165,60 @@ def _theor_ion_mass_cached(brutto_str: str, ion_mode: str) -> float:
     return _neutral_to_ion_mass(exact_mass_from_counts(counts), ion_mode)
 
 
+def _apply_hard_snr_filter(
+    result: pd.DataFrame,
+    snr_min: float,
+    confirmation_mode: str = "overlap_only",
+) -> pd.DataFrame:
+    """Жёстко обрезать серию перед первым шагом с S/N < ``snr_min``.
+
+    Критерий применяется только к шагам, для которых RAW-профиль дал
+    конечное значение ``snr``. Шаг с низким S/N считается отсутствующим:
+    серия обрывается перед ним (для ``max_gaps=0`` это эквивалентно
+    удалению пика и разрыву цепочки).
+    """
+    if snr_min <= 0 or result.empty:
+        return result
+    keep_rows = []
+    for _, row in result.iterrows():
+        details = list(row["step_details"])
+        low_n = None
+        for detail in details:
+            value = detail.get("snr")
+            if value is None:
+                continue
+            value = float(value)
+            if np.isfinite(value) and value < float(snr_min):
+                low_n = int(detail["n"])
+                break
+        if low_n is None:
+            keep_rows.append(row)
+            continue
+        if low_n <= 1:
+            continue
+        kept = [d for d in details if int(d.get("n", 0)) < low_n]
+        if not any(d.get("status") != "gap" for d in kept):
+            continue
+        row = row.copy()
+        row["step_details"] = kept
+        row["steps_found"] = [int(d["n"]) for d in kept if d.get("status") != "gap"]
+        row["missing"] = [int(d["n"]) for d in kept if d.get("status") == "gap"]
+        row["series_mz"] = [
+            None if d.get("status") == "gap" else d.get("mz") for d in kept
+        ]
+        row["n_groups"] = int(kept[-1]["n"]) if kept else 0
+        policy = _finalize_policy(kept, confirmation_mode=confirmation_mode)
+        row["confirmed_length"] = int(policy["confirmed_length"])
+        row["ambiguous_length"] = int(policy["ambiguous_length"])
+        row["confidence"] = float(policy["confidence"])
+        row["display_length"] = policy["display_length"]
+        row["ambiguous"] = bool(policy["ambiguous_length"] > policy["confirmed_length"])
+        keep_rows.append(row)
+    if not keep_rows:
+        return result.iloc[0:0].copy()
+    return pd.DataFrame(keep_rows, columns=result.columns).reset_index(drop=True)
+
+
 def find_series(
     src,
     deriv,
@@ -184,6 +238,7 @@ def find_series(
     profile_scans: int = 16,
     resolution_scans: int | None = None,
     profile_min_persistence: float = 0.8,
+    snr_min: float = 3.0,
     weights: PenaltyWeights | None = None,
     allow_gaps: bool | None = None,
     max_consecutive_misses=3,
@@ -658,11 +713,10 @@ def find_series(
                     unique_masses,
                     ppm=ppm_tol,
                     max_scans=profile_scans,
+                    min_snr=snr_min,
                 ).set_index("mass")
                 for idx in range(len(result)):
                     for detail in result.at[idx, "step_details"]:
-                        if detail.get("status") == "reliable":
-                            continue
                         mz = detail.get("mz")
                         if mz is None or float(mz) not in metrics.index:
                             continue
@@ -671,6 +725,9 @@ def find_series(
                         detail["persistence"] = persistence
                         detail["shape_ok"] = bool(met["shape_ok"])
                         detail["multi"] = bool(met.get("multi", False))
+                        detail["snr"] = float(met["snr"])
+                        if detail.get("status") == "reliable":
+                            continue
                         if persistence < profile_min_persistence:
                             _add_penalty(
                                 detail,
@@ -696,6 +753,14 @@ def find_series(
                             )
         except Exception as exc:  # профиль не должен ломать поиск
             logger.debug("profile penalties skipped: %s", exc)
+
+    # Жёсткий критерий: шаг с S/N < snr_min считается отсутствующим.
+    if raw_path and not result.empty:
+        result = _apply_hard_snr_filter(
+            result,
+            snr_min=snr_min,
+            confirmation_mode=confirmation_mode,
+        )
 
     # Штрафы за конфликты: наложение пиков разных серий. Дополнительный
     # штраф «без предыдущей ступени» — только когда пропуски разрешены.
