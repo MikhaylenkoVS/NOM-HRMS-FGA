@@ -77,6 +77,8 @@ def run_pipeline(
     src_path=None,
     dmet_path=None,
     dacet_path=None,
+    raw_dmet_path=None,
+    raw_dacet_path=None,
     *,
     # Загрузка (defaults: pipeline.json -> run_pipeline_defaults)
     sep=PIPELINE.run_pipeline_defaults["sep"],
@@ -554,7 +556,7 @@ def run_pipeline(
         67,
         messages,
         progress_callback,
-        raw_path=dmet_path,
+        raw_path=raw_dmet_path or dmet_path,
         confirmation_mode=confirmation_mode,
         snr_min=snr_min,
     )
@@ -593,7 +595,7 @@ def run_pipeline(
         82,
         messages,
         progress_callback,
-        raw_path=dacet_path,
+        raw_path=raw_dacet_path or dacet_path,
         confirmation_mode=confirmation_mode,
         snr_min=snr_min,
     )

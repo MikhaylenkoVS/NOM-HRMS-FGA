@@ -159,3 +159,13 @@ docs/ — документация проекта NOM-HRMS-FGA
                              Таблицы I(mu)/локальный шум для 22 якорей
                              Тарабрина, степени 1–10 (CD3 и CD3CO).
 
+  real_sets_snr3_2026-10-24.md
+                             Прогон F14/F16 с жёстким S/N < 3 и сравнение
+                             с ручной обработкой.
+
+  manual_vs_pipeline_snr3.md
+                             Построчное сравнение после S/N-фильтра.
+
+  manual_peak_overlap_details_snr3.md
+                             Source/conflict-детали после S/N-фильтра.
+

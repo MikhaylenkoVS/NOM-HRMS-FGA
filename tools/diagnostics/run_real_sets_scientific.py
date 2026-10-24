@@ -171,7 +171,8 @@ def _write_markdown(
         f"max_groups={defaults.get('max_groups')}  max_gaps={defaults.get('max_gaps')}",
         f"require_first_step={defaults.get('require_first_step')}  "
         f"profile_check={defaults.get('profile_check')}  "
-        f"significance_level={defaults.get('significance_level')}",
+        f"significance_level={defaults.get('significance_level')}  "
+        f"snr_min={defaults.get('snr_min')}",
         "```",
         "",
         "`N_COOH` / `N_OH` — подтверждённая reliable-длина серии.",
@@ -371,6 +372,8 @@ def main() -> None:
                 src_path=src,
                 dmet_path=dmet,
                 dacet_path=dacet,
+                raw_dmet_path=str(set_dir / REAL_SETS[name][1]),
+                raw_dacet_path=str(set_dir / REAL_SETS[name][2]),
                 sep=",",
                 visualize=False,
                 use_cache=False,

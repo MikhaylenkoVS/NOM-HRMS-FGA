@@ -98,10 +98,23 @@ def _match(value: int | None, primary: int | None, alt: int | None) -> str:
     return "нет"
 
 
-def compare(docx: Path, result_root: Path, old_root: Path, out: Path) -> None:
+def compare(
+    docx: Path,
+    result_root: Path,
+    old_root: Path,
+    out: Path,
+    datasets: str = "all",
+) -> None:
     doc = Document(docx)
     rows = []
-    for dataset, cfg in DATASETS.items():
+    wanted = {x.strip().lower() for x in datasets.split(",")}
+    selected = [
+        name
+        for name in DATASETS
+        if datasets.strip().lower() in ("all", "real") or name.lower() in wanted
+    ]
+    for dataset in selected:
+        cfg = DATASETS[dataset]
         new_path = result_root / dataset / "result_overlap_only.csv.gz"
         if not new_path.is_file():
             new_path = result_root / dataset / "result.csv.gz"
@@ -210,8 +223,15 @@ def main() -> None:
     ap.add_argument("--results", default="output/real_sets_overlap_only")
     ap.add_argument("--old-results", default="output/real_sets_2026-10-22")
     ap.add_argument("--out", default="output/manual_vs_pipeline")
+    ap.add_argument("--datasets", default="all")
     args = ap.parse_args()
-    compare(Path(args.docx), Path(args.results), Path(args.old_results), Path(args.out))
+    compare(
+        Path(args.docx),
+        Path(args.results),
+        Path(args.old_results),
+        Path(args.out),
+        args.datasets,
+    )
 
 
 if __name__ == "__main__":
