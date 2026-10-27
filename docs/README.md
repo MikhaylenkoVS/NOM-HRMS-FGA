@@ -169,3 +169,11 @@ docs/ — документация проекта NOM-HRMS-FGA
   manual_peak_overlap_details_snr3.md
                              Source/conflict-детали после S/N-фильтра.
 
+  centroid_snr_vs_raw_snr.md
+                             Почему RAW-профильный S/N не совпал с таблицей
+                             и как перешли на общий центроидный критерий.
+
+  manual_vs_pipeline_centroid_snr.md
+                             Сравнение с ручной обработкой после
+                             центроидного S/N < 3.
+

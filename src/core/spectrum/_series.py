@@ -184,7 +184,9 @@ def _apply_hard_snr_filter(
         details = list(row["step_details"])
         low_n = None
         for detail in details:
-            value = detail.get("snr")
+            value = detail.get("snr_local")
+            if value is None:
+                value = detail.get("snr")
             if value is None:
                 continue
             value = float(value)
@@ -754,8 +756,46 @@ def find_series(
         except Exception as exc:  # профиль не должен ломать поиск
             logger.debug("profile penalties skipped: %s", exc)
 
+    # Локальный S/N по центроидному спектру дериватизата — та же
+    # величина, что в таблицах I(mu)/локальный шум. Основной критерий;
+    # RAW-профильный S/N остаётся fallback.
+    if not result.empty:
+        try:
+            from src.core.spectrum._local_noise import local_noise_mad_sorted
+
+            dtab = deriv.table
+            dm = np.asarray(dtab["mass"], dtype=float)
+            di = np.asarray(dtab["intensity"], dtype=float)
+            order = np.argsort(dm)
+            dm, di = dm[order], di[order]
+            local_cache: dict[float, float] = {}
+            for details in result["step_details"]:
+                for detail in details:
+                    mz = detail.get("mz")
+                    if mz is None:
+                        continue
+                    mz = float(mz)
+                    if mz not in local_cache:
+                        noise = local_noise_mad_sorted(dm, di, mz)
+                        if noise > 0:
+                            pos = int(np.searchsorted(dm, mz))
+                            left = max(0, pos - 1)
+                            right = min(len(dm) - 1, pos)
+                            if abs(dm[left] - mz) <= abs(dm[right] - mz):
+                                peak_int = float(di[left])
+                            else:
+                                peak_int = float(di[right])
+                            local_cache[mz] = peak_int / noise
+                        else:
+                            local_cache[mz] = float("nan")
+                    value = local_cache[mz]
+                    if np.isfinite(value):
+                        detail["snr_local"] = float(value)
+        except Exception as exc:  # диагностика не должна ломать поиск
+            logger.debug("local SNR skipped: %s", exc)
+
     # Жёсткий критерий: шаг с S/N < snr_min считается отсутствующим.
-    if raw_path and not result.empty:
+    if not result.empty:
         result = _apply_hard_snr_filter(
             result,
             snr_min=snr_min,

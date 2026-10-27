@@ -28,6 +28,7 @@ from src.core.io.raw_profile import (
     scan_profile,
 )
 from src.core.spectrum import load_spectrum
+from src.core.spectrum._local_noise import local_noise_mad_sorted
 from src.core.spectrum._series import _theor_ion_mass_cached
 from src.core.pipeline._helpers import _ion_mode_from_sign
 from src.configs import PIPELINE
@@ -87,21 +88,11 @@ def _nearest_peak(table, mass: float, ppm=PPM):
 
 
 def _local_noise_from_averaged(table, mass: float) -> float:
-    """Fallback: медиана/MAD в ±0.2 Да, исключая ±0.02 Да вокруг mass."""
+    """Локальный шум: MAD в ±0.2 Да, исключая ±0.02 Да вокруг mass."""
     m = np.asarray(table["mass"], dtype=float)
     i = np.asarray(table["intensity"], dtype=float)
     order = np.argsort(m)
-    m, i = m[order], i[order]
-    lo = int(np.searchsorted(m, mass - 0.2))
-    hi = int(np.searchsorted(m, mass + 0.2))
-    plo = int(np.searchsorted(m, mass - 0.02))
-    phi = int(np.searchsorted(m, mass + 0.02))
-    noise = np.concatenate([i[lo:plo], i[phi:hi]])
-    if noise.size < 10:
-        return 0.0
-    med = float(np.median(noise))
-    mad = float(np.median(np.abs(noise - med))) * 1.4826
-    return mad if mad > 0 else float(np.std(noise))
+    return local_noise_mad_sorted(m[order], i[order], mass)
 
 
 def _raw_noise(raw_path: str, masses: list[float], shape_scans: int = 3) -> dict:

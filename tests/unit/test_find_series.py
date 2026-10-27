@@ -1151,3 +1151,44 @@ class TestSeriesPolicy:
             }
         )
         assert _apply_hard_snr_filter(df, snr_min=3.0).empty
+
+    def test_hard_snr_filter_prefers_local_centroid_snr(self):
+        from src.core.spectrum._series import _apply_hard_snr_filter
+
+        df = pd.DataFrame(
+            {
+                "step_details": [
+                    [
+                        {
+                            "n": 1,
+                            "mz": 100.0,
+                            "status": "reliable",
+                            "penalties": {},
+                            "reasons": [],
+                            "snr": 100.0,
+                            "snr_local": 100.0,
+                        },
+                        {
+                            "n": 2,
+                            "mz": 117.0,
+                            "status": "reliable",
+                            "penalties": {},
+                            "reasons": [],
+                            "snr": 100.0,
+                            "snr_local": 1.0,
+                        },
+                    ]
+                ],
+                "n_groups": [2],
+                "steps_found": [[1, 2]],
+                "series_mz": [[100.0, 117.0]],
+                "confirmed_length": [2],
+                "ambiguous_length": [2],
+                "confidence": [100.0],
+                "display_length": ["2"],
+                "ambiguous": [False],
+            }
+        )
+        out = _apply_hard_snr_filter(df, snr_min=3.0)
+        assert out.iloc[0]["n_groups"] == 1
+        assert out.iloc[0]["steps_found"] == [1]
